@@ -43,6 +43,9 @@
               {{ record.status === 1 ? '已发布' : '草稿' }}
             </a-tag>
           </template>
+          <template v-else-if="column.key === 'updatedAt'">
+            {{ formatDateTime(record.updatedAt) }}
+          </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
               <a-button type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
@@ -125,6 +128,7 @@ import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
 import { createAgent, deleteAgent, fetchAgent, fetchAgents, updateAgent, type AgentItem, type AgentSaveRequest } from '@/api/agent'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
+import { formatDateTime } from '@/utils/datetime'
 
 const loading = ref(false)
 const saving = ref(false)
