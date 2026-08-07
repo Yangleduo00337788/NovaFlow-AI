@@ -146,6 +146,7 @@ public class AgentService {
     private void applyConfig(AgentConfigEntity config, AgentSaveRequest request) {
         config.setSystemPrompt(request.getSystemPrompt());
         config.setWelcomeMessage(request.getWelcomeMessage());
+        config.setModelConfigId(request.getModelConfigId());
         config.setTemperature(request.getTemperature());
         config.setMaxTokens(request.getMaxTokens());
         config.setMemoryType(request.getMemoryType());
@@ -172,6 +173,7 @@ public class AgentService {
         if (config != null) {
             vo.setSystemPrompt(config.getSystemPrompt());
             vo.setWelcomeMessage(config.getWelcomeMessage());
+            vo.setModelConfigId(config.getModelConfigId());
             vo.setTemperature(config.getTemperature());
             vo.setMaxTokens(config.getMaxTokens());
             vo.setMemoryType(config.getMemoryType());

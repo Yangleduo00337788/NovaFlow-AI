@@ -12,6 +12,7 @@ export interface AgentItem {
   version: number
   systemPrompt?: string
   welcomeMessage?: string
+  modelConfigId?: number
   temperature?: number
   maxTokens?: number
   memoryType?: string
@@ -35,6 +36,7 @@ export interface AgentSaveRequest {
   applicationId?: number
   systemPrompt?: string
   welcomeMessage?: string
+  modelConfigId?: number
   temperature?: number
   maxTokens?: number
   memoryType?: string
@@ -73,6 +75,9 @@ export function fetchAgentDebugWelcome(id: number) {
   return request.get<ApiResult<AgentDebugChatResponse>>(`/v1/agents/${id}/debug/welcome`)
 }
 
-export function debugAgentChat(id: number, message: string) {
-  return request.post<ApiResult<AgentDebugChatResponse>>(`/v1/agents/${id}/debug/chat`, { message })
+export function debugAgentChat(id: number, message: string, conversationId?: string) {
+  return request.post<ApiResult<AgentDebugChatResponse>>(`/v1/agents/${id}/debug/chat`, {
+    message,
+    conversationId,
+  })
 }

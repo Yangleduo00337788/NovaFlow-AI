@@ -16,6 +16,7 @@ public class AgentSaveRequest {
     private Long applicationId;
     private String systemPrompt;
     private String welcomeMessage;
+    private Long modelConfigId;
     private BigDecimal temperature = new BigDecimal("0.70");
     private Integer maxTokens = 2048;
     private String memoryType = "window";

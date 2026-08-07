@@ -3,7 +3,7 @@
     <div class="debug-header">
       <div>
         <div class="title">调试对话</div>
-        <div class="subtitle">实时预览 Agent 回复（调试模式）</div>
+        <div class="subtitle">{{ debugMode ? '实时预览 Agent 回复（调试模式）' : '已接入模型引擎，返回真实 AI 回复' }}</div>
       </div>
       <a-button size="small" @click="resetChat">清空</a-button>
     </div>
@@ -58,8 +58,14 @@ const props = defineProps<{
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
 const loading = ref(false)
+const debugMode = ref(true)
+const conversationId = ref(createConversationId())
 const messageListRef = ref<HTMLElement | null>(null)
 let seq = 1
+
+function createConversationId() {
+  return `debug-${crypto.randomUUID()}`
+}
 
 async function scrollToBottom() {
   await nextTick()
@@ -81,6 +87,7 @@ async function loadWelcome() {
       content: data.reply,
       meta: data.debugMode ? '调试模式' : undefined,
     })
+    debugMode.value = data.debugMode
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载欢迎语失败')
   } finally {
@@ -90,6 +97,7 @@ async function loadWelcome() {
 }
 
 function resetChat() {
+  conversationId.value = createConversationId()
   loadWelcome()
 }
 
@@ -103,8 +111,9 @@ async function onSend() {
   scrollToBottom()
 
   try {
-    const res = await debugAgentChat(props.agentId, text)
+    const res = await debugAgentChat(props.agentId, text, conversationId.value)
     const data = res.data.data
+    debugMode.value = data.debugMode
     messages.value.push({
       id: seq++,
       role: 'assistant',
@@ -120,7 +129,10 @@ async function onSend() {
 }
 
 watch(() => props.agentId, (id) => {
-  if (id) loadWelcome()
+  if (id) {
+    conversationId.value = createConversationId()
+    loadWelcome()
+  }
 }, { immediate: true })
 
 onMounted(scrollToBottom)

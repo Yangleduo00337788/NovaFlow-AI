@@ -20,6 +20,10 @@
             <artifactId>novaflow-security</artifactId>
         </dependency>
         <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-ai-engine</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.mybatis-flex</groupId>
             <artifactId>mybatis-flex-spring-boot3-starter</artifactId>
         </dependency>

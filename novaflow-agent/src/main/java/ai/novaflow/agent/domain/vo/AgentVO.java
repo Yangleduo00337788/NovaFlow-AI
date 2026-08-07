@@ -20,6 +20,7 @@ public class AgentVO {
     private Integer version;
     private String systemPrompt;
     private String welcomeMessage;
+    private Long modelConfigId;
     private BigDecimal temperature;
     private Integer maxTokens;
     private String memoryType;

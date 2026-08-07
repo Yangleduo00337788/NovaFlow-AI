@@ -79,6 +79,15 @@
             <a-form-item label="描述">
               <a-textarea v-model:value="form.description" :rows="2" />
             </a-form-item>
+            <a-form-item label="模型">
+              <a-select
+                v-model:value="form.modelConfigId"
+                allow-clear
+                placeholder="使用租户默认 Chat 模型"
+                :loading="modelsLoading"
+                :options="chatModelOptions"
+              />
+            </a-form-item>
             <a-form-item label="System Prompt">
               <a-textarea v-model:value="form.systemPrompt" :rows="6" />
             </a-form-item>
@@ -111,13 +120,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
 import { createAgent, deleteAgent, fetchAgent, fetchAgents, updateAgent, type AgentItem, type AgentSaveRequest } from '@/api/agent'
+import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 
 const loading = ref(false)
 const saving = ref(false)
+const modelsLoading = ref(false)
+const chatModels = ref<ModelConfigItem[]>([])
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
 const agentType = ref<string>()
@@ -139,7 +151,17 @@ const form = reactive<AgentSaveRequest>({
   maxTokens: 2048,
   memoryType: 'window',
   memoryWindow: 10,
+  modelConfigId: undefined,
 })
+
+const chatModelOptions = computed(() =>
+  chatModels.value
+    .filter((item) => item.enabled)
+    .map((item) => ({
+      value: item.id,
+      label: `${item.displayName} (${item.providerName})`,
+    })),
+)
 
 const columns = [
   { title: '名称', dataIndex: 'agentName', key: 'agentName' },
@@ -193,15 +215,28 @@ function resetForm() {
     maxTokens: 2048,
     memoryType: 'window',
     memoryWindow: 10,
+    modelConfigId: undefined,
   })
+}
+
+async function loadChatModels() {
+  modelsLoading.value = true
+  try {
+    const res = await fetchModelConfigs({ modelType: 'chat' })
+    chatModels.value = res.data.data
+  } finally {
+    modelsLoading.value = false
+  }
 }
 
 function openCreate() {
   resetForm()
+  loadChatModels()
   drawerOpen.value = true
 }
 
 async function openEdit(id: number) {
+  loadChatModels()
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
