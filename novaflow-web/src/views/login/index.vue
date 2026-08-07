@@ -30,8 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { login } from '@/api/auth'
 import AppLogo from '@/components/common/AppLogo.vue'
@@ -39,11 +39,19 @@ import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
 const form = reactive({
   email: 'admin@novaflow.ai',
   password: 'Admin123!',
+})
+
+onMounted(() => {
+  const reason = route.query.reason
+  if (typeof reason === 'string' && reason) {
+    message.warning(reason)
+  }
 })
 
 async function onSubmit() {
@@ -52,7 +60,8 @@ async function onSubmit() {
     const res = await login(form)
     auth.setAuth(res.data.data)
     message.success('登录成功')
-    router.push('/dashboard')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+    router.push(redirect.startsWith('/') ? redirect : '/dashboard')
   } catch (e) {
     message.error(e instanceof Error ? e.message : '登录失败')
   } finally {

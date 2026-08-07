@@ -2,6 +2,15 @@ import axios from 'axios'
 import type { ApiResult } from '@/types/dashboard'
 import { useAuthStore } from '@/stores/auth'
 
+const AUTH_ERROR_CODES = new Set([40101, 401])
+
+function handleUnauthorized(message?: string) {
+  const auth = useAuthStore()
+  auth.clear()
+  const redirect = encodeURIComponent(window.location.pathname + window.location.search)
+  window.location.href = `/login?redirect=${redirect}${message ? `&reason=${encodeURIComponent(message)}` : ''}`
+}
+
 const request = axios.create({
   baseURL: '/api',
   timeout: 15000,
@@ -19,17 +28,23 @@ request.interceptors.response.use(
   (response) => {
     const result = response.data as ApiResult<unknown>
     if (result.code !== 0) {
+      if (AUTH_ERROR_CODES.has(result.code)) {
+        handleUnauthorized(result.message)
+        return Promise.reject(new Error(result.message || '登录已过期'))
+      }
       return Promise.reject(new Error(result.message || '请求失败'))
     }
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
-      const auth = useAuthStore()
-      auth.clear()
-      window.location.href = '/login'
+    const status = error.response?.status
+    const result = error.response?.data as ApiResult<unknown> | undefined
+    if (status === 401 || (result && AUTH_ERROR_CODES.has(result.code))) {
+      handleUnauthorized(result?.message)
+      return Promise.reject(new Error(result?.message || '登录已过期'))
     }
-    return Promise.reject(error)
+    const message = result?.message || error.message || '请求失败'
+    return Promise.reject(new Error(message))
   },
 )
 

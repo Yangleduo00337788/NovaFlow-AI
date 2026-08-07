@@ -19,6 +19,7 @@ services:
       - "6379:6379"
     volumes:
       - ./data/redis:/data
+    command: redis-server --requirepass redis123
 
   minio:
     image: minio/minio:latest

@@ -12,9 +12,6 @@ spring:
   config:
     activate:
       on-profile: dev
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
   datasource:
     url: jdbc:mysql://localhost:3306/novaflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
     username: root
@@ -27,8 +24,10 @@ spring:
     validate-on-migrate: false
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis123}
+      timeout: 3000ms
 
 mybatis-flex:
   configuration:
@@ -49,3 +48,7 @@ management:
 logging:
   level:
     ai.novaflow: debug
+
+novaflow:
+  security:
+    crypto-key: ${NOVAFLOW_CRYPTO_KEY:NovaFlowAI-DevKey-32bytes!!!!}
