@@ -189,7 +189,7 @@
           </template>
           <template v-else-if="column.key === 'price'">
             <span class="price-text">
-              {{ formatPrice(record.inputPrice) }} / {{ formatPrice(record.outputPrice) }}
+              {{ formatPrice(record.inputPrice, record.currency) }} / {{ formatPrice(record.outputPrice, record.currency) }}
             </span>
           </template>
           <template v-else-if="column.key === 'action'">
@@ -218,7 +218,7 @@
           </div>
           <div class="stats-item">
             <span>累计成本</span>
-            <strong>${{ overview.totalCost }}</strong>
+            <strong>{{ formatCostSummaries(overview.costSummaries, overview.totalCost) }}</strong>
           </div>
         </div>
         <a-table
@@ -376,6 +376,7 @@ import {
   type ModelProviderItem,
 } from '@/api/model'
 import { mergeModelProviders, MODEL_PROVIDER_PRESETS } from '@/constants/modelProviders'
+import { formatCostSummaries, formatMoney } from '@/utils/currency'
 
 const activeTab = ref('providers')
 const overview = ref<ModelOverview | null>(null)
@@ -448,9 +449,8 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('zh-CN').format(value)
 }
 
-function formatPrice(value?: number) {
-  if (value == null) return '-'
-  return `$${value}`
+function formatPrice(value?: number, currency?: string) {
+  return formatMoney(value, currency)
 }
 
 async function loadOverview() {
@@ -461,7 +461,8 @@ async function loadOverview() {
     overview.value = {
       totalCalls: 0,
       totalTokens: 0,
-      totalCost: '0.00',
+      totalCost: '¥0.00',
+      costSummaries: [],
       configuredProviders: providers.value.filter((item) => item.configured).length,
       enabledModels: 0,
       topModels: [],

@@ -1,5 +1,6 @@
 package ai.novaflow.model.service;
 
+import ai.novaflow.model.domain.ModelPriceCatalog;
 import ai.novaflow.model.domain.UpstreamModelDescriptor;
 import ai.novaflow.model.domain.vo.ModelSyncResultVO;
 import ai.novaflow.model.entity.ModelConfigEntity;
@@ -51,15 +52,8 @@ public class ModelSyncService {
                 continue;
             }
 
-            boolean changed = false;
-            if (!upstream.getModelType().equals(existing.getModelType())) {
-                existing.setModelType(upstream.getModelType());
-                changed = true;
-            }
-            if (existing.getIsEnabled() == null || existing.getIsEnabled() == 0) {
-                existing.setIsEnabled(1);
-                changed = true;
-            }
+            boolean changed = applyUpstreamChanges(existing, upstream);
+            changed = applyDefaultPriceIfMissing(provider, existing) || changed;
             if (changed) {
                 existing.setUpdatedAt(LocalDateTime.now());
                 modelConfigMapper.update(existing);
@@ -99,12 +93,50 @@ public class ModelSyncService {
         config.setContextWindow(defaultContextWindow(upstream.getModelType()));
         config.setMaxOutputTokens("embedding".equals(upstream.getModelType()) ? 0 : 4096);
         config.setDefaultTemperature(new BigDecimal("0.70"));
+        applyDefaultPrice(provider, config, upstream.getModelName());
         config.setIsEnabled(1);
         config.setIsDefault(0);
         config.setIsDeleted(0);
         config.setCreatedAt(LocalDateTime.now());
         config.setUpdatedAt(LocalDateTime.now());
         return config;
+    }
+
+    private boolean applyUpstreamChanges(ModelConfigEntity existing, UpstreamModelDescriptor upstream) {
+        boolean changed = false;
+        if (!upstream.getModelType().equals(existing.getModelType())) {
+            existing.setModelType(upstream.getModelType());
+            changed = true;
+        }
+        if (existing.getIsEnabled() == null || existing.getIsEnabled() == 0) {
+            existing.setIsEnabled(1);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private boolean applyDefaultPriceIfMissing(ModelProviderEntity provider, ModelConfigEntity existing) {
+        if (existing.getInputPrice() != null && existing.getOutputPrice() != null) {
+            return false;
+        }
+        return applyDefaultPrice(provider, existing, existing.getModelName());
+    }
+
+    private boolean applyDefaultPrice(ModelProviderEntity provider, ModelConfigEntity config, String modelName) {
+        return ModelPriceCatalog.resolve(provider.getProviderCode(), modelName)
+                .map(price -> {
+                    boolean changed = false;
+                    if (config.getInputPrice() == null) {
+                        config.setInputPrice(price.inputPer1k());
+                        changed = true;
+                    }
+                    if (config.getOutputPrice() == null) {
+                        config.setOutputPrice(price.outputPer1k());
+                        changed = true;
+                    }
+                    return changed;
+                })
+                .orElse(false);
     }
 
     private int defaultContextWindow(String modelType) {

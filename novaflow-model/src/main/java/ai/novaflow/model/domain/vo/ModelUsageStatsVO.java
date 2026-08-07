@@ -12,5 +12,6 @@ public class ModelUsageStatsVO {
     private Long totalCalls;
     private Long totalTokens;
     private String totalCost;
+    private List<ModelCostSummaryVO> costSummaries;
     private List<ModelUsageItemVO> topModels;
 }

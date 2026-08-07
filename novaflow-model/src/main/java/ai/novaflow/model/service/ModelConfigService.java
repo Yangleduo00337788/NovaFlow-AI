@@ -2,6 +2,7 @@ package ai.novaflow.model.service;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.model.domain.BillingCurrency;
 import ai.novaflow.model.domain.dto.ModelConfigSaveRequest;
 import ai.novaflow.model.domain.vo.ModelConfigVO;
 import ai.novaflow.model.entity.ModelConfigEntity;
@@ -181,6 +182,7 @@ public class ModelConfigService {
                 .maxOutputTokens(entity.getMaxOutputTokens())
                 .inputPrice(entity.getInputPrice())
                 .outputPrice(entity.getOutputPrice())
+                .currency(BillingCurrency.fromProviderCode(provider.getProviderCode()).getCode())
                 .defaultTemperature(entity.getDefaultTemperature())
                 .enabled(entity.getIsEnabled() != null && entity.getIsEnabled() == 1)
                 .isDefault(entity.getIsDefault() != null && entity.getIsDefault() == 1)

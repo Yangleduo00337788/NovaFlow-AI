@@ -23,9 +23,10 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
     Long sumTokensByTenant(Long tenantId);
 
     @Select("""
-            SELECT COALESCE(SUM(cost), 0) FROM token_usage WHERE tenant_id = #{tenantId}
+            SELECT COALESCE(SUM(cost), 0) FROM token_usage
+            WHERE tenant_id = #{tenantId} AND currency = #{currency}
             """)
-    BigDecimal sumCostByTenant(Long tenantId);
+    BigDecimal sumCostByTenantAndCurrency(Long tenantId, String currency);
 
     @Select("""
             SELECT mc.model_name AS modelName,

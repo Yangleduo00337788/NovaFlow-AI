@@ -21,6 +21,7 @@ public class ModelConfigVO {
     private Integer maxOutputTokens;
     private BigDecimal inputPrice;
     private BigDecimal outputPrice;
+    private String currency;
     private BigDecimal defaultTemperature;
     private Boolean enabled;
     private Boolean isDefault;

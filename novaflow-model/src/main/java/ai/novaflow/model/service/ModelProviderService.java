@@ -10,6 +10,7 @@ import ai.novaflow.model.domain.vo.ModelConnectivityTestVO;
 import ai.novaflow.model.domain.vo.ModelOverviewVO;
 import ai.novaflow.model.domain.vo.ModelProviderVO;
 import ai.novaflow.model.domain.vo.ModelSyncResultVO;
+import ai.novaflow.model.domain.vo.ModelCostSummaryVO;
 import ai.novaflow.model.domain.vo.ModelUsageStatsVO;
 import ai.novaflow.model.entity.ModelConfigEntity;
 import ai.novaflow.model.entity.ModelProviderEntity;
@@ -158,6 +159,7 @@ public class ModelProviderService {
                 .totalCalls(usageStats.getTotalCalls())
                 .totalTokens(usageStats.getTotalTokens())
                 .totalCost(usageStats.getTotalCost())
+                .costSummaries(usageStats.getCostSummaries())
                 .configuredProviders(configuredProviders)
                 .enabledModels(enabledModels)
                 .topModels(usageStats.getTopModels())

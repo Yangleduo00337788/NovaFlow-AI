@@ -27,16 +27,24 @@ export interface ModelConfigItem {
   maxOutputTokens: number
   inputPrice?: number
   outputPrice?: number
+  currency?: string
   defaultTemperature: number
   enabled: boolean
   isDefault: boolean
   updatedAt?: string
 }
 
+export interface ModelCostSummary {
+  currency: string
+  symbol: string
+  amount: string
+}
+
 export interface ModelOverview {
   totalCalls: number
   totalTokens: number
   totalCost: string
+  costSummaries?: ModelCostSummary[]
   configuredProviders: number
   enabledModels: number
   topModels: Array<{ modelName: string; displayName: string; calls: number; tokens: number }>
