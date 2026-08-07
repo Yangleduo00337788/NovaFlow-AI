@@ -48,6 +48,7 @@ withDefaults(defineProps<{
   flex-shrink: 0;
   width: 32px;
   height: 32px;
+  background: transparent;
 }
 
 .brand-icon {
@@ -56,6 +57,7 @@ withDefaults(defineProps<{
   height: 32px;
   object-fit: contain;
   object-position: center;
+  background: transparent;
 }
 
 .brand-text {
@@ -64,7 +66,7 @@ withDefaults(defineProps<{
   height: 32px;
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1;
   white-space: nowrap;
   transform: translateY(3px);

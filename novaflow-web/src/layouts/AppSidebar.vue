@@ -3,7 +3,7 @@
     :collapsed="collapsed"
     :width="220"
     class="sidebar"
-    theme="light"
+    :theme="themeStore.siderTheme"
   >
     <div class="brand">
       <AppLogo :collapsed="collapsed" />
@@ -73,10 +73,12 @@ import { DashboardOutlined, CrownOutlined, RightOutlined } from '@ant-design/ico
 import AppLogo from '@/components/common/AppLogo.vue'
 import { menuGroups } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
+import { useThemeStore } from '@/stores/theme'
 
 defineProps<{ collapsed: boolean }>()
 
 const route = useRoute()
+const themeStore = useThemeStore()
 
 const planInfo = reactive({
   planType: '企业版',
@@ -87,11 +89,12 @@ const planInfo = reactive({
 
 <style scoped>
 .sidebar {
-  border-right: 1px solid #eef2f7;
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  background: var(--sidebar-bg) !important;
 }
 
 .sidebar :deep(.ant-layout-sider-children) {
@@ -142,15 +145,15 @@ const planInfo = reactive({
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  color: #475569;
+  color: var(--text-secondary);
   margin-bottom: 2px;
   line-height: 1.5;
   transition: background 0.15s, color 0.15s;
 }
 
 .menu-link:hover {
-  background: #f8fafc;
-  color: #334155;
+  background: var(--menu-hover-bg);
+  color: var(--text-body);
 }
 
 .menu-icon {
@@ -167,7 +170,7 @@ const planInfo = reactive({
 }
 
 .menu-link.active {
-  background: #e8f3ff;
+  background: var(--menu-active-bg);
   color: var(--primary);
   font-weight: 500;
 }
@@ -185,7 +188,7 @@ const planInfo = reactive({
 
 .group-title {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   padding: 20px 12px 8px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -218,8 +221,8 @@ const planInfo = reactive({
   line-height: 20px;
   padding: 0 10px;
   border-radius: 999px;
-  color: #7c3aed;
-  background: #ede9fe;
+  color: var(--beta-tag-color);
+  background: var(--beta-tag-bg);
 }
 
 .sidebar-footer {
@@ -230,8 +233,8 @@ const planInfo = reactive({
 .plan-card {
   padding: 14px 14px 12px;
   border-radius: 12px;
-  background: #f3f0ff;
-  border: 1px solid #ebe6ff;
+  background: var(--plan-card-bg);
+  border: 1px solid var(--plan-card-border);
 }
 
 .plan-card-top {
@@ -249,14 +252,14 @@ const planInfo = reactive({
 }
 
 .plan-crown {
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .plan-type {
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .plan-close {
@@ -275,7 +278,7 @@ const planInfo = reactive({
 
 .expire {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -290,7 +293,7 @@ const planInfo = reactive({
 
 .usage-text {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -329,13 +332,13 @@ const planInfo = reactive({
   background: transparent;
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   cursor: pointer;
   line-height: 1.4;
 }
 
 .upgrade-btn:hover {
-  color: #334155;
+  color: var(--text-body);
 }
 
 .upgrade-arrow {

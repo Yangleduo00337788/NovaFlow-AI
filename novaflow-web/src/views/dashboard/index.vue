@@ -163,7 +163,7 @@
                     <path
                       d="M 260 0 L 260 14 L 100 14 L 100 28 M 260 14 L 420 14 L 420 28 M 260 14 L 260 52"
                       fill="none"
-                      stroke="#94a3b8"
+                      stroke="currentColor"
                       stroke-width="2"
                       stroke-linecap="round"
                       stroke-linejoin="round"
@@ -274,10 +274,15 @@ import { getMenuIcon } from '@/config/menuIcons'
 import DashboardRightPanel from '@/components/dashboard/DashboardRightPanel.vue'
 import type { DashboardOverview, RecentLog } from '@/types/dashboard'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { getChartTheme } from '@/utils/chartTheme'
+import { storeToRefs } from 'pinia'
 
 use([CanvasRenderer, PieChart, LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, GraphicComponent, MarkPointComponent, VisualMapComponent])
 
 const auth = useAuthStore()
+const themeStore = useThemeStore()
+const { mode } = storeToRefs(themeStore)
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
 const data = ref<DashboardOverview>(dashboardMock)
 const recentTab = ref<'recent' | 'favorite'>('recent')
@@ -317,7 +322,9 @@ const displayLogs = computed(() => data.value.recentLogs || [])
 
 const modelColors = ['#2563eb', '#60a5fa', '#94a3b8', '#f59e0b']
 
-const modelChartOption = computed(() => ({
+const modelChartOption = computed(() => {
+  const chartTheme = getChartTheme(mode.value)
+  return {
   color: modelColors,
   tooltip: { trigger: 'item', formatter: '{b}: {c}%' },
   series: [{
@@ -326,10 +333,11 @@ const modelChartOption = computed(() => ({
     center: ['50%', '50%'],
     padAngle: 2,
     label: { show: false },
-    itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+    itemStyle: { borderRadius: 4, borderColor: chartTheme.pieBorder, borderWidth: 2 },
     data: (data.value.modelUsage || []).map((m) => ({ name: m.model, value: m.percent })),
   }],
-}))
+}
+})
 
 function sparkOption(key: string) {
   const points = statSparklines[key] || []
@@ -458,11 +466,9 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   min-height: 112px;
   max-height: 112px;
   padding: 0 32px;
-  background:
-    radial-gradient(ellipse 72% 140% at 88% 42%, rgba(167, 192, 255, 0.28) 0%, transparent 62%),
-    linear-gradient(92deg, #f8faff 0%, #f4f7ff 28%, #eef2ff 58%, #e8ecff 100%);
+  background: var(--welcome-banner-bg);
   border-radius: 12px;
-  border: 1px solid #e6ebf5;
+  border: 1px solid var(--welcome-banner-border);
   overflow: hidden;
   position: relative;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
@@ -473,12 +479,12 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   font-size: 22px;
   font-weight: 700;
   line-height: 1.3;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .welcome-text p {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.35;
 }
@@ -528,13 +534,13 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 
 .stat-card {
   position: relative;
-  background: #fff;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 14px 16px 12px;
   min-height: 0;
   height: 108px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
-  border: 1px solid #eef2f6;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
   overflow: hidden;
 }
 
@@ -566,11 +572,11 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   flex-shrink: 0;
 }
 
-.stat-icon.apps { background: #e8f3ff; color: #1677ff; }
-.stat-icon.agents { background: #f3ebff; color: #722ed1; }
-.stat-icon.invocations { background: #e6fffb; color: #13c2c2; }
-.stat-icon.tokens { background: #fff7e6; color: #fa8c16; }
-.stat-icon.cost { background: #fff1f0; color: #f5222d; }
+.stat-icon.apps { background: var(--stat-apps-bg); color: #1677ff; }
+.stat-icon.agents { background: var(--stat-agents-bg); color: #722ed1; }
+.stat-icon.invocations { background: var(--stat-invocations-bg); color: #13c2c2; }
+.stat-icon.tokens { background: var(--stat-tokens-bg); color: #fa8c16; }
+.stat-icon.cost { background: var(--stat-cost-bg); color: #f5222d; }
 
 .trend-icon {
   font-size: 11px;
@@ -589,7 +595,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 }
 
 .stat-label {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 400;
   line-height: 1.3;
@@ -600,7 +606,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   font-weight: 700;
   margin: 8px 0 0;
   line-height: 1.1;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -629,7 +635,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1.3;
 }
 
@@ -647,30 +653,30 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   padding: 14px 12px 14px 14px;
   min-height: 72px;
   border-radius: 12px;
-  border: 1px solid #eef2f6;
-  background: #f8fafc;
+  border: 1px solid var(--card-border);
+  background: var(--bg-subtle);
   transition: all 0.2s;
   text-align: left;
 }
 
 .quick-tile.blue {
-  background: linear-gradient(145deg, #f7faff 0%, #f2f7ff 100%);
-  border-color: #e8f0ff;
+  background: var(--quick-blue-bg);
+  border-color: var(--quick-blue-border);
 }
 
 .quick-tile.teal {
-  background: linear-gradient(145deg, #f4fdfb 0%, #edfbf8 100%);
-  border-color: #d9f7f0;
+  background: var(--quick-teal-bg);
+  border-color: var(--quick-teal-border);
 }
 
 .quick-tile.orange {
-  background: linear-gradient(145deg, #fffaf5 0%, #fff5eb 100%);
-  border-color: #ffe8cc;
+  background: var(--quick-orange-bg);
+  border-color: var(--quick-orange-border);
 }
 
 .quick-tile.purple {
-  background: linear-gradient(145deg, #faf6ff 0%, #f5efff 100%);
-  border-color: #ead9ff;
+  background: var(--quick-purple-bg);
+  border-color: var(--quick-purple-border);
 }
 
 .tile-mini-icon {
@@ -695,14 +701,14 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.3;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .tile-desc {
   font-size: 11px;
   font-weight: 400;
   line-height: 1.35;
-  color: #94a3b8;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -716,7 +722,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: var(--card-bg);
 }
 
 .tile-deco.blue {
@@ -822,7 +828,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 .donut-label-top,
 .donut-label-bottom {
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--text-muted);
   line-height: 1.2;
 }
 
@@ -830,7 +836,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   margin: 2px 0;
   font-size: 17px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1.15;
 }
 
@@ -854,7 +860,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 .log-section-title span {
   font-size: 14px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .log-section-title .view-more {
@@ -923,7 +929,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   display: flex;
   gap: 16px;
   margin-bottom: 6px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 4px;
   flex-shrink: 0;
 }
@@ -932,14 +938,14 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   border: none;
   background: transparent;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
   padding: 0;
   cursor: pointer;
   font-weight: 500;
 }
 
 .recent-tab-btn.active {
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -963,7 +969,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 }
 
 .recent-item:hover {
-  background: #f1f5f9;
+  background: var(--bg-muted);
 }
 
 .recent-icon {
@@ -977,9 +983,9 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   font-size: 14px;
 }
 
-.recent-icon.agent { background: #e6f4ff; color: #1677ff; }
-.recent-icon.workflow { background: #f9f0ff; color: #722ed1; }
-.recent-icon.knowledge { background: #e6fffb; color: #13c2c2; }
+.recent-icon.agent { background: var(--recent-agent-bg); color: #1677ff; }
+.recent-icon.workflow { background: var(--recent-workflow-bg); color: #722ed1; }
+.recent-icon.knowledge { background: var(--recent-knowledge-bg); color: #13c2c2; }
 
 .recent-name-row {
   display: flex;
@@ -992,7 +998,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   font-size: 12px;
   font-weight: 500;
   line-height: 1.25;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .recent-type-tag {
@@ -1001,13 +1007,13 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   line-height: 18px;
   padding: 0 6px;
   border-radius: 4px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
 }
 
 .recent-meta {
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 1px;
 }
 
@@ -1038,9 +1044,8 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0) 0 0 / 16px 16px;
-  border: 1px solid #eef2f6;
+  background: var(--workflow-grid) 0 0 / 16px 16px;
+  border: 1px solid var(--card-border);
   border-radius: 10px;
   padding: 6px 8px 28px;
   overflow: hidden;
@@ -1068,7 +1073,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 .dag-edge {
   width: 22px;
   height: 2px;
-  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+  background: var(--dag-edge);
   flex-shrink: 0;
   position: relative;
 }
@@ -1081,7 +1086,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   width: 0;
   height: 0;
   border: 4px solid transparent;
-  border-left-color: #94a3b8;
+  border-left-color: var(--dag-edge-arrow);
   transform: translateY(-50%);
 }
 
@@ -1096,6 +1101,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   display: block;
   width: 100%;
   height: 30px;
+  color: var(--dag-edge-arrow);
 }
 
 .branch-row {
@@ -1109,67 +1115,67 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 }
 
 .dag-node {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--card-bg);
+  border: 1px solid var(--dag-node-border);
   border-radius: 8px;
   padding: 4px 8px;
   font-size: 10px;
-  color: #334155;
+  color: var(--text-body);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--card-shadow);
 }
 
 .dag-node-icon {
   font-size: 10px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .dag-node.start,
 .dag-node.end {
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
 
 .dag-node.llm {
-  border-color: #91caff;
-  background: #f0f7ff;
-  color: #1677ff;
+  border-color: var(--dag-llm-border);
+  background: var(--dag-llm-bg);
+  color: var(--dag-llm-color);
 }
 
 .dag-node.llm .dag-node-icon {
-  color: #1677ff;
+  color: var(--dag-llm-color);
 }
 
 .dag-node.branch-node {
-  border-color: #d3adf7;
-  background: #f9f0ff;
-  color: #722ed1;
+  border-color: var(--dag-branch-border);
+  background: var(--dag-branch-bg);
+  color: var(--dag-branch-color);
 }
 
 .dag-node.branch-node .dag-node-icon {
-  color: #722ed1;
+  color: var(--dag-branch-color);
 }
 
 .dag-node.branch {
-  background: #e6f4ff;
-  border-color: #91caff;
-  color: #1677ff;
+  background: var(--dag-branch-alt-bg);
+  border-color: var(--dag-branch-alt-border);
+  color: var(--dag-branch-alt-color);
 }
 
 .dag-node.branch .dag-node-icon {
-  color: #1677ff;
+  color: var(--dag-branch-alt-color);
 }
 
 .dag-node.branch.api {
-  background: #fff7e6;
-  border-color: #ffd591;
-  color: #d46b08;
+  background: var(--dag-api-bg);
+  border-color: var(--dag-api-border);
+  color: var(--dag-api-color);
 }
 
 .dag-node.branch.api .dag-node-icon {
-  color: #fa8c16;
+  color: var(--dag-api-color);
 }
 
 .dag-dot {
@@ -1188,11 +1194,11 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   bottom: 10px;
   display: flex;
   gap: 4px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 3px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--card-shadow);
 }
 
 .zoom-btn {
@@ -1201,7 +1207,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
@@ -1211,7 +1217,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 }
 
 .zoom-btn:hover {
-  background: #f1f5f9;
+  background: var(--bg-muted);
   color: #1677ff;
 }
 
@@ -1225,8 +1231,8 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   gap: 6px;
   padding: 2px 0;
   font-size: 12px;
-  color: #334155;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-body);
+  border-bottom: 1px solid var(--border);
 }
 
 .health-item:last-child {
@@ -1237,11 +1243,11 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   width: 24px;
   height: 24px;
   border-radius: 5px;
-  background: #f1f5f9;
+  background: var(--bg-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   flex-shrink: 0;
 }
@@ -1344,14 +1350,14 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 }
 
 .legend-name {
-  color: #334155;
+  color: var(--text-body);
   font-weight: 500;
 }
 
 .legend-percent,
 .legend-tokens {
   text-align: right;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -1368,7 +1374,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   align-items: center;
   gap: 10px;
   padding: 9px 0;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
 
@@ -1377,7 +1383,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 }
 
 .log-name {
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -1387,7 +1393,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 .log-time,
 .log-duration,
 .log-tokens {
-  color: #94a3b8;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -1424,12 +1430,12 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   padding: 4px 2px;
   border-radius: 8px;
   font-size: 10px;
-  color: #475569;
+  color: var(--text-secondary);
   transition: background 0.15s;
 }
 
 .quick-action:hover {
-  background: #f8fafc;
+  background: var(--bg-subtle);
 }
 
 /* 快捷操作 */

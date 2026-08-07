@@ -1,5 +1,8 @@
 <template>
   <div class="login-page">
+    <div class="login-theme">
+      <ThemeToggle />
+    </div>
     <div class="login-left">
       <AppLogo variant="login" />
       <h1>Build Intelligent Agents Faster</h1>
@@ -32,6 +35,7 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { login } from '@/api/auth'
 import AppLogo from '@/components/common/AppLogo.vue'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -62,7 +66,15 @@ async function onSubmit() {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: #f8fafc;
+  background: var(--bg);
+  position: relative;
+}
+
+.login-theme {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
 }
 
 .login-left {
@@ -95,25 +107,27 @@ async function onSubmit() {
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: #fff;
+  background: var(--card-bg);
   border-radius: 16px;
   padding: 40px;
-  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .login-card h2 {
   margin: 0 0 8px;
+  color: var(--text-primary);
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 24px;
 }
 
 .hint {
   margin-top: 16px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-align: center;
 }
 </style>

@@ -1,9 +1,144 @@
 :root {
   --primary: #1677ff;
   --dark: #0f172a;
+  --text-primary: #0f172a;
+  --text-body: #334155;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
   --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-muted: #f8fafc;
+  --border: #eef2f7;
+  --border-strong: #e2e8f0;
+  --header-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-border: #eef2f6;
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --hover-bg: #f8fafc;
+  --menu-active-bg: #e8f3ff;
+  --menu-hover-bg: #f8fafc;
+  --input-bg: #f8fafc;
+  --input-focus-bg: #ffffff;
+  --user-toggle-bg: #eef2ff;
+  --user-toggle-hover-bg: #e8f0ff;
+  --user-toggle-open-bg: #e0e9ff;
+  --welcome-banner-bg:
+    radial-gradient(ellipse 72% 140% at 88% 42%, rgba(167, 192, 255, 0.28) 0%, transparent 62%),
+    linear-gradient(92deg, #f8faff 0%, #f4f7ff 28%, #eef2ff 58%, #e8ecff 100%);
+  --welcome-banner-border: #e6ebf5;
+  --plan-card-bg: #f3f0ff;
+  --plan-card-border: #ebe6ff;
+  --icon-color: #64748b;
+  --icon-hover-color: #334155;
+  --beta-tag-color: #7c3aed;
+  --beta-tag-bg: #ede9fe;
+  --quick-blue-bg: linear-gradient(145deg, #f7faff 0%, #f2f7ff 100%);
+  --quick-blue-border: #e8f0ff;
+  --quick-teal-bg: linear-gradient(145deg, #f4fdfb 0%, #edfbf8 100%);
+  --quick-teal-border: #d9f7f0;
+  --quick-orange-bg: linear-gradient(145deg, #fffaf5 0%, #fff5eb 100%);
+  --quick-orange-border: #ffe8cc;
+  --quick-purple-bg: linear-gradient(145deg, #faf6ff 0%, #f5efff 100%);
+  --quick-purple-border: #ead9ff;
+  --workflow-grid: radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0);
+  --dag-edge: linear-gradient(90deg, #cbd5e1, #94a3b8);
+  --dag-edge-arrow: #94a3b8;
+  --dag-node-border: #e2e8f0;
+  --dag-llm-bg: #f0f7ff;
+  --dag-llm-border: #91caff;
+  --dag-llm-color: #1677ff;
+  --dag-branch-bg: #f9f0ff;
+  --dag-branch-border: #d3adf7;
+  --dag-branch-color: #722ed1;
+  --dag-branch-alt-bg: #e6f4ff;
+  --dag-branch-alt-border: #91caff;
+  --dag-branch-alt-color: #1677ff;
+  --dag-api-bg: #fff7e6;
+  --dag-api-border: #ffd591;
+  --dag-api-color: #d46b08;
+  --stat-apps-bg: #e8f3ff;
+  --stat-agents-bg: #f3ebff;
+  --stat-invocations-bg: #e6fffb;
+  --stat-tokens-bg: #fff7e6;
+  --stat-cost-bg: #fff1f0;
+  --recent-agent-bg: #e6f4ff;
+  --recent-workflow-bg: #f9f0ff;
+  --recent-knowledge-bg: #e6fffb;
   --sidebar-width: 220px;
   --rightbar-width: 328px;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --dark: #f1f5f9;
+  --text-primary: #f1f5f9;
+  --text-body: #cbd5e1;
+  --text-secondary: #94a3b8;
+  --text-muted: #94a3b8;
+  --bg: #0b1220;
+  --bg-elevated: #111827;
+  --bg-subtle: #1a2332;
+  --bg-muted: #141c2b;
+  --border: #1e293b;
+  --border-strong: #334155;
+  --header-bg: #111827;
+  --sidebar-bg: #111827;
+  --card-bg: #1a2332;
+  --card-border: #243044;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 4px 12px rgba(0, 0, 0, 0.18);
+  --hover-bg: #1e293b;
+  --menu-active-bg: rgba(22, 119, 255, 0.16);
+  --menu-hover-bg: #1a2332;
+  --input-bg: #141c2b;
+  --input-focus-bg: #1a2332;
+  --user-toggle-bg: rgba(22, 119, 255, 0.16);
+  --user-toggle-hover-bg: rgba(22, 119, 255, 0.24);
+  --user-toggle-open-bg: rgba(22, 119, 255, 0.28);
+  --welcome-banner-bg:
+    radial-gradient(ellipse 72% 140% at 88% 42%, rgba(59, 130, 246, 0.18) 0%, transparent 62%),
+    linear-gradient(92deg, #111827 0%, #141f33 28%, #172554 58%, #1e293b 100%);
+  --welcome-banner-border: #243044;
+  --plan-card-bg: #1a1f35;
+  --plan-card-border: #2a3150;
+  --icon-color: #e2e8f0;
+  --icon-hover-color: #f8fafc;
+  --beta-tag-color: #c4b5fd;
+  --beta-tag-bg: rgba(124, 58, 237, 0.22);
+  --quick-blue-bg: linear-gradient(145deg, rgba(22, 119, 255, 0.16) 0%, rgba(22, 119, 255, 0.08) 100%);
+  --quick-blue-border: rgba(59, 130, 246, 0.28);
+  --quick-teal-bg: linear-gradient(145deg, rgba(19, 194, 194, 0.14) 0%, rgba(19, 194, 194, 0.07) 100%);
+  --quick-teal-border: rgba(45, 212, 191, 0.24);
+  --quick-orange-bg: linear-gradient(145deg, rgba(250, 140, 22, 0.14) 0%, rgba(250, 140, 22, 0.07) 100%);
+  --quick-orange-border: rgba(251, 146, 60, 0.24);
+  --quick-purple-bg: linear-gradient(145deg, rgba(114, 46, 209, 0.16) 0%, rgba(114, 46, 209, 0.08) 100%);
+  --quick-purple-border: rgba(167, 139, 250, 0.24);
+  --workflow-grid: radial-gradient(circle at 1px 1px, #334155 1px, transparent 0);
+  --dag-edge: linear-gradient(90deg, #475569, #64748b);
+  --dag-edge-arrow: #64748b;
+  --dag-node-border: #334155;
+  --dag-llm-bg: rgba(22, 119, 255, 0.14);
+  --dag-llm-border: rgba(145, 202, 255, 0.35);
+  --dag-llm-color: #93c5fd;
+  --dag-branch-bg: rgba(114, 46, 209, 0.14);
+  --dag-branch-border: rgba(211, 173, 247, 0.35);
+  --dag-branch-color: #c4b5fd;
+  --dag-branch-alt-bg: rgba(22, 119, 255, 0.12);
+  --dag-branch-alt-border: rgba(145, 202, 255, 0.3);
+  --dag-branch-alt-color: #93c5fd;
+  --dag-api-bg: rgba(250, 140, 22, 0.14);
+  --dag-api-border: rgba(255, 213, 145, 0.35);
+  --dag-api-color: #fdba74;
+  --stat-apps-bg: rgba(22, 119, 255, 0.16);
+  --stat-agents-bg: rgba(114, 46, 209, 0.16);
+  --stat-invocations-bg: rgba(19, 194, 194, 0.14);
+  --stat-tokens-bg: rgba(250, 140, 22, 0.14);
+  --stat-cost-bg: rgba(245, 34, 45, 0.14);
+  --recent-agent-bg: rgba(22, 119, 255, 0.14);
+  --recent-workflow-bg: rgba(114, 46, 209, 0.14);
+  --recent-knowledge-bg: rgba(19, 194, 194, 0.14);
+  color-scheme: dark;
 }
 
 * {
@@ -17,7 +152,7 @@ body,
   min-height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: var(--bg);
-  color: var(--dark);
+  color: var(--text-primary);
 }
 
 a {
@@ -43,17 +178,18 @@ a {
 }
 
 .page-card {
-  background: #fff;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 14px 16px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
-  border: 1px solid #eef2f6;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .section-title {
   font-size: 14px;
   font-weight: 600;
   margin: 0 0 10px;
+  color: var(--text-primary);
 }
 
 /* 顶栏用户下拉菜单弹出动画 */
@@ -71,4 +207,22 @@ a {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* 顶栏图标按钮在暗色下保持可见 */
+.header .icon-btn,
+.header .theme-toggle {
+  color: var(--icon-color) !important;
+}
+
+.header .icon-btn:hover,
+.header .theme-toggle:hover {
+  color: var(--icon-hover-color) !important;
+  background: var(--hover-bg) !important;
+}
+
+.header .theme-toggle .theme-icon,
+.header .theme-toggle svg {
+  color: inherit !important;
+  display: block;
 }

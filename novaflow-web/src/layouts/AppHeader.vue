@@ -25,12 +25,7 @@
     </div>
 
     <div class="right">
-      <a-button type="text" class="icon-btn" title="切换主题">
-        <svg class="theme-icon" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
-        </svg>
-      </a-button>
+      <ThemeToggle />
       <a-button type="text" class="icon-btn" title="帮助"><QuestionCircleOutlined /></a-button>
       <a-badge :count="12" :offset="[-2, 2]">
         <a-button type="text" class="icon-btn" title="通知"><BellOutlined /></a-button>
@@ -75,6 +70,7 @@ import { useAuthStore } from '@/stores/auth'
 import { logout } from '@/api/auth'
 import { getBreadcrumbByPath } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 defineProps<{ collapsed: boolean }>()
 defineEmits<{ toggle: [] }>()
@@ -120,9 +116,9 @@ async function onLogout() {
   display: grid;
   grid-template-columns: 200px 1fr 340px;
   align-items: center;
-  background: #fff;
+  background: var(--header-bg);
   padding: 0 20px;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid var(--border);
   height: 56px;
 }
 
@@ -147,21 +143,21 @@ async function onLogout() {
   height: 36px;
   padding: 0 12px;
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--input-bg);
   border: 1px solid transparent;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
 .global-search:focus-within {
-  background: #fff;
-  border-color: #e2e8f0;
+  background: var(--input-focus-bg);
+  border-color: var(--border-strong);
   box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.08);
 }
 
 .search-prefix {
   flex-shrink: 0;
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .search-input {
@@ -172,12 +168,12 @@ async function onLogout() {
   outline: none;
   background: transparent;
   font-size: 13px;
-  color: #334155;
+  color: var(--text-body);
   line-height: 1;
 }
 
 .search-input::placeholder {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .breadcrumb {
@@ -216,19 +212,15 @@ async function onLogout() {
   width: 32px;
   height: 32px;
   padding: 0;
-  color: #64748b;
+  color: var(--icon-color);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .icon-btn:hover {
-  color: #334155;
-  background: #f8fafc;
-}
-
-.theme-icon {
-  display: block;
+  color: var(--icon-hover-color);
+  background: var(--hover-bg);
 }
 
 .user-profile {
@@ -248,19 +240,19 @@ async function onLogout() {
 .user-name {
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .user-role {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .user-toggle {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #eef2ff;
+  background: var(--user-toggle-bg);
   color: #1677ff;
   display: inline-flex;
   align-items: center;
@@ -276,7 +268,7 @@ async function onLogout() {
 }
 
 .user-toggle.open {
-  background: #e0e9ff;
+  background: var(--user-toggle-open-bg);
   box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
 }
 
@@ -285,6 +277,6 @@ async function onLogout() {
 }
 
 .user-toggle:hover {
-  background: #e8f0ff;
+  background: var(--user-toggle-hover-bg);
 }
 </style>

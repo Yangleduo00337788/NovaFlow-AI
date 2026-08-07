@@ -95,8 +95,14 @@ import { fetchDashboardOverview } from '@/api/dashboard'
 import { dashboardMock } from '@/mocks/dashboard'
 import { getMenuIcon } from '@/config/menuIcons'
 import type { DashboardOverview } from '@/types/dashboard'
+import { useThemeStore } from '@/stores/theme'
+import { getChartTheme } from '@/utils/chartTheme'
+import { storeToRefs } from 'pinia'
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, VisualMapComponent, MarkPointComponent])
+
+const themeStore = useThemeStore()
+const { mode } = storeToRefs(themeStore)
 
 const topAppThemes = [
   { icon: 'robot', color: '#1677ff', iconBg: '#e8f3ff' },
@@ -138,19 +144,20 @@ function healthServiceIcon(name: string) {
 const trendChartOption = computed(() => {
   const points = panelData.value.trend || []
   const maxVal = Math.max(...points.map((p) => p.value), 1)
+  const chartTheme = getChartTheme(mode.value)
   return {
     tooltip: { trigger: 'axis' },
     grid: { left: 32, right: 8, top: 8, bottom: 16 },
     xAxis: {
       type: 'category',
       data: points.map((p) => p.time),
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
-      axisLabel: { fontSize: 10, color: '#94a3b8' },
+      axisLine: { lineStyle: { color: chartTheme.axisLine } },
+      axisLabel: { fontSize: 10, color: chartTheme.axisLabel },
     },
     yAxis: {
       type: 'value',
-      splitLine: { lineStyle: { color: '#f1f5f9' } },
-      axisLabel: { fontSize: 10, color: '#94a3b8' },
+      splitLine: { lineStyle: { color: chartTheme.splitLine } },
+      axisLabel: { fontSize: 10, color: chartTheme.axisLabel },
     },
     series: [{
       type: 'line',
@@ -298,7 +305,7 @@ onMounted(async () => {
 
 .top-app-name {
   font-size: 11px;
-  color: #334155;
+  color: var(--text-body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -307,7 +314,7 @@ onMounted(async () => {
 .top-app-bar {
   height: 8px;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: var(--bg-muted);
   overflow: hidden;
 }
 
@@ -319,7 +326,7 @@ onMounted(async () => {
 
 .top-app-value {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -348,8 +355,8 @@ onMounted(async () => {
   gap: 6px;
   padding: 2px 0;
   font-size: 12px;
-  color: #334155;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-body);
+  border-bottom: 1px solid var(--border);
 }
 
 .health-item:last-child {
@@ -360,11 +367,11 @@ onMounted(async () => {
   width: 24px;
   height: 24px;
   border-radius: 5px;
-  background: #f1f5f9;
+  background: var(--bg-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   flex-shrink: 0;
 }
@@ -401,9 +408,9 @@ onMounted(async () => {
 }
 
 .status-pill.error {
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
 .line-chart {
@@ -425,16 +432,16 @@ onMounted(async () => {
   min-height: 72px;
   padding: 10px 6px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #eef2f6;
+  background: var(--bg-subtle);
+  border: 1px solid var(--card-border);
   text-align: center;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .quick-action:hover {
-  background: #fff;
-  border-color: #e2e8f0;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  background: var(--card-bg);
+  border-color: var(--border-strong);
+  box-shadow: var(--card-shadow);
 }
 
 .action-icon-wrap {
@@ -454,7 +461,7 @@ onMounted(async () => {
 .action-label {
   font-size: 11px;
   line-height: 1.35;
-  color: #475569;
+  color: var(--text-secondary);
   word-break: keep-all;
 }
 
