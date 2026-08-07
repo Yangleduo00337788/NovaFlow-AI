@@ -1,0 +1,36 @@
+import request from './request'
+import type { ApiResult } from '@/types/dashboard'
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface LoginResponse {
+  token: string
+  user: {
+    id: number
+    username: string
+    nickname: string
+    email: string
+    roleCode: string
+    roleName: string
+  }
+  tenant: {
+    id: number
+    tenantName: string
+    planType: string
+  }
+}
+
+export function login(data: LoginRequest) {
+  return request.post<ApiResult<LoginResponse>>('/v1/auth/login', data)
+}
+
+export function fetchCurrentUser() {
+  return request.get<ApiResult<LoginResponse>>('/v1/auth/me')
+}
+
+export function logout() {
+  return request.post<ApiResult<void>>('/v1/auth/logout')
+}
