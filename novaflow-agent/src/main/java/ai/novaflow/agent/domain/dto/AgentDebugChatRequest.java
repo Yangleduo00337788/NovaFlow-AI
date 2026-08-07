@@ -1,0 +1,11 @@
+package ai.novaflow.agent.domain.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
+public class AgentDebugChatRequest {
+
+    @NotBlank(message = "消息不能为空")
+    private String message;
+}
