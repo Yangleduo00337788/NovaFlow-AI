@@ -1,0 +1,31 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+.idea/
+*.iml
+*.class
+*.log
+.DS_Store
+
+# Node
+node_modules/
+dist/
+*.local
+
+# Env
+.env
+.env.*
+
+# Docker volumes
+data/
+
+# Local dev prompts (not for version control)
+开发提示词.md
+
+# Playwright / debug artifacts
+.playwright-mcp/
+test-results/
+brand-center-check.png
+sidebar-brand-check.png
+*.tsbuildinfo
