@@ -1,5 +1,6 @@
 import request from './request'
 import type { ApiResult } from '@/types/dashboard'
+import { useAuthStore } from '@/stores/auth'
 
 export interface AgentItem {
   id: number
@@ -80,4 +81,99 @@ export function debugAgentChat(id: number, message: string, conversationId?: str
     message,
     conversationId,
   })
+}
+
+export interface AgentDebugStreamEvent {
+  type: 'token' | 'done' | 'error'
+  content?: string
+  reply?: string
+  agentName?: string
+  tokensUsed?: number
+  latencyMs?: number
+  debugMode?: boolean
+  message?: string
+}
+
+export function clearAgentDebugConversation(id: number, conversationId: string) {
+  return request.delete<ApiResult<void>>(`/v1/agents/${id}/debug/conversation`, {
+    params: { conversationId },
+  })
+}
+
+export async function streamAgentDebugChat(
+  id: number,
+  message: string,
+  conversationId: string | undefined,
+  handlers: {
+    onToken: (token: string) => void
+    onDone: (data: AgentDebugChatResponse) => void
+    onError: (error: Error) => void
+  },
+  signal?: AbortSignal,
+) {
+  const auth = useAuthStore()
+  const response = await fetch(`/api/v1/agents/${id}/debug/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(auth.token ? { Authorization: auth.token } : {}),
+    },
+    body: JSON.stringify({ message, conversationId }),
+    signal,
+  })
+
+  if (response.status === 401) {
+    auth.clear()
+    window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+    throw new Error('登录已过期')
+  }
+
+  if (!response.ok || !response.body) {
+    let errorMessage = '流式请求失败'
+    try {
+      const result = (await response.json()) as ApiResult<unknown>
+      errorMessage = result.message || errorMessage
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(errorMessage)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split('\n\n')
+    buffer = chunks.pop() || ''
+
+    for (const chunk of chunks) {
+      const line = chunk
+        .split('\n')
+        .find((item) => item.startsWith('data:'))
+      if (!line) continue
+
+      const payload = line.slice(5).trim()
+      if (!payload) continue
+
+      const event = JSON.parse(payload) as AgentDebugStreamEvent
+      if (event.type === 'token' && event.content) {
+        handlers.onToken(event.content)
+      } else if (event.type === 'done') {
+        handlers.onDone({
+          reply: event.reply || '',
+          agentName: event.agentName || '',
+          tokensUsed: event.tokensUsed || 0,
+          latencyMs: event.latencyMs || 0,
+          debugMode: event.debugMode ?? false,
+        })
+      } else if (event.type === 'error') {
+        throw new Error(event.message || '流式对话失败')
+      }
+    }
+  }
 }
