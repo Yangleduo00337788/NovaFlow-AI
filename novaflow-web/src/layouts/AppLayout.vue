@@ -35,6 +35,7 @@ const collapsed = ref(false)
   margin: 10px 12px;
   height: calc(100vh - 56px - 20px);
   max-height: calc(100vh - 56px - 20px);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 </style>

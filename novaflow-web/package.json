@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@lobehub/icons-static-svg": "^1.94.0",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.19.0",
     "echarts": "^6.1.0",
