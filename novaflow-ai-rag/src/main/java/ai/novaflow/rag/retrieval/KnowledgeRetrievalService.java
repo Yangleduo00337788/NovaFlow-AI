@@ -1,6 +1,8 @@
 package ai.novaflow.rag.retrieval;
 
+import ai.novaflow.aiengine.llm.RerankClient;
 import ai.novaflow.aiengine.llm.EmbeddingAdapterFactory;
+import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
@@ -33,6 +35,7 @@ public class KnowledgeRetrievalService {
     private final ModelResolutionService modelResolutionService;
     private final EmbeddingAdapterFactory embeddingAdapterFactory;
     private final QdrantVectorService qdrantVectorService;
+    private final RerankClient rerankClient;
 
     public RetrievalTestResultVO testRetrieve(Long knowledgeBaseId, Long tenantId, RetrievalTestRequest request) {
         long start = System.currentTimeMillis();
@@ -46,7 +49,14 @@ public class KnowledgeRetrievalService {
                 tenantId,
                 request.getQuery().trim(),
                 topK,
-                scoreThreshold);
+                scoreThreshold,
+                RetrievalConfig.builder()
+                        .topK(topK)
+                        .scoreThreshold(scoreThreshold)
+                        .rerankEnabled(request.getRerankEnabled())
+                        .rerankModel(request.getRerankModel())
+                        .rerankCandidateK(request.getRerankCandidateK())
+                        .build());
 
         return RetrievalTestResultVO.builder()
                 .query(request.getQuery().trim())
@@ -62,6 +72,16 @@ public class KnowledgeRetrievalService {
             String query,
             int topK,
             Float scoreThreshold) {
+        return retrieve(knowledgeBaseId, tenantId, query, topK, scoreThreshold, null);
+    }
+
+    public List<RetrievedChunk> retrieve(
+            Long knowledgeBaseId,
+            Long tenantId,
+            String query,
+            int topK,
+            Float scoreThreshold,
+            RetrievalConfig retrievalConfig) {
         if (!StringUtils.hasText(query)) {
             throw new BusinessException("检索问题不能为空");
         }
@@ -71,16 +91,25 @@ public class KnowledgeRetrievalService {
             return List.of();
         }
 
+        RetrievalConfig config = retrievalConfig != null ? retrievalConfig : RetrievalConfig.builder().topK(topK).scoreThreshold(scoreThreshold).build();
+        int candidateK = config.effectiveRerankEnabled() ? config.effectiveRerankCandidateK(topK) : topK;
+
         List<Float> queryVector = embedQuery(knowledgeBase, tenantId, query.trim());
         String collectionName = ensureCollectionName(knowledgeBase);
-        return qdrantVectorService.search(
+        List<RetrievedChunk> candidates = qdrantVectorService.search(
                 collectionName,
                 tenantId,
                 knowledgeBaseId,
                 knowledgeBase.getKbName(),
                 queryVector,
-                topK,
-                scoreThreshold);
+                candidateK,
+                config.effectiveRerankEnabled() ? null : scoreThreshold);
+
+        List<RetrievedChunk> ranked = applyRerank(tenantId, query, topK, scoreThreshold, config, candidates);
+        if (ranked.size() <= topK) {
+            return ranked;
+        }
+        return ranked.subList(0, topK);
     }
 
     public List<RetrievedChunk> retrieveAcrossKnowledgeBases(
@@ -89,19 +118,70 @@ public class KnowledgeRetrievalService {
             String query,
             int topK,
             Float scoreThreshold) {
+        return retrieveAcrossKnowledgeBases(knowledgeBaseIds, tenantId, query, topK, scoreThreshold, null);
+    }
+
+    public List<RetrievedChunk> retrieveAcrossKnowledgeBases(
+            List<Long> knowledgeBaseIds,
+            Long tenantId,
+            String query,
+            int topK,
+            Float scoreThreshold,
+            RetrievalConfig retrievalConfig) {
         if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
             return List.of();
         }
 
         List<RetrievedChunk> merged = new ArrayList<>();
         for (Long knowledgeBaseId : knowledgeBaseIds) {
-            merged.addAll(retrieve(knowledgeBaseId, tenantId, query, topK, scoreThreshold));
+            merged.addAll(retrieve(knowledgeBaseId, tenantId, query, topK, scoreThreshold, retrievalConfig));
         }
         merged.sort(Comparator.comparing(RetrievedChunk::getScore, Comparator.nullsLast(Comparator.reverseOrder())));
         if (merged.size() <= topK) {
             return merged;
         }
         return merged.subList(0, topK);
+    }
+
+    private List<RetrievedChunk> applyRerank(
+            Long tenantId,
+            String query,
+            int topK,
+            Float scoreThreshold,
+            RetrievalConfig config,
+            List<RetrievedChunk> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        if (!config.effectiveRerankEnabled() || !StringUtils.hasText(config.getRerankModel())) {
+            return filterByThreshold(candidates, scoreThreshold);
+        }
+        try {
+            ResolvedModelConfig rerankConfig = modelResolutionService.resolveRerankModel(config.getRerankModel(), tenantId);
+            List<String> documents = candidates.stream().map(RetrievedChunk::getText).toList();
+            List<RerankClient.ScoredIndex> scored = rerankClient.rerank(rerankConfig, query, documents, topK);
+            List<RetrievedChunk> ranked = new ArrayList<>();
+            for (RerankClient.ScoredIndex item : scored) {
+                if (item.getIndex() < 0 || item.getIndex() >= candidates.size()) {
+                    continue;
+                }
+                RetrievedChunk chunk = candidates.get(item.getIndex());
+                chunk.setScore(item.getScore());
+                ranked.add(chunk);
+            }
+            return filterByThreshold(ranked, scoreThreshold);
+        } catch (Exception e) {
+            return filterByThreshold(candidates, scoreThreshold);
+        }
+    }
+
+    private List<RetrievedChunk> filterByThreshold(List<RetrievedChunk> chunks, Float scoreThreshold) {
+        if (scoreThreshold == null) {
+            return chunks;
+        }
+        return chunks.stream()
+                .filter(chunk -> chunk.getScore() == null || chunk.getScore() >= scoreThreshold)
+                .toList();
     }
 
     public String buildContextPrompt(List<RetrievedChunk> chunks) {

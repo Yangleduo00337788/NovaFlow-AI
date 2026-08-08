@@ -20,4 +20,8 @@ public class RetrievalTestRequest {
     @Min(value = 0, message = "相似度阈值不能小于0")
     @Max(value = 1, message = "相似度阈值不能大于1")
     private Float scoreThreshold;
+
+    private Boolean rerankEnabled;
+    private String rerankModel;
+    private Integer rerankCandidateK;
 }
