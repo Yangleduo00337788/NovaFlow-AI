@@ -28,18 +28,7 @@ public final class ModelCapabilityResolver {
     }
 
     public static boolean supportsWebSearch(String providerCode, String modelName) {
-        String provider = normalize(providerCode);
-        String model = normalize(modelName);
-        if (!StringUtils.hasText(model)) {
-            return false;
-        }
-        if (model.contains("search") || model.contains("browse")) {
-            return true;
-        }
-        return switch (provider) {
-            case "qwen", "moonshot", "zhipu", "baidu", "doubao" -> true;
-            default -> model.contains("qwen") || model.contains("glm") || model.contains("kimi");
-        };
+        return ModelExtraParametersBuilder.canApplyWebSearch(providerCode, modelName);
     }
 
     private static String normalize(String value) {

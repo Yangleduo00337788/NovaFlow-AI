@@ -61,6 +61,27 @@ public class ModelResolutionService {
         return toResolvedConfig(config);
     }
 
+    public ResolvedModelConfig resolveRerankModel(String modelName, Long tenantId) {
+        if (!StringUtils.hasText(modelName)) {
+            throw new BusinessException("Rerank 模型未配置");
+        }
+        ModelConfigEntity config = modelConfigMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", tenantId)
+                        .eq("model_name", modelName.trim())
+                        .eq("model_type", "rerank")
+                        .eq("is_enabled", 1)
+                        .eq("is_deleted", 0)
+                        .orderBy("is_default", false)
+                        .limit(1)
+        );
+        if (config == null) {
+            throw new BusinessException("未找到可用的 Rerank 模型: " + modelName
+                    + "，请先在模型中心同步并启用");
+        }
+        return toResolvedConfig(config);
+    }
+
     private ResolvedModelConfig toResolvedConfig(ModelConfigEntity config) {
         if (config.getIsEnabled() == null || config.getIsEnabled() != 1) {
             throw new BusinessException("模型已停用: " + config.getModelName());

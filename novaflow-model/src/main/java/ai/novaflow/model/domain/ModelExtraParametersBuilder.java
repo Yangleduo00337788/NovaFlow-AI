@@ -25,6 +25,20 @@ public final class ModelExtraParametersBuilder {
         return extra;
     }
 
+    public static boolean canApplyWebSearch(String providerCode, String modelName) {
+        String provider = normalize(providerCode);
+        String model = normalize(modelName);
+        if (model == null || model.isBlank()) {
+            return false;
+        }
+        if (model.contains("search") || model.contains("browse")) {
+            return true;
+        }
+        Map<String, Object> extra = new LinkedHashMap<>();
+        appendWebSearch(extra, provider, model);
+        return !extra.isEmpty();
+    }
+
     private static void appendDeepThinking(Map<String, Object> extra, String provider, String model) {
         if ("qwen".equals(provider) || model.contains("qwen")) {
             extra.put("enable_thinking", true);
@@ -47,7 +61,12 @@ public final class ModelExtraParametersBuilder {
     private static void appendWebSearch(Map<String, Object> extra, String provider, String model) {
         if ("qwen".equals(provider) || model.contains("qwen")) {
             extra.put("enable_search", true);
-            extra.put("search_options", Map.of("search_strategy", "agent"));
+            extra.put("incremental_output", true);
+            extra.put("search_options", Map.of(
+                    "search_strategy", "agent",
+                    "enable_source", true,
+                    "enable_citation", true
+            ));
             return;
         }
         if ("moonshot".equals(provider) || model.contains("kimi")) {
