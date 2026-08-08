@@ -12,6 +12,7 @@ export function formatMoney(value?: number | string | null, currency = 'CNY') {
   if (value == null || value === '') return '-'
   const num = typeof value === 'string' ? Number(value) : value
   if (Number.isNaN(num)) return String(value)
+  if (num === 0) return '-'
   const symbol = currencySymbol(currency)
   const digits = num > 0 && num < 0.01 ? 4 : 2
   return `${symbol}${num.toFixed(digits)}`

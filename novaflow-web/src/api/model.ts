@@ -12,6 +12,9 @@ export interface ModelProviderItem {
   configured: boolean
   enabled: boolean
   modelCount: number
+  region?: 'international' | 'domestic' | 'local' | 'aggregator'
+  apiStyle?: 'openai_compatible' | 'catalog_only'
+  requiresApiKey?: boolean
   updatedAt?: string
 }
 
@@ -116,6 +119,18 @@ export function syncModelProvider(id: number) {
 
 export function fetchModelConfigs(params?: { providerId?: number; modelType?: string }) {
   return request.get<ApiResult<ModelConfigItem[]>>('/v1/models/configs', { params })
+}
+
+export interface EmbeddingOption {
+  modelName: string
+  displayName: string
+  providerCode: string
+  providerName: string
+  configured: boolean
+}
+
+export function fetchEmbeddingOptions() {
+  return request.get<ApiResult<EmbeddingOption[]>>('/v1/models/embedding-options')
 }
 
 export function createModelConfig(data: ModelConfigSaveRequest) {

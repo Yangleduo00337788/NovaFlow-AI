@@ -45,17 +45,24 @@
       </div>
 
       <a-spin :spinning="providersLoading">
+        <div class="provider-filter">
+          <a-radio-group v-model:value="providerRegionFilter" button-style="solid" size="small">
+            <a-radio-button value="all">全部</a-radio-button>
+            <a-radio-button value="domestic">国产</a-radio-button>
+            <a-radio-button value="international">国际</a-radio-button>
+            <a-radio-button value="local">本地</a-radio-button>
+            <a-radio-button value="aggregator">聚合/自定义</a-radio-button>
+          </a-radio-group>
+        </div>
         <div class="provider-grid">
           <div
-            v-for="provider in providers"
+            v-for="provider in filteredProviders"
             :key="provider.providerCode"
             class="provider-card page-card"
             :class="{ configured: provider.configured, disabled: provider.configured && !provider.enabled }"
           >
             <div class="provider-head">
-              <div class="provider-icon" :class="provider.providerCode">
-                <component :is="getProviderIcon(provider.providerCode)" />
-              </div>
+              <ProviderIcon :code="provider.providerCode" />
               <div class="provider-meta">
                 <div class="provider-title-row">
                   <h3>{{ provider.providerName }}</h3>
@@ -82,7 +89,7 @@
               </div>
               <div v-else class="provider-empty-hint">
                 <InfoCircleOutlined />
-                <span>尚未配置 API Key，点击「立即配置」完成接入</span>
+                <span>{{ provider.requiresApiKey === false ? '本地服务，配置 Base URL 即可接入' : '尚未配置 API Key，点击「立即配置」完成接入' }}</span>
               </div>
             </div>
 
@@ -158,51 +165,78 @@
         </a-button>
       </div>
 
-      <a-table
-        :columns="modelColumns"
-        :data-source="configs"
-        :loading="configsLoading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #emptyText>
-          <a-empty description="暂无模型，请先配置提供商并同步上游模型">
-            <template #image>
-              <InboxOutlined class="table-empty-icon" />
-            </template>
-            <a-button type="primary" :disabled="configuredProviders.length === 0" @click="openModelDrawer()">
-              <template #icon><PlusOutlined /></template>
-              添加模型
-            </a-button>
-          </a-empty>
-        </template>
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'modelType'">
-            <a-tag>{{ record.modelType }}</a-tag>
+      <a-spin :spinning="configsLoading">
+        <a-empty
+          v-if="!configsLoading && configs.length === 0"
+          description="暂无模型，请先配置提供商并同步上游模型"
+        >
+          <template #image>
+            <InboxOutlined class="table-empty-icon" />
           </template>
-          <template v-else-if="column.key === 'enabled'">
-            <a-tag :color="record.enabled ? 'success' : 'default'">{{ record.enabled ? '启用' : '停用' }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'isDefault'">
-            <a-tag v-if="record.isDefault" color="blue">默认</a-tag>
-            <span v-else class="muted">-</span>
-          </template>
-          <template v-else-if="column.key === 'price'">
-            <span class="price-text">
-              {{ formatPrice(record.inputPrice, record.currency) }} / {{ formatPrice(record.outputPrice, record.currency) }}
-            </span>
-          </template>
-          <template v-else-if="column.key === 'action'">
-            <a-space>
-              <a-button type="link" @click="openModelDrawer(record)">编辑</a-button>
-              <a-button v-if="!record.isDefault" type="link" @click="onSetDefault(record.id)">设为默认</a-button>
-              <a-popconfirm title="确认删除该模型？" @confirm="onDeleteConfig(record.id)">
-                <a-button type="link" danger>删除</a-button>
-              </a-popconfirm>
-            </a-space>
-          </template>
-        </template>
-      </a-table>
+          <a-button type="primary" :disabled="configuredProviders.length === 0" @click="openModelDrawer()">
+            <template #icon><PlusOutlined /></template>
+            添加模型
+          </a-button>
+        </a-empty>
+
+        <div v-else class="model-groups">
+          <section
+            v-for="group in groupedConfigs"
+            :key="group.providerId"
+            class="model-provider-group"
+          >
+            <div class="provider-group-header">
+              <span class="provider-group-line" aria-hidden="true" />
+              <div class="provider-group-label">
+                <ProviderIcon :code="group.providerCode" size="sm" />
+                <span>{{ group.providerName }}</span>
+                <a-tag color="processing">{{ group.models.length }}</a-tag>
+              </div>
+              <span class="provider-group-line" aria-hidden="true" />
+            </div>
+
+            <a-table
+              :columns="modelColumns"
+              :data-source="group.models"
+              row-key="id"
+              :pagination="false"
+              size="middle"
+            >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'modelType'">
+                  <a-tag>{{ record.modelType }}</a-tag>
+                </template>
+                <template v-else-if="column.key === 'enabled'">
+                  <a-tag :color="record.enabled ? 'success' : 'default'">{{ record.enabled ? '启用' : '停用' }}</a-tag>
+                </template>
+                <template v-else-if="column.key === 'isDefault'">
+                  <a-tag v-if="record.isDefault" color="blue">默认</a-tag>
+                  <span v-else class="muted">-</span>
+                </template>
+                <template v-else-if="column.key === 'price'">
+                  <span class="price-text">
+                    <template v-if="record.modelType === 'embedding' || record.modelType === 'rerank'">
+                      {{ formatPrice(record.inputPrice, record.currency) }}
+                    </template>
+                    <template v-else>
+                      {{ formatPrice(record.inputPrice, record.currency) }} / {{ formatPrice(record.outputPrice, record.currency) }}
+                    </template>
+                  </span>
+                </template>
+                <template v-else-if="column.key === 'action'">
+                  <a-space>
+                    <a-button type="link" @click="openModelDrawer(record)">编辑</a-button>
+                    <a-button v-if="!record.isDefault" type="link" @click="onSetDefault(record.id)">设为默认</a-button>
+                    <a-popconfirm title="确认删除该模型？" @confirm="onDeleteConfig(record.id)">
+                      <a-button type="link" danger>删除</a-button>
+                    </a-popconfirm>
+                  </a-space>
+                </template>
+              </template>
+            </a-table>
+          </section>
+        </div>
+      </a-spin>
     </div>
 
     <div v-else class="page-card stats-section">
@@ -242,13 +276,23 @@
       @close="resetProviderForm"
     >
       <a-form layout="vertical" :model="providerForm">
-        <a-form-item label="Base URL" required>
-          <a-input v-model:value="providerForm.baseUrl" placeholder="https://api.openai.com/v1" />
+        <a-alert
+          v-if="editingProvider?.description"
+          type="info"
+          show-icon
+          :message="editingProvider.description"
+          style="margin-bottom: 16px"
+        />
+        <a-form-item label="Base URL" :required="editingProvider?.providerCode === 'custom'">
+          <a-input
+            v-model:value="providerForm.baseUrl"
+            :placeholder="editingProvider?.defaultBaseUrl || 'https://api.example.com/v1'"
+          />
         </a-form-item>
-        <a-form-item label="API Key" required>
+        <a-form-item label="API Key" :required="editingProvider?.requiresApiKey !== false">
           <a-input-password
             v-model:value="providerForm.apiKey"
-            :placeholder="editingProvider?.apiKeyMasked || '请输入 API Key'"
+            :placeholder="providerApiKeyPlaceholder"
           />
         </a-form-item>
         <a-form-item label="启用状态">
@@ -340,7 +384,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import type { Component } from 'vue'
 import {
   ApiOutlined,
   AppstoreOutlined,
@@ -377,8 +420,10 @@ import {
 } from '@/api/model'
 import { mergeModelProviders, MODEL_PROVIDER_PRESETS } from '@/constants/modelProviders'
 import { formatCostSummaries, formatMoney } from '@/utils/currency'
+import ProviderIcon from '@/components/common/ProviderIcon.vue'
 
 const activeTab = ref('providers')
+const providerRegionFilter = ref('all')
 const overview = ref<ModelOverview | null>(null)
 const providers = ref<ModelProviderItem[]>([...MODEL_PROVIDER_PRESETS])
 const configs = ref<ModelConfigItem[]>([])
@@ -417,17 +462,56 @@ const modelForm = reactive<ModelConfigSaveRequest & { enabled: boolean; isDefaul
 
 const configuredProviders = computed(() => providers.value.filter((item) => item.configured && item.id))
 
+const filteredProviders = computed(() => {
+  if (providerRegionFilter.value === 'all') {
+    return providers.value
+  }
+  return providers.value.filter((item) => item.region === providerRegionFilter.value)
+})
+
+const providerApiKeyPlaceholder = computed(() => {
+  if (editingProvider.value?.requiresApiKey === false) {
+    return '本地 Ollama 无需 API Key，可留空'
+  }
+  return editingProvider.value?.apiKeyMasked || '请输入 API Key'
+})
+
 const modelColumns = [
   { title: '显示名称', dataIndex: 'displayName', key: 'displayName' },
   { title: '模型名称', dataIndex: 'modelName', key: 'modelName' },
-  { title: '提供商', dataIndex: 'providerName', key: 'providerName' },
-  { title: '类型', key: 'modelType' },
-  { title: '上下文', dataIndex: 'contextWindow', key: 'contextWindow' },
+  { title: '类型', key: 'modelType', width: 100 },
+  { title: '上下文', dataIndex: 'contextWindow', key: 'contextWindow', width: 90 },
   { title: '单价(入/出)', key: 'price', width: 160 },
   { title: '状态', key: 'enabled', width: 90 },
   { title: '默认', key: 'isDefault', width: 80 },
   { title: '操作', key: 'action', width: 220 },
 ]
+
+interface ModelProviderGroup {
+  providerId: number
+  providerCode: string
+  providerName: string
+  models: ModelConfigItem[]
+}
+
+const groupedConfigs = computed<ModelProviderGroup[]>(() => {
+  const groupMap = new Map<number, ModelProviderGroup>()
+  for (const config of configs.value) {
+    const providerId = config.providerId
+    if (!groupMap.has(providerId)) {
+      groupMap.set(providerId, {
+        providerId,
+        providerCode: config.providerCode || 'custom',
+        providerName: config.providerName || '未知提供商',
+        models: [],
+      })
+    }
+    groupMap.get(providerId)!.models.push(config)
+  }
+  return Array.from(groupMap.values()).sort((left, right) =>
+    left.providerName.localeCompare(right.providerName, 'zh-CN'),
+  )
+})
 
 const statsColumns = [
   { title: '模型', dataIndex: 'displayName', key: 'displayName' },
@@ -435,15 +519,6 @@ const statsColumns = [
   { title: '调用次数', dataIndex: 'calls', key: 'calls' },
   { title: 'Token 消耗', dataIndex: 'tokens', key: 'tokens' },
 ]
-
-const providerIconMap: Record<string, Component> = {
-  openai: ExperimentOutlined,
-  deepseek: ThunderboltOutlined,
-}
-
-function getProviderIcon(code: string) {
-  return providerIconMap[code] || ApiOutlined
-}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('zh-CN').format(value)
@@ -757,6 +832,10 @@ watch(activeTab, (tab) => {
   color: var(--text-primary);
 }
 
+.provider-filter {
+  margin-bottom: 16px;
+}
+
 .provider-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -781,26 +860,6 @@ watch(activeTab, (tab) => {
 .provider-head {
   display: flex;
   gap: 14px;
-}
-
-.provider-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  color: #fff;
-  flex-shrink: 0;
-}
-
-.provider-icon.openai {
-  background: linear-gradient(135deg, #10a37f, #1a7f64);
-}
-
-.provider-icon.deepseek {
-  background: linear-gradient(135deg, #4f6ef7, #1677ff);
 }
 
 .provider-meta h3 {
@@ -881,6 +940,51 @@ watch(activeTab, (tab) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.model-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.model-provider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-group-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.provider-group-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--card-border) 12%,
+    var(--card-border) 88%,
+    transparent
+  );
+}
+
+.provider-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 0 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.provider-group-label :deep(.provider-icon) {
+  margin: 0;
 }
 
 .price-text,
