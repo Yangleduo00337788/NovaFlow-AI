@@ -39,7 +39,7 @@ public class AgentOpenService {
         try {
             TenantContext.setTenantId(apiKey.getTenantId());
             agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
-            AgentVO agent = agentService.detail(agentId);
+            AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
             ensureApiSupported(agent);
             return agentChatService.chat(agent, request, apiKey.getTenantId(), null, "open");
         } finally {
@@ -54,7 +54,7 @@ public class AgentOpenService {
             try {
                 TenantContext.setTenantId(apiKey.getTenantId());
                 agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
-                AgentVO agent = agentService.detail(agentId);
+                AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
                 ensureApiSupported(agent);
                 agentChatService.streamChat(agent, request, apiKey.getTenantId(), null, "open", emitter);
             } catch (BusinessException e) {
@@ -75,7 +75,7 @@ public class AgentOpenService {
         try {
             TenantContext.setTenantId(apiKey.getTenantId());
             agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
-            AgentVO agent = agentService.detail(agentId);
+            AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
             String welcome = StringUtils.hasText(agent.getWelcomeMessage())
                     ? agent.getWelcomeMessage()
                     : "您好，我是 " + agent.getAgentName() + "，有什么可以帮您？";

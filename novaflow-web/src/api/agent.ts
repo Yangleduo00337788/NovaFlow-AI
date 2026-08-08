@@ -23,6 +23,8 @@ export interface AgentItem {
   rerankEnabled?: boolean
   rerankModel?: string
   rerankCandidateK?: number
+  hybridEnabled?: boolean
+  hybridAlpha?: number
   knowledgeBaseIds?: number[]
   tools?: AgentToolDefinition[]
   createdAt?: string
@@ -34,6 +36,7 @@ export interface AgentToolDefinition {
   description?: string
   method?: string
   url?: string
+  bodyTemplate?: string
   headers?: Record<string, string>
   inputSchema?: Record<string, unknown>
   /** @deprecated 已移除百度搜索工具，加载旧数据时用于过滤 */
@@ -65,6 +68,8 @@ export interface AgentSaveRequest {
   rerankEnabled?: boolean
   rerankModel?: string
   rerankCandidateK?: number
+  hybridEnabled?: boolean
+  hybridAlpha?: number
   knowledgeBaseIds?: number[]
   tools?: AgentToolDefinition[]
 }
@@ -98,6 +103,8 @@ export interface AgentPublishInfo {
   apiKey?: string
   chatEndpoint: string
   streamEndpoint: string
+  welcomeEndpoint?: string
+  embedPath?: string
 }
 
 export function fetchAgentPublishInfo(id: number) {
@@ -355,6 +362,94 @@ export async function streamAgentDebugChat(
         })
       } else if (event.type === 'error') {
         throw new Error(event.message || '流式对话失败')
+      }
+    }
+  }
+}
+
+function buildOpenAuthHeaders(apiKey: string) {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+export function fetchOpenAgentWelcome(agentId: number, apiKey: string) {
+  return fetch(`/api/v1/open/agents/${agentId}/welcome`, {
+    headers: buildOpenAuthHeaders(apiKey),
+  }).then(async (response) => {
+    const result = (await response.json()) as ApiResult<AgentDebugChatResponse>
+    if (!response.ok || result.code !== 0) {
+      throw new Error(result.message || '加载欢迎语失败')
+    }
+    return { data: result }
+  })
+}
+
+export async function streamOpenAgentChat(
+  agentId: number,
+  apiKey: string,
+  message: string,
+  conversationId: string | undefined,
+  handlers: {
+    onToken: (token: string) => void
+    onDone: (data: AgentDebugChatResponse) => void
+    onError: (error: Error) => void
+  },
+  signal?: AbortSignal,
+) {
+  const response = await fetch(`/api/v1/open/agents/${agentId}/chat/stream`, {
+    method: 'POST',
+    headers: buildOpenAuthHeaders(apiKey),
+    body: JSON.stringify({ message, conversationId }),
+    signal,
+  })
+
+  if (!response.ok || !response.body) {
+    let errorMessage = '流式请求失败'
+    try {
+      const result = (await response.json()) as ApiResult<unknown>
+      errorMessage = result.message || errorMessage
+    } catch {
+      // ignore
+    }
+    throw new Error(errorMessage)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split('\n\n')
+    buffer = chunks.pop() || ''
+
+    for (const chunk of chunks) {
+      const line = chunk.split('\n').find((item) => item.startsWith('data:'))
+      if (!line) continue
+      const payload = line.slice(5).trim()
+      if (!payload) continue
+
+      const event = JSON.parse(payload) as AgentDebugStreamEvent
+      if (event.type === 'token' && event.content) {
+        handlers.onToken(event.content)
+      } else if (event.type === 'done') {
+        handlers.onDone({
+          reply: event.reply || '',
+          agentName: event.agentName || '',
+          tokensUsed: event.tokensUsed || 0,
+          latencyMs: event.latencyMs || 0,
+          debugMode: false,
+          sources: event.sources,
+          webSearchSources: event.webSearchSources,
+          modelName: event.modelName,
+        })
+      } else if (event.type === 'error') {
+        handlers.onError(new Error(event.message || '流式对话失败'))
       }
     }
   }

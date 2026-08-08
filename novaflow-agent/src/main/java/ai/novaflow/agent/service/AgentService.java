@@ -228,20 +228,26 @@ public class AgentService {
                 .rerankEnabled(request.getRerankEnabled())
                 .rerankModel(request.getRerankModel())
                 .rerankCandidateK(request.getRerankCandidateK())
+                .hybridEnabled(request.getHybridEnabled())
+                .hybridAlpha(request.getHybridAlpha())
                 .build();
     }
 
     private void recordRecentAccess(AgentEntity agent) {
-        if (!StpUtil.isLogin()) {
-            return;
+        try {
+            if (!StpUtil.isLogin()) {
+                return;
+            }
+            recentAccessService.record(
+                    agent.getTenantId(),
+                    StpUtil.getLoginIdAsLong(),
+                    "agent",
+                    agent.getId(),
+                    agent.getAgentName()
+            );
+        } catch (Exception ignored) {
+            // Open API 异步线程等非 Web 上下文下跳过最近访问记录
         }
-        recentAccessService.record(
-                agent.getTenantId(),
-                StpUtil.getLoginIdAsLong(),
-                "agent",
-                agent.getId(),
-                agent.getAgentName()
-        );
     }
 
     private AgentVO toSimpleVO(AgentEntity agent) {
@@ -276,6 +282,8 @@ public class AgentService {
             vo.setRerankEnabled(retrievalConfig.getRerankEnabled());
             vo.setRerankModel(retrievalConfig.getRerankModel());
             vo.setRerankCandidateK(retrievalConfig.getRerankCandidateK());
+            vo.setHybridEnabled(retrievalConfig.getHybridEnabled());
+            vo.setHybridAlpha(retrievalConfig.getHybridAlpha());
             vo.setTools(AgentExtraConfigUtils.parseTools(objectMapper, config.getExtraConfig()));
         }
         vo.setKnowledgeBaseIds(loadKnowledgeBaseIds(agent.getId(), agent.getTenantId()));

@@ -101,6 +101,21 @@
               style="min-width: 220px"
             />
           </div>
+          <div class="retrieval-topk">
+            <span>混合检索</span>
+            <a-switch v-model:checked="retrievalHybridEnabled" :disabled="retrieving" />
+          </div>
+          <div v-if="retrievalHybridEnabled" class="retrieval-topk retrieval-topk--wide">
+            <span>向量权重</span>
+            <a-slider
+              v-model:value="retrievalHybridAlpha"
+              :min="0"
+              :max="1"
+              :step="0.05"
+              :disabled="retrieving"
+              style="min-width: 160px"
+            />
+          </div>
           <a-button type="primary" :loading="retrieving" :disabled="!retrievalQuery.trim()" @click="onRetrieve">
             开始检索
           </a-button>
@@ -313,6 +328,8 @@ const retrievalTopK = ref(5)
 const retrievalScoreThreshold = ref<number | undefined>(undefined)
 const retrievalRerankEnabled = ref(false)
 const retrievalRerankModel = ref<string | undefined>(undefined)
+const retrievalHybridEnabled = ref(false)
+const retrievalHybridAlpha = ref(0.7)
 const rerankModelOptions = ref<Array<{ label: string; value: string }>>([])
 const retrieving = ref(false)
 const retrievalResult = ref<RetrievalTestResult | null>(null)
@@ -469,6 +486,8 @@ async function onRetrieve() {
       scoreThreshold: retrievalScoreThreshold.value,
       rerankEnabled: retrievalRerankEnabled.value,
       rerankModel: retrievalRerankModel.value,
+      hybridEnabled: retrievalHybridEnabled.value,
+      hybridAlpha: retrievalHybridAlpha.value,
     })
     retrievalResult.value = res.data.data
   } catch (e) {

@@ -28,6 +28,8 @@ public class AgentSaveRequest {
     private Boolean rerankEnabled;
     private String rerankModel;
     private Integer rerankCandidateK;
+    private Boolean hybridEnabled;
+    private Float hybridAlpha;
     private List<Long> knowledgeBaseIds;
     private List<HttpToolDefinition> tools;
 }

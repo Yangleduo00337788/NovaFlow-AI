@@ -185,34 +185,33 @@
               description="开启后会在向量召回结果上进行重排序，通常能提升 RAG 回答相关性。保存前需选定模型。"
               class="rerank-hint"
             />
+            <a-row v-if="form.agentType === 'rag'" :gutter="16">
+              <a-col :span="8">
+                <a-form-item>
+                  <template #label>
+                    <FormLabelTip label="混合检索" :tip="AGENT_FIELD_TIPS.hybridEnabled" />
+                  </template>
+                  <a-switch v-model:checked="form.hybridEnabled" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="16">
+                <a-form-item v-if="form.hybridEnabled" label="向量权重">
+                  <a-slider
+                    v-model:value="form.hybridAlpha"
+                    :min="0"
+                    :max="1"
+                    :step="0.05"
+                    :tip-formatter="(value?: number) => `向量 ${((value ?? 0.7) * 100).toFixed(0)}%`"
+                  />
+                </a-form-item>
+              </a-col>
+            </a-row>
             <template v-if="form.agentType === 'tool'">
               <a-form-item>
                 <template #label>
-                  <FormLabelTip label="工具配置" tip="配置自定义 HTTP 接口，URL 中可使用 {{param}} 占位符。" />
+                  <FormLabelTip label="工具配置" tip="配置自定义 HTTP 接口，URL / Header / Body 中可使用 {{param}} 占位符。" />
                 </template>
-                <div class="tool-list">
-                  <div v-for="(tool, index) in form.tools" :key="index" class="tool-item">
-                    <a-row :gutter="8">
-                      <a-col :span="6">
-                        <a-input v-model:value="tool.name" placeholder="工具名，如 get_weather" />
-                      </a-col>
-                      <a-col :span="4">
-                        <a-select v-model:value="tool.method" :options="httpMethodOptions" />
-                      </a-col>
-                      <a-col :span="14">
-                        <a-input v-model:value="tool.url" placeholder="https://api.example.com?q={{city}}" />
-                      </a-col>
-                    </a-row>
-                    <a-textarea
-                      v-model:value="tool.description"
-                      :rows="2"
-                      placeholder="工具描述，帮助模型判断何时调用"
-                      style="margin-top: 8px"
-                    />
-                    <a-button type="link" danger style="padding-left: 0" @click="removeTool(index)">删除工具</a-button>
-                  </div>
-                  <a-button type="dashed" block @click="addHttpTool">添加 HTTP 工具</a-button>
-                </div>
+                <HttpToolConfigList v-model:tools="toolFormItems" />
               </a-form-item>
             </template>
             <a-form-item>
@@ -339,6 +338,11 @@
             <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations/messages?conversationKey=</code>
           </div>
 
+          <div class="section-label">网页嵌入</div>
+          <p class="endpoint-tip">将以下 iframe 嵌入到你的网站。API Key 会暴露在页面中，生产环境建议通过服务端代理调用。</p>
+          <pre class="curl-example">{{ embedExample }}</pre>
+          <a-button size="small" @click="copyText(embedExample)">复制嵌入代码</a-button>
+
           <div class="section-label">调用示例</div>
           <pre class="curl-example">{{ curlExample }}</pre>
           <a-space>
@@ -379,6 +383,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
+import HttpToolConfigList from '@/components/agent/HttpToolConfigList.vue'
 import FormLabelTip from '@/components/common/FormLabelTip.vue'
 import {
   createAgent,
@@ -393,8 +398,8 @@ import {
   type AgentItem,
   type AgentPublishInfo,
   type AgentSaveRequest,
-  type AgentToolDefinition,
 } from '@/api/agent'
+import { serializeToolFormItems, toToolFormItems, type ToolFormItem } from '@/utils/toolForm'
 import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
@@ -413,6 +418,7 @@ const AGENT_FIELD_TIPS = {
   rerankEnabled:
     '开启后使用 Rerank 模型对向量召回的候选文档重新打分排序，可提升 RAG 回答质量。需先在模型中心配置 rerank 模型。',
   rerankModel: '选择已启用的 Rerank 模型，例如 Jina Reranker。',
+  hybridEnabled: '在向量召回结果上叠加关键词匹配重排，改善专有名词、编号等精确匹配场景。',
   systemPrompt:
     '系统级指令，用于定义 Agent 的角色、语气、回答规范与边界。留空则不向模型发送 System Prompt；填写后才会作为系统消息传给模型。',
   welcomeMessage: '用户打开对话时首条展示的消息，调试面板与对外 API 均可使用。留空时由系统生成默认问候语。',
@@ -466,6 +472,15 @@ const curlExample = computed(() => {
   -d "{\\"message\\":\\"你好\\",\\"conversationId\\":\\"conv-001\\"}"`
 })
 
+const embedExample = computed(() => {
+  if (!publishInfo.value?.embedPath) return ''
+  const key = revealedApiKey.value || 'YOUR_API_KEY'
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
+  return `<iframe src="${origin}${publishInfo.value.embedPath}?apiKey=${key}" width="400" height="640" style="border:0;border-radius:12px;" allow="clipboard-write"></iframe>`
+})
+
+const toolFormItems = ref<ToolFormItem[]>([])
+
 const form = reactive<AgentSaveRequest>({
   agentName: '',
   agentType: 'chat',
@@ -480,15 +495,11 @@ const form = reactive<AgentSaveRequest>({
   retrievalScoreThreshold: undefined,
   rerankEnabled: false,
   rerankModel: undefined,
+  hybridEnabled: false,
+  hybridAlpha: 0.7,
   modelConfigId: undefined,
   knowledgeBaseIds: [],
-  tools: [] as AgentToolDefinition[],
 })
-
-const httpMethodOptions = [
-  { value: 'GET', label: 'GET' },
-  { value: 'POST', label: 'POST' },
-]
 
 const rerankModelOptions = computed(() =>
   rerankModels.value
@@ -592,26 +603,12 @@ function resetForm() {
     retrievalScoreThreshold: undefined,
     rerankEnabled: false,
     rerankModel: undefined,
+    hybridEnabled: false,
+    hybridAlpha: 0.7,
     modelConfigId: undefined,
     knowledgeBaseIds: [],
-    tools: [],
   })
-}
-
-function addHttpTool() {
-  if (!form.tools) {
-    form.tools = []
-  }
-  form.tools.push({
-    name: '',
-    description: '',
-    method: 'GET',
-    url: '',
-  })
-}
-
-function removeTool(index: number) {
-  form.tools?.splice(index, 1)
+  toolFormItems.value = []
 }
 
 async function loadKnowledgeBases() {
@@ -661,17 +658,9 @@ async function openEdit(id: number) {
   editingId.value = id
   Object.assign(form, {
     ...data,
-    tools: (data.tools || [])
-      .filter((tool) => tool.toolType !== 'baidu_search')
-      .map((tool) => ({
-        method: tool.method || 'GET',
-        name: tool.name,
-        description: tool.description,
-        url: tool.url,
-        headers: tool.headers,
-        inputSchema: tool.inputSchema,
-      })),
+    hybridAlpha: data.hybridAlpha ?? 0.7,
   })
+  toolFormItems.value = toToolFormItems(data.tools)
   drawerOpen.value = true
 }
 
@@ -776,19 +765,17 @@ async function onSave() {
     }
   }
   if (form.agentType === 'tool') {
-    const validTools = (form.tools || []).filter((tool) => tool.name?.trim() && tool.url?.trim())
-    if (validTools.length === 0) {
-      message.warning('Tool Agent 请至少配置一个 HTTP 工具')
+    try {
+      const serializedTools = serializeToolFormItems(toolFormItems.value)
+      if (serializedTools.length === 0) {
+        message.warning('Tool Agent 请至少配置一个 HTTP 工具')
+        return
+      }
+      form.tools = serializedTools
+    } catch {
+      message.error('工具参数 Schema JSON 格式不正确')
       return
     }
-    form.tools = validTools.map((tool) => ({
-      method: tool.method || 'GET',
-      name: tool.name.trim(),
-      description: tool.description,
-      url: tool.url?.trim(),
-      headers: tool.headers,
-      inputSchema: tool.inputSchema,
-    }))
   }
   saving.value = true
   try {

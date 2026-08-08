@@ -18,4 +18,6 @@ public class AgentPublishVO {
     private String apiKey;
     private String chatEndpoint;
     private String streamEndpoint;
+    private String welcomeEndpoint;
+    private String embedPath;
 }

@@ -85,8 +85,16 @@ public class AgentPublishService {
     }
 
     private void validatePublishable(AgentVO agent) {
+        if ("tool".equals(agent.getAgentType())) {
+            if (agent.getTools() == null || agent.getTools().stream()
+                    .noneMatch(tool -> tool.getName() != null && !tool.getName().isBlank()
+                            && tool.getUrl() != null && !tool.getUrl().isBlank())) {
+                throw new BusinessException("Tool Agent 发布前需配置至少一个有效的 HTTP 工具");
+            }
+            return;
+        }
         if (!"chat".equals(agent.getAgentType()) && !"rag".equals(agent.getAgentType())) {
-            throw new BusinessException("当前仅支持发布 Chat / RAG Agent");
+            throw new BusinessException("当前仅支持发布 Chat / RAG / Tool Agent");
         }
         if ("rag".equals(agent.getAgentType())
                 && (agent.getKnowledgeBaseIds() == null || agent.getKnowledgeBaseIds().isEmpty())) {
@@ -104,6 +112,8 @@ public class AgentPublishService {
                 .apiKey(rawApiKey)
                 .chatEndpoint("/api/v1/open/agents/" + agent.getId() + "/chat")
                 .streamEndpoint("/api/v1/open/agents/" + agent.getId() + "/chat/stream")
+                .welcomeEndpoint("/api/v1/open/agents/" + agent.getId() + "/welcome")
+                .embedPath("/embed/agents/" + agent.getId())
                 .build();
     }
 

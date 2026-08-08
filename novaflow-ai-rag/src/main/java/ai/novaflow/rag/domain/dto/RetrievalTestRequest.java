@@ -24,4 +24,9 @@ public class RetrievalTestRequest {
     private Boolean rerankEnabled;
     private String rerankModel;
     private Integer rerankCandidateK;
+    private Boolean hybridEnabled;
+
+    @Min(value = 0, message = "混合检索向量权重不能小于0")
+    @Max(value = 1, message = "混合检索向量权重不能大于1")
+    private Float hybridAlpha;
 }

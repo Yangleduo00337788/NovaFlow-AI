@@ -56,6 +56,8 @@ public class KnowledgeRetrievalService {
                         .rerankEnabled(request.getRerankEnabled())
                         .rerankModel(request.getRerankModel())
                         .rerankCandidateK(request.getRerankCandidateK())
+                        .hybridEnabled(request.getHybridEnabled())
+                        .hybridAlpha(request.getHybridAlpha())
                         .build());
 
         return RetrievalTestResultVO.builder()
@@ -92,7 +94,7 @@ public class KnowledgeRetrievalService {
         }
 
         RetrievalConfig config = retrievalConfig != null ? retrievalConfig : RetrievalConfig.builder().topK(topK).scoreThreshold(scoreThreshold).build();
-        int candidateK = config.effectiveRerankEnabled() ? config.effectiveRerankCandidateK(topK) : topK;
+        int candidateK = resolveCandidateK(topK, config);
 
         List<Float> queryVector = embedQuery(knowledgeBase, tenantId, query.trim());
         String collectionName = ensureCollectionName(knowledgeBase);
@@ -103,9 +105,10 @@ public class KnowledgeRetrievalService {
                 knowledgeBase.getKbName(),
                 queryVector,
                 candidateK,
-                config.effectiveRerankEnabled() ? null : scoreThreshold);
+                shouldDeferThreshold(config) ? null : scoreThreshold);
 
-        List<RetrievedChunk> ranked = applyRerank(tenantId, query, topK, scoreThreshold, config, candidates);
+        List<RetrievedChunk> hybridRanked = applyHybridRanking(query, config, candidates);
+        List<RetrievedChunk> ranked = applyRerank(tenantId, query, topK, scoreThreshold, config, hybridRanked);
         if (ranked.size() <= topK) {
             return ranked;
         }
@@ -141,6 +144,35 @@ public class KnowledgeRetrievalService {
             return merged;
         }
         return merged.subList(0, topK);
+    }
+
+    private int resolveCandidateK(int topK, RetrievalConfig config) {
+        if (config.effectiveHybridEnabled()) {
+            return config.effectiveHybridCandidateK(topK);
+        }
+        if (config.effectiveRerankEnabled()) {
+            return config.effectiveRerankCandidateK(topK);
+        }
+        return topK;
+    }
+
+    private boolean shouldDeferThreshold(RetrievalConfig config) {
+        return config.effectiveRerankEnabled() || config.effectiveHybridEnabled();
+    }
+
+    private List<RetrievedChunk> applyHybridRanking(String query, RetrievalConfig config, List<RetrievedChunk> candidates) {
+        if (!config.effectiveHybridEnabled() || candidates == null || candidates.isEmpty()) {
+            return candidates;
+        }
+        float alpha = config.effectiveHybridAlpha();
+        List<RetrievedChunk> ranked = new ArrayList<>(candidates);
+        for (RetrievedChunk chunk : ranked) {
+            float vectorScore = chunk.getScore() != null ? chunk.getScore() : 0F;
+            float keywordScore = KeywordMatchScorer.score(query, chunk.getText());
+            chunk.setScore(alpha * vectorScore + (1F - alpha) * keywordScore);
+        }
+        ranked.sort(Comparator.comparing(RetrievedChunk::getScore, Comparator.nullsLast(Comparator.reverseOrder())));
+        return ranked;
     }
 
     private List<RetrievedChunk> applyRerank(

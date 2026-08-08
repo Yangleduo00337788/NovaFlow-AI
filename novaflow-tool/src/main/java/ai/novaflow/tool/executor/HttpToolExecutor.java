@@ -48,11 +48,16 @@ public class HttpToolExecutor {
         }
 
         if ("POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)) {
-            String body = arguments != null && !arguments.isEmpty()
-                    ? toJsonBody(arguments)
-                    : "";
-            builder.header("Content-Type", "application/json");
-            builder.method(method, HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+            String body = resolveRequestBody(tool, arguments);
+            if (StringUtils.hasText(body)) {
+                if (tool.getHeaders() == null || tool.getHeaders().keySet().stream()
+                        .noneMatch(key -> "content-type".equalsIgnoreCase(key))) {
+                    builder.header("Content-Type", "application/json");
+                }
+                builder.method(method, HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+            } else {
+                builder.method(method, HttpRequest.BodyPublishers.noBody());
+            }
         } else {
             builder.GET();
         }
@@ -95,6 +100,32 @@ public class HttpToolExecutor {
             String replacement = value != null
                     ? URLEncoder.encode(String.valueOf(value), StandardCharsets.UTF_8)
                     : "";
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(buffer);
+        return buffer.toString();
+    }
+
+    private String resolveRequestBody(HttpToolDefinition tool, Map<String, Object> arguments) {
+        if (StringUtils.hasText(tool.getBodyTemplate())) {
+            return resolveRawTemplate(tool.getBodyTemplate(), arguments);
+        }
+        if (arguments == null || arguments.isEmpty()) {
+            return "";
+        }
+        return toJsonBody(arguments);
+    }
+
+    private String resolveRawTemplate(String template, Map<String, Object> arguments) {
+        if (!StringUtils.hasText(template)) {
+            return template;
+        }
+        Matcher matcher = PLACEHOLDER.matcher(template);
+        StringBuffer buffer = new StringBuffer();
+        while (matcher.find()) {
+            String key = matcher.group(1);
+            Object value = arguments != null ? arguments.get(key) : null;
+            String replacement = value != null ? String.valueOf(value) : "";
             matcher.appendReplacement(buffer, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(buffer);

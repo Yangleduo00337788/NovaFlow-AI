@@ -270,6 +270,8 @@ public class AgentChatService {
                 .rerankEnabled(agent.getRerankEnabled())
                 .rerankModel(agent.getRerankModel())
                 .rerankCandidateK(agent.getRerankCandidateK())
+                .hybridEnabled(agent.getHybridEnabled())
+                .hybridAlpha(agent.getHybridAlpha())
                 .build();
     }
 

@@ -12,6 +12,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/embed/agents/:id',
+      name: 'embed-agent',
+      component: () => import('@/views/embed/agent.vue'),
+      meta: { public: true, title: 'Agent 对话' },
+    },
+    {
       path: '/',
       component: AppLayout,
       redirect: '/dashboard',

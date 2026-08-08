@@ -120,6 +120,8 @@ export interface RetrievalTestRequest {
   rerankEnabled?: boolean
   rerankModel?: string
   rerankCandidateK?: number
+  hybridEnabled?: boolean
+  hybridAlpha?: number
 }
 
 export function retrieveKnowledge(knowledgeBaseId: number, data: RetrievalTestRequest) {

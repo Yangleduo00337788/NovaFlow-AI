@@ -13,5 +13,6 @@ public class HttpToolDefinition {
     private Map<String, Object> inputSchema;
     private String method = "GET";
     private String url;
+    private String bodyTemplate;
     private Map<String, String> headers = new HashMap<>();
 }
