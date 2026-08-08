@@ -1,3 +1,4 @@
+# HTTP 服务端口
 server:
   port: 8080
 
@@ -8,20 +9,27 @@ spring:
     active: dev
 
 ---
+# 本地开发环境配置（docker compose up -d 启动中间件后使用）
 spring:
   config:
     activate:
       on-profile: dev
+
+  # MySQL：业务数据 + Flyway 迁移
   datasource:
     url: jdbc:mysql://localhost:3306/novaflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 数据库版本管理，启动时自动执行 db/migration 脚本
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
     validate-on-migrate: false
+
+  # Redis：Sa-Token 登录态持久化（重启后端不丢登录）
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -29,16 +37,25 @@ spring:
       password: ${REDIS_PASSWORD:redis123}
       timeout: 3000ms
 
+  # 知识库文档上传大小限制
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+# MyBatis-Flex：下划线字段自动映射驼峰
 mybatis-flex:
   configuration:
     map-underscore-to-camel-case: true
 
+# Sa-Token 认证：Token 放请求头 Authorization，有效期 24 小时
 sa-token:
   token-name: Authorization
   timeout: 86400
   is-read-header: true
   is-read-cookie: false
 
+# Actuator 健康检查：GET /actuator/health
 management:
   endpoints:
     web:
@@ -49,6 +66,25 @@ logging:
   level:
     ai.novaflow: debug
 
+# NovaFlow 业务配置
 novaflow:
   security:
+    # 模型 API Key 等敏感字段加密密钥（生产环境请通过环境变量覆盖）
     crypto-key: ${NOVAFLOW_CRYPTO_KEY:NovaFlowAI-DevKey-32bytes!!!!}
+
+  # MinIO 对象存储：知识库文档文件
+  storage:
+    # API 端口 9000；Web 控制台 http://localhost:9001
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+    bucket: ${MINIO_BUCKET:novaflow}
+
+  # Qdrant 向量库：知识库 RAG 向量写入与检索
+  qdrant:
+    host: ${QDRANT_HOST:localhost}
+    # gRPC 端口（REST/Dashboard 为 6333）
+    port: ${QDRANT_PORT:6334}
+    use-tls: false
+    # 本地 Docker 默认无鉴权；生产启用 Qdrant API Key 时配置
+    api-key: ${QDRANT_API_KEY:}
