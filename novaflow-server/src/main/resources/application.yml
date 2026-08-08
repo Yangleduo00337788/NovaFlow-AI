@@ -68,6 +68,10 @@ logging:
 
 # NovaFlow 业务配置
 novaflow:
+  monitor:
+    qdrant-health-url: ${QDRANT_HEALTH_URL:http://localhost:6333/readyz}
+    health-timeout-ms: 3000
+
   security:
     # 模型 API Key 等敏感字段加密密钥（生产环境请通过环境变量覆盖）
     crypto-key: ${NOVAFLOW_CRYPTO_KEY:NovaFlowAI-DevKey-32bytes!!!!}
