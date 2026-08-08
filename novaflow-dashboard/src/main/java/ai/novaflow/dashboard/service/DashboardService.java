@@ -1,73 +1,265 @@
 package ai.novaflow.dashboard.service;
 
+import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.dashboard.domain.DashboardOverviewVO;
+import ai.novaflow.dashboard.domain.NamedCountRow;
+import ai.novaflow.dashboard.domain.RecentUsageLogRow;
+import ai.novaflow.dashboard.domain.TrendPointRow;
+import ai.novaflow.dashboard.mapper.DashboardStatsMapper;
+import ai.novaflow.model.domain.ModelUsageAggregate;
+import ai.novaflow.model.mapper.TokenUsageMapper;
+import ai.novaflow.user.entity.UserRecentAccessEntity;
+import ai.novaflow.user.service.RecentAccessService;
+import cn.dev33.satoken.stp.StpUtil;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
+@RequiredArgsConstructor
 public class DashboardService {
 
+    private final DashboardStatsMapper dashboardStatsMapper;
+    private final TokenUsageMapper tokenUsageMapper;
+    private final RecentAccessService recentAccessService;
+
     public DashboardOverviewVO getOverview() {
+        Long tenantId = requireTenantId();
+        Long userId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+
+        long appCount = safeLong(dashboardStatsMapper.countApplications(tenantId));
+        long agentCount = safeLong(dashboardStatsMapper.countAgents(tenantId));
+        long kbCount = safeLong(dashboardStatsMapper.countKnowledgeBases(tenantId));
+        long totalCalls = safeLong(tokenUsageMapper.countCallsByTenant(tenantId));
+        long totalTokens = safeLong(tokenUsageMapper.sumTokensByTenant(tenantId));
+        BigDecimal totalCost = tokenUsageMapper.sumCostByTenantAndCurrency(tenantId, "CNY");
+
+        long calls7d = safeLong(dashboardStatsMapper.countCallsLast7Days(tenantId));
+        long callsPrev7d = safeLong(dashboardStatsMapper.countCallsPrev7Days(tenantId));
+        long tokens7d = safeLong(dashboardStatsMapper.sumTokensLast7Days(tenantId));
+        long tokensPrev7d = safeLong(dashboardStatsMapper.sumTokensPrev7Days(tenantId));
+
+        List<ModelUsageAggregate> modelAggregates = tokenUsageMapper.topModelsByTenant(tenantId);
+        long modelTokenSum = modelAggregates.stream().mapToLong(item -> safeLong(item.getTokens())).sum();
+
         return DashboardOverviewVO.builder()
                 .stats(List.of(
-                        card("apps", "应用总数", "32", "+12%", true),
-                        card("agents", "Agent 总数", "128", "+18%", true),
-                        card("invocations", "调用次数", "1.2M", "+23%", true),
-                        card("tokens", "Token 消耗", "348.6M", "+15%", true),
-                        card("cost", "成本（元）", "¥12,586.32", "-8%", false)
+                        card("apps", "应用总数", formatCount(appCount), "—", true),
+                        card("agents", "Agent 总数", formatCount(agentCount), "—", true),
+                        card("knowledge", "知识库", formatCount(kbCount), "—", true),
+                        card("invocations", "调用次数", formatCount(totalCalls), changePercent(calls7d, callsPrev7d), calls7d >= callsPrev7d),
+                        card("tokens", "Token 消耗", formatCount(totalTokens), changePercent(tokens7d, tokensPrev7d), tokens7d >= tokensPrev7d),
+                        card("cost", "成本（元）", formatCost(totalCost), "—", true)
                 ))
-                .recentItems(List.of(
-                        recent("智能客服 Agent", "Agent", "2 小时前", "/agent"),
-                        recent("合同审核工作流", "工作流", "5 小时前", "/workflow"),
-                        recent("产品知识库", "知识库", "1 天前", "/knowledge"),
-                        recent("数据分析 Agent", "Agent", "2 天前", "/agent"),
-                        recent("文档助手工作流", "工作流", "3 天前", "/workflow")
-                ))
-                .recentLogs(List.of(
-                        log("智能客服 Agent", true, "2 分钟前", "2.3s", 1256),
-                        log("合同审查工作流", true, "5 分钟前", "4.8s", 3432),
-                        log("财务报表解析", false, "15 分钟前", "-", 0),
-                        log("企业知识问答", true, "30 分钟前", "1.6s", 987),
-                        log("市场分析 Agent", true, "1 小时前", "3.2s", 2145)
-                ))
-                .modelUsage(List.of(
-                        model("DeepSeek R1", 42, "146.1M"),
-                        model("Qwen 2.5", 28, "97.6M"),
-                        model("GPT-4o", 18, "62.7M"),
-                        model("Claude 3.5", 12, "42.2M")
-                ))
-                .topApps(List.of(
-                        top("智能客服 Agent", "128.6K"),
-                        top("合同审查助手", "96.3K"),
-                        top("财务分析 Agent", "72.1K"),
-                        top("企业知识问答", "58.4K"),
-                        top("数据洞察工作流", "41.2K")
-                ))
+                .recentItems(buildRecentItems(tenantId, userId))
+                .recentLogs(buildRecentLogs(tenantId))
+                .modelUsage(buildModelUsage(modelAggregates, modelTokenSum))
+                .topApps(buildTopApps(tenantId))
                 .systemHealth(List.of(
                         health("API 服务", true),
                         health("向量数据库", true),
-                        health("消息队列", true),
-                        health("存储服务", true)
+                        health("对象存储", true),
+                        health("模型服务", true)
                 ))
-                .trend(List.of(
-                        trend("00:00", 3200), trend("04:00", 1800), trend("08:00", 8600),
-                        trend("12:00", 15200), trend("16:00", 22532), trend("20:00", 12400)
-                ))
+                .trend(buildTrend(tenantId))
                 .quickActions(List.of(
-                        action("api-key", "API Key 管理", "/settings/api-key"),
-                        action("prompt", "Prompt 模板", "/prompt"),
-                        action("dataset", "数据集管理", "/knowledge"),
-                        action("mcp", "MCP 服务", "/tool/mcp"),
-                        action("settings", "系统设置", "/settings"),
-                        action("users", "用户管理", "/org/members")
+                        action("agent", "Agent 管理", "/agent"),
+                        action("knowledge", "知识库", "/knowledge"),
+                        action("model", "模型配置", "/model"),
+                        action("settings", "系统设置", "/settings")
                 ))
                 .planInfo(DashboardOverviewVO.PlanInfoVO.builder()
-                        .planType("企业版")
-                        .expireAt("2028-12-31")
-                        .usedPercent(68)
+                        .planType("标准版")
+                        .expireAt("—")
+                        .usedPercent(estimateUsagePercent(totalTokens))
                         .build())
                 .build();
+    }
+
+    private List<DashboardOverviewVO.RecentItemVO> buildRecentItems(Long tenantId, Long userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        List<UserRecentAccessEntity> records = recentAccessService.listRecent(tenantId, userId, 5);
+        if (records.isEmpty()) {
+            return List.of();
+        }
+        List<DashboardOverviewVO.RecentItemVO> items = new ArrayList<>();
+        for (UserRecentAccessEntity record : records) {
+            items.add(recent(
+                    record.getResourceName(),
+                    resourceTypeLabel(record.getResourceType()),
+                    formatRelativeTime(record.getAccessedAt()),
+                    resourcePath(record.getResourceType(), record.getResourceId())
+            ));
+        }
+        return items;
+    }
+
+    private List<DashboardOverviewVO.RecentLogVO> buildRecentLogs(Long tenantId) {
+        List<RecentUsageLogRow> rows = dashboardStatsMapper.recentUsageLogs(tenantId, 5);
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(row -> log(
+                        row.getAgentName(),
+                        true,
+                        formatRelativeTime(row.getCreatedAt()),
+                        formatDuration(row.getLatencyMs()),
+                        row.getTotalTokens() != null ? row.getTotalTokens() : 0
+                ))
+                .toList();
+    }
+
+    private List<DashboardOverviewVO.ModelUsageVO> buildModelUsage(List<ModelUsageAggregate> aggregates, long tokenSum) {
+        if (aggregates.isEmpty()) {
+            return List.of();
+        }
+        return aggregates.stream()
+                .map(item -> model(
+                        displayModelName(item),
+                        percent(safeLong(item.getTokens()), tokenSum),
+                        formatCount(safeLong(item.getTokens()))
+                ))
+                .toList();
+    }
+
+    private List<DashboardOverviewVO.TopAppVO> buildTopApps(Long tenantId) {
+        List<NamedCountRow> rows = dashboardStatsMapper.topAgents(tenantId);
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(row -> top(row.getName(), formatCount(safeLong(row.getValue()))))
+                .toList();
+    }
+
+    private List<DashboardOverviewVO.TrendPointVO> buildTrend(Long tenantId) {
+        List<TrendPointRow> rows = dashboardStatsMapper.hourlyTrend(tenantId);
+        if (rows.isEmpty()) {
+            return List.of(
+                    trend("00:00", 0), trend("04:00", 0), trend("08:00", 0),
+                    trend("12:00", 0), trend("16:00", 0), trend("20:00", 0)
+            );
+        }
+        return rows.stream()
+                .map(row -> trend(row.getTimeLabel(), safeLong(row.getValue())))
+                .toList();
+    }
+
+    private String resourceTypeLabel(String resourceType) {
+        if ("knowledge".equals(resourceType)) {
+            return "知识库";
+        }
+        if ("agent".equals(resourceType)) {
+            return "Agent";
+        }
+        return resourceType;
+    }
+
+    private String resourcePath(String resourceType, Long resourceId) {
+        if ("knowledge".equals(resourceType)) {
+            return "/knowledge/" + resourceId;
+        }
+        if ("agent".equals(resourceType)) {
+            return "/agent";
+        }
+        return "/";
+    }
+
+    private String displayModelName(ModelUsageAggregate item) {
+        if (item.getDisplayName() != null && !item.getDisplayName().isBlank()) {
+            return item.getDisplayName();
+        }
+        return item.getModelName() != null ? item.getModelName() : "未知模型";
+    }
+
+    private int percent(long part, long total) {
+        if (total <= 0) {
+            return 0;
+        }
+        return (int) Math.round(part * 100.0 / total);
+    }
+
+    private int estimateUsagePercent(long totalTokens) {
+        if (totalTokens <= 0) {
+            return 0;
+        }
+        return (int) Math.min(100, totalTokens / 100_000);
+    }
+
+    private String changePercent(long current, long previous) {
+        if (previous <= 0) {
+            return current > 0 ? "+100%" : "—";
+        }
+        long delta = Math.round((current - previous) * 100.0 / previous);
+        return (delta >= 0 ? "+" : "") + delta + "%";
+    }
+
+    private String formatCount(long value) {
+        if (value >= 1_000_000) {
+            return String.format(Locale.ROOT, "%.1fM", value / 1_000_000.0);
+        }
+        if (value >= 1_000) {
+            return String.format(Locale.ROOT, "%.1fK", value / 1_000.0);
+        }
+        return String.valueOf(value);
+    }
+
+    private String formatCost(BigDecimal cost) {
+        BigDecimal safe = cost != null ? cost : BigDecimal.ZERO;
+        return "¥" + safe.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private String formatDuration(Integer latencyMs) {
+        if (latencyMs == null || latencyMs <= 0) {
+            return "-";
+        }
+        if (latencyMs < 1000) {
+            return latencyMs + "ms";
+        }
+        return String.format(Locale.ROOT, "%.1fs", latencyMs / 1000.0);
+    }
+
+    private String formatRelativeTime(LocalDateTime time) {
+        if (time == null) {
+            return "—";
+        }
+        long minutes = ChronoUnit.MINUTES.between(time, LocalDateTime.now());
+        if (minutes < 1) {
+            return "刚刚";
+        }
+        if (minutes < 60) {
+            return minutes + " 分钟前";
+        }
+        long hours = Duration.ofMinutes(minutes).toHours();
+        if (hours < 24) {
+            return hours + " 小时前";
+        }
+        long days = hours / 24;
+        return days + " 天前";
+    }
+
+    private long safeLong(Long value) {
+        return value != null ? value : 0L;
+    }
+
+    private Long requireTenantId() {
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            throw new BusinessException("租户上下文缺失");
+        }
+        return tenantId;
     }
 
     private DashboardOverviewVO.StatCardVO card(String key, String label, String value, String change, boolean up) {

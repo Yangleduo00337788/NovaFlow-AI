@@ -31,5 +31,13 @@ public class KnowledgeBaseSaveRequest {
     @Max(value = 512, message = "分块重叠不能大于512")
     private Integer chunkOverlap = 50;
 
+    @Min(value = 1, message = "Top-K 不能小于1")
+    @Max(value = 20, message = "Top-K 不能大于20")
+    private Integer retrievalTopK = 5;
+
+    @Min(value = 0, message = "相似度阈值不能小于0")
+    @Max(value = 1, message = "相似度阈值不能大于1")
+    private Float retrievalScoreThreshold;
+
     private String visibility = "private";
 }

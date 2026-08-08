@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication(scanBasePackages = "ai.novaflow")
-@MapperScan({"ai.novaflow.user.mapper", "ai.novaflow.agent.mapper", "ai.novaflow.model.mapper", "ai.novaflow.knowledge.mapper"})
+@MapperScan({"ai.novaflow.user.mapper", "ai.novaflow.agent.mapper", "ai.novaflow.model.mapper", "ai.novaflow.knowledge.mapper", "ai.novaflow.dashboard.mapper"})
 @EnableAsync
 public class NovaFlowApplication {
 

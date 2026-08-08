@@ -17,6 +17,8 @@ public class KnowledgeBaseVO {
     private String chunkStrategy;
     private Integer chunkSize;
     private Integer chunkOverlap;
+    private Integer retrievalTopK;
+    private Float retrievalScoreThreshold;
     private Integer documentCount;
     private Integer chunkCount;
     private Long totalSizeBytes;

@@ -10,6 +10,7 @@ import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.DocumentMapper;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
 import ai.novaflow.knowledge.storage.DocumentStorageService;
+import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -28,6 +29,7 @@ public class KnowledgeBaseService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final DocumentMapper documentMapper;
     private final DocumentStorageService documentStorageService;
+    private final RecentAccessService recentAccessService;
 
     public PageResult<KnowledgeBaseVO> page(int page, int pageSize, String keyword) {
         Long tenantId = requireTenantId();
@@ -45,7 +47,9 @@ public class KnowledgeBaseService {
     }
 
     public KnowledgeBaseVO detail(Long id) {
-        return toVO(getKnowledgeBaseOrThrow(id));
+        KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
+        recordRecentAccess(entity);
+        return toVO(entity);
     }
 
     @Transactional
@@ -139,7 +143,30 @@ public class KnowledgeBaseService {
         entity.setChunkStrategy(StringUtils.hasText(request.getChunkStrategy()) ? request.getChunkStrategy() : "fixed");
         entity.setChunkSize(request.getChunkSize() != null ? request.getChunkSize() : 512);
         entity.setChunkOverlap(request.getChunkOverlap() != null ? request.getChunkOverlap() : 50);
+        entity.setRetrievalTopK(request.getRetrievalTopK() != null ? request.getRetrievalTopK() : 5);
+        entity.setRetrievalScoreThreshold(toBigDecimal(request.getRetrievalScoreThreshold()));
         entity.setVisibility(StringUtils.hasText(request.getVisibility()) ? request.getVisibility() : "private");
+    }
+
+    private java.math.BigDecimal toBigDecimal(Float value) {
+        return value != null ? java.math.BigDecimal.valueOf(value) : null;
+    }
+
+    private Float toFloat(java.math.BigDecimal value) {
+        return value != null ? value.floatValue() : null;
+    }
+
+    private void recordRecentAccess(KnowledgeBaseEntity entity) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        recentAccessService.record(
+                entity.getTenantId(),
+                StpUtil.getLoginIdAsLong(),
+                "knowledge",
+                entity.getId(),
+                entity.getKbName()
+        );
     }
 
     private Long requireTenantId() {
@@ -160,6 +187,8 @@ public class KnowledgeBaseService {
                 .chunkStrategy(entity.getChunkStrategy())
                 .chunkSize(entity.getChunkSize())
                 .chunkOverlap(entity.getChunkOverlap())
+                .retrievalTopK(entity.getRetrievalTopK())
+                .retrievalScoreThreshold(toFloat(entity.getRetrievalScoreThreshold()))
                 .documentCount(entity.getDocumentCount())
                 .chunkCount(entity.getChunkCount())
                 .totalSizeBytes(entity.getTotalSizeBytes())

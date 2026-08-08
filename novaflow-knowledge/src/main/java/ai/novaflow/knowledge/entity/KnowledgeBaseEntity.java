@@ -21,6 +21,8 @@ public class KnowledgeBaseEntity {
     private String chunkStrategy;
     private Integer chunkSize;
     private Integer chunkOverlap;
+    private Integer retrievalTopK;
+    private java.math.BigDecimal retrievalScoreThreshold;
     private Integer documentCount;
     private Integer chunkCount;
     private Long totalSizeBytes;
