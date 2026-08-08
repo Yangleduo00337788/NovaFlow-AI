@@ -100,6 +100,18 @@
             </a-form-item>
             <a-form-item>
               <template #label>
+                <FormLabelTip label="所属应用" :tip="AGENT_FIELD_TIPS.applicationId" />
+              </template>
+              <a-select
+                v-model:value="form.applicationId"
+                allow-clear
+                placeholder="选择所属应用"
+                :loading="applicationsLoading"
+                :options="applicationOptions"
+              />
+            </a-form-item>
+            <a-form-item>
+              <template #label>
                 <FormLabelTip label="模型" :tip="AGENT_FIELD_TIPS.modelConfigId" />
               </template>
               <a-select
@@ -448,6 +460,7 @@ import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { fetchToolOptions, type ToolDefinition } from '@/api/tool'
 import { fetchPromptOptions, type PromptTemplate } from '@/api/prompt'
+import { fetchApplicationOptions, type ApplicationItem } from '@/api/application'
 import { formatDateTime } from '@/utils/datetime'
 
 const AGENT_FIELD_TIPS = {
@@ -455,6 +468,7 @@ const AGENT_FIELD_TIPS = {
   agentType:
     '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 HTTP 工具；Workflow 用于工作流编排（后续扩展）。',
   description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
+  applicationId: 'Agent 所属应用。应用用于聚合多个 Agent 与知识库，并作为统一发布入口。',
   modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
   knowledgeBaseIds: 'RAG Agent 进行向量检索的知识库，支持多选。每次提问会从中召回与问题最相关的文档分块作为参考。',
   toolIds: '从工具市场选择已注册的 HTTP 工具，支持多选。Tool Agent 将根据用户问题自动决定调用哪些工具。',
@@ -485,8 +499,10 @@ const rerankModels = ref<ModelConfigItem[]>([])
 const knowledgeBases = ref<KnowledgeBaseItem[]>([])
 const marketplaceTools = ref<ToolDefinition[]>([])
 const promptTemplates = ref<PromptTemplate[]>([])
+const applications = ref<ApplicationItem[]>([])
 const toolsLoading = ref(false)
 const promptsLoading = ref(false)
+const applicationsLoading = ref(false)
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
 const agentType = ref<string>()
@@ -594,6 +610,13 @@ const promptOptions = computed(() =>
   })),
 )
 
+const applicationOptions = computed(() =>
+  applications.value.map((item) => ({
+    value: item.id,
+    label: item.appName,
+  })),
+)
+
 const isPromptReferenceMode = computed(() => form.promptRefMode === 'reference')
 
 function statusLabel(status: number) {
@@ -694,6 +717,16 @@ async function loadPromptTemplates() {
   }
 }
 
+async function loadApplications() {
+  applicationsLoading.value = true
+  try {
+    const res = await fetchApplicationOptions()
+    applications.value = res.data.data
+  } finally {
+    applicationsLoading.value = false
+  }
+}
+
 function onPromptTemplateChange(value?: number) {
   if (!value) {
     form.promptRefMode = undefined
@@ -770,6 +803,7 @@ function openCreate() {
   loadKnowledgeBases()
   loadMarketplaceTools()
   loadPromptTemplates()
+  loadApplications()
   drawerOpen.value = true
 }
 
@@ -779,6 +813,7 @@ async function openEdit(id: number) {
   loadKnowledgeBases()
   loadMarketplaceTools()
   loadPromptTemplates()
+  loadApplications()
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
