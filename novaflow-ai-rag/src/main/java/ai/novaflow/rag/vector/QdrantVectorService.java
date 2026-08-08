@@ -1,14 +1,19 @@
 package ai.novaflow.rag.vector;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.rag.domain.RetrievedChunk;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.grpc.Collections.Distance;
 import io.qdrant.client.grpc.Collections.VectorParams;
+import io.qdrant.client.grpc.JsonWithInt;
 import io.qdrant.client.grpc.Points.Filter;
 import io.qdrant.client.grpc.Points.PointStruct;
+import io.qdrant.client.grpc.Points.ScoredPoint;
+import io.qdrant.client.grpc.Points.SearchPoints;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,10 +21,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+import static io.qdrant.client.ConditionFactory.match;
 import static io.qdrant.client.ConditionFactory.matchKeyword;
 import static io.qdrant.client.PointIdFactory.id;
 import static io.qdrant.client.ValueFactory.value;
 import static io.qdrant.client.VectorsFactory.vectors;
+import static io.qdrant.client.WithPayloadSelectorFactory.enable;
 
 @Slf4j
 @Service
@@ -101,6 +108,59 @@ public class QdrantVectorService {
         }
     }
 
+    public List<RetrievedChunk> search(
+            String collectionName,
+            Long tenantId,
+            Long knowledgeBaseId,
+            String knowledgeBaseName,
+            List<Float> queryVector,
+            int topK,
+            Float scoreThreshold) {
+        try {
+            Boolean exists = qdrantClient.collectionExistsAsync(collectionName).get();
+            if (!Boolean.TRUE.equals(exists)) {
+                return List.of();
+            }
+
+            Filter filter = Filter.newBuilder()
+                    .addMust(match("tenant_id", tenantId))
+                    .addMust(match("knowledge_base_id", knowledgeBaseId))
+                    .build();
+
+            List<ScoredPoint> points = qdrantClient.searchAsync(SearchPoints.newBuilder()
+                    .setCollectionName(collectionName)
+                    .addAllVector(queryVector)
+                    .setFilter(filter)
+                    .setLimit(topK)
+                    .setWithPayload(enable(true))
+                    .build()).get();
+
+            List<RetrievedChunk> chunks = new ArrayList<>(points.size());
+            for (ScoredPoint point : points) {
+                float score = point.getScore();
+                if (scoreThreshold != null && score < scoreThreshold) {
+                    continue;
+                }
+                Map<String, JsonWithInt.Value> payload = point.getPayloadMap();
+                chunks.add(RetrievedChunk.builder()
+                        .knowledgeBaseId(knowledgeBaseId)
+                        .knowledgeBaseName(knowledgeBaseName)
+                        .documentId(parseLong(payloadValue(payload, "document_id")))
+                        .docName(payloadValue(payload, "doc_name"))
+                        .chunkIndex(parseInteger(payloadValue(payload, "chunk_index")))
+                        .text(payloadValue(payload, "text"))
+                        .score(score)
+                        .build());
+            }
+            return chunks;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException("Qdrant 检索被中断");
+        } catch (ExecutionException e) {
+            throw new BusinessException("Qdrant 检索失败: " + rootMessage(e));
+        }
+    }
+
     public void deleteCollection(String collectionName) {
         try {
             Boolean exists = qdrantClient.collectionExistsAsync(collectionName).get();
@@ -112,6 +172,45 @@ public class QdrantVectorService {
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
             log.warn("Qdrant collection delete skipped {}: {}", collectionName, rootMessage(e));
+        }
+    }
+
+    private String payloadValue(Map<String, JsonWithInt.Value> payload, String key) {
+        JsonWithInt.Value value = payload.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value.hasStringValue()) {
+            return value.getStringValue();
+        }
+        if (value.hasIntegerValue()) {
+            return String.valueOf(value.getIntegerValue());
+        }
+        if (value.hasDoubleValue()) {
+            return String.valueOf(value.getDoubleValue());
+        }
+        return null;
+    }
+
+    private Long parseLong(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer parseInteger(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
