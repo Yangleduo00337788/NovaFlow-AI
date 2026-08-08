@@ -1,12 +1,18 @@
 package ai.novaflow.agent.service;
 
+import ai.novaflow.agent.domain.vo.ConversationMessageVO;
+import ai.novaflow.agent.domain.vo.ConversationVO;
 import ai.novaflow.agent.domain.vo.RetrievalSourceVO;
 import ai.novaflow.agent.entity.ConversationEntity;
 import ai.novaflow.agent.entity.ConversationMessageEntity;
 import ai.novaflow.agent.mapper.ConversationMapper;
 import ai.novaflow.agent.mapper.ConversationMessageMapper;
+import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.common.exception.BusinessException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +32,104 @@ public class ConversationService {
     private final ConversationMapper conversationMapper;
     private final ConversationMessageMapper conversationMessageMapper;
     private final ObjectMapper objectMapper;
+
+    public PageResult<ConversationVO> pageConversations(
+            Long agentId,
+            Long tenantId,
+            String channel,
+            int page,
+            int pageSize) {
+        QueryWrapper query = QueryWrapper.create()
+                .eq("tenant_id", tenantId)
+                .eq("agent_id", agentId);
+        if (StringUtils.hasText(channel)) {
+            query.eq("channel", channel);
+        }
+        query.orderBy("last_message_at", false).orderBy("id", false);
+
+        Page<ConversationEntity> result = conversationMapper.paginate(Page.of(page, pageSize), query);
+        List<ConversationVO> list = result.getRecords().stream().map(this::toConversationVO).toList();
+        return PageResult.of(list, result.getTotalRow(), page, pageSize);
+    }
+
+    public List<ConversationMessageVO> listMessages(Long agentId, Long tenantId, String conversationKey) {
+        ConversationEntity conversation = getConversationOrThrow(agentId, tenantId, conversationKey);
+        List<ConversationMessageEntity> messages = conversationMessageMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .eq("conversation_id", conversation.getId())
+                        .eq("tenant_id", tenantId)
+                        .orderBy("created_at", true)
+        );
+        return messages.stream().map(this::toMessageVO).toList();
+    }
+
+    private ConversationEntity getConversationOrThrow(Long agentId, Long tenantId, String conversationKey) {
+        ConversationEntity conversation = conversationMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+                        .eq("conversation_key", conversationKey)
+                        .limit(1)
+        );
+        if (conversation == null) {
+            throw new BusinessException("会话不存在");
+        }
+        return conversation;
+    }
+
+    private ConversationVO toConversationVO(ConversationEntity entity) {
+        String preview = loadPreview(entity.getId(), entity.getTenantId());
+        return ConversationVO.builder()
+                .id(entity.getId())
+                .conversationKey(entity.getConversationKey())
+                .channel(entity.getChannel())
+                .messageCount(entity.getMessageCount())
+                .preview(preview)
+                .lastMessageAt(entity.getLastMessageAt())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    private String loadPreview(Long conversationId, Long tenantId) {
+        ConversationMessageEntity latest = conversationMessageMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("conversation_id", conversationId)
+                        .eq("tenant_id", tenantId)
+                        .eq("role", "user")
+                        .orderBy("created_at", false)
+                        .limit(1)
+        );
+        if (latest == null || !StringUtils.hasText(latest.getContent())) {
+            return "";
+        }
+        String content = latest.getContent().trim();
+        return content.length() > 80 ? content.substring(0, 80) + "..." : content;
+    }
+
+    private ConversationMessageVO toMessageVO(ConversationMessageEntity entity) {
+        return ConversationMessageVO.builder()
+                .id(entity.getId())
+                .role(entity.getRole())
+                .content(entity.getContent())
+                .tokensUsed(entity.getTokensUsed())
+                .latencyMs(entity.getLatencyMs())
+                .sources(parseSources(entity.getRetrievalSources()))
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    private List<RetrievalSourceVO> parseSources(String json) {
+        if (!StringUtils.hasText(json)) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<RetrievalSourceVO>>() {
+            });
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to parse retrieval sources", e);
+            return List.of();
+        }
+    }
 
     @Transactional
     public void persistExchange(ExchangeRequest request) {
@@ -50,6 +154,19 @@ public class ConversationService {
             conversation.setCreatedAt(now);
             conversation.setUpdatedAt(now);
             conversationMapper.insert(conversation);
+            if (conversation.getId() == null) {
+                conversation = conversationMapper.selectOneByQuery(
+                        QueryWrapper.create()
+                                .eq("agent_id", request.agentId())
+                                .eq("conversation_key", request.conversationKey())
+                                .limit(1)
+                );
+                if (conversation == null) {
+                    log.warn("Conversation insert succeeded but id missing, agentId={}, key={}",
+                            request.agentId(), request.conversationKey());
+                    return;
+                }
+            }
         } else {
             conversation.setChannel(request.channel());
             conversation.setUserId(request.userId());

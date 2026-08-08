@@ -20,17 +20,37 @@
     <div class="page-card trend-card">
       <div class="section-title">
         <span class="section-title-left"><LineChartOutlined class="section-icon" /> 今日调用趋势</span>
-        <a class="view-more">查看更多</a>
+        <router-link to="/log" class="view-more">查看更多</router-link>
       </div>
-      <v-chart class="line-chart" :option="trendChartOption" autoresize />
+      <a-empty
+        v-if="!hasTrendData"
+        class="chart-empty"
+        description="暂无调用数据"
+      >
+        <template #description>
+          <span>暂无调用数据</span>
+          <p class="chart-empty-hint">在 Agent 调试中完成对话后，将在此展示今日调用趋势</p>
+        </template>
+      </a-empty>
+      <v-chart v-else class="line-chart" :option="trendChartOption" autoresize />
     </div>
 
     <div class="page-card top-apps-card">
       <div class="section-title">
         <span class="section-title-left"><BarChartOutlined class="section-icon" /> Top 5 应用（调用次数）</span>
-        <a class="view-more">查看更多</a>
+        <router-link to="/log" class="view-more">查看更多</router-link>
       </div>
-      <div class="top-apps-list">
+      <a-empty
+        v-if="!panelData.topApps.length"
+        class="chart-empty"
+        description="暂无应用调用数据"
+      >
+        <template #description>
+          <span>暂无应用调用数据</span>
+          <p class="chart-empty-hint">Agent 产生真实调用后，将在此展示 Top 5 排行</p>
+        </template>
+      </a-empty>
+      <div v-else class="top-apps-list">
         <div v-for="(item, index) in topAppsWithPercent" :key="item.name" class="top-app-row">
           <div
             class="top-app-icon"
@@ -92,7 +112,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons-vue'
 import { fetchDashboardOverview } from '@/api/dashboard'
-import { dashboardMock } from '@/mocks/dashboard'
+import { message } from 'ant-design-vue'
 import { getMenuIcon } from '@/config/menuIcons'
 import type { DashboardOverview } from '@/types/dashboard'
 import { useThemeStore } from '@/stores/theme'
@@ -113,10 +133,10 @@ const topAppThemes = [
 ]
 
 const panelData = ref<Pick<DashboardOverview, 'systemHealth' | 'trend' | 'topApps' | 'quickActions'>>({
-  systemHealth: dashboardMock.systemHealth,
-  trend: dashboardMock.trend,
-  topApps: dashboardMock.topApps,
-  quickActions: dashboardMock.quickActions,
+  systemHealth: [],
+  trend: [],
+  topApps: [],
+  quickActions: [],
 })
 
 function parseAppValue(val: string) {
@@ -132,6 +152,11 @@ const topAppsWithPercent = computed(() => {
     ...app,
     percent: Math.max((parseAppValue(app.value) / max) * 100, 8),
   }))
+})
+
+const hasTrendData = computed(() => {
+  const points = panelData.value.trend || []
+  return points.some((point) => point.value > 0)
 })
 
 function healthServiceIcon(name: string) {
@@ -156,6 +181,7 @@ const trendChartOption = computed(() => {
     },
     yAxis: {
       type: 'value',
+      min: 0,
       splitLine: { lineStyle: { color: chartTheme.splitLine } },
       axisLabel: { fontSize: 10, color: chartTheme.axisLabel },
     },
@@ -178,17 +204,11 @@ const trendChartOption = computed(() => {
 })
 
 function mergePanelData(remote: DashboardOverview) {
-  const pick = <K extends keyof typeof panelData.value>(key: K) => {
-    const val = remote[key]
-    if (Array.isArray(val) && val.length === 0) return dashboardMock[key]
-    if (val == null) return dashboardMock[key]
-    return val
-  }
   panelData.value = {
-    systemHealth: pick('systemHealth'),
-    trend: pick('trend'),
-    topApps: pick('topApps'),
-    quickActions: pick('quickActions'),
+    systemHealth: remote.systemHealth || [],
+    trend: remote.trend || [],
+    topApps: remote.topApps || [],
+    quickActions: remote.quickActions || [],
   }
 }
 
@@ -198,13 +218,8 @@ onMounted(async () => {
     if (res.data.data) {
       mergePanelData(res.data.data)
     }
-  } catch {
-    panelData.value = {
-      systemHealth: dashboardMock.systemHealth,
-      trend: dashboardMock.trend,
-      topApps: dashboardMock.topApps,
-      quickActions: dashboardMock.quickActions,
-    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载工作台数据失败')
   }
 })
 </script>
@@ -417,6 +432,21 @@ onMounted(async () => {
   margin-bottom: 0;
 }
 
+.chart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.chart-empty-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -493,5 +523,10 @@ onMounted(async () => {
 .action-icon-wrap.users {
   background: rgba(250, 140, 22, 0.14);
   color: #fa8c16;
+}
+
+.action-icon-wrap.log {
+  background: rgba(22, 119, 255, 0.12);
+  color: #1677ff;
 }
 </style>

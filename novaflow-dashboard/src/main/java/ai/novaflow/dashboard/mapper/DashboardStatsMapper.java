@@ -1,5 +1,6 @@
 package ai.novaflow.dashboard.mapper;
 
+import ai.novaflow.dashboard.domain.DailySparklineRow;
 import ai.novaflow.dashboard.domain.NamedCountRow;
 import ai.novaflow.dashboard.domain.RecentUsageLogRow;
 import ai.novaflow.dashboard.domain.TrendPointRow;
@@ -89,7 +90,7 @@ public interface DashboardStatsMapper {
     List<NamedCountRow> topAgents(Long tenantId);
 
     @Select("""
-            SELECT DATE_FORMAT(created_at, '%H:00') AS time_label,
+            SELECT CONCAT(LPAD(HOUR(MIN(created_at)), 2, '0'), ':00') AS time_label,
                    COALESCE(SUM(total_tokens), 0) AS value
             FROM token_usage
             WHERE tenant_id = #{tenantId}
@@ -98,4 +99,26 @@ public interface DashboardStatsMapper {
             ORDER BY HOUR(created_at)
             """)
     List<TrendPointRow> hourlyTrend(Long tenantId);
+
+    @Select("""
+            SELECT DATE_FORMAT(MIN(created_at), '%m-%d') AS day_label,
+                   COUNT(*) AS value
+            FROM token_usage
+            WHERE tenant_id = #{tenantId}
+              AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at)
+            """)
+    List<DailySparklineRow> dailyInvocationSparkline(Long tenantId);
+
+    @Select("""
+            SELECT DATE_FORMAT(MIN(created_at), '%m-%d') AS day_label,
+                   COALESCE(SUM(total_tokens), 0) AS value
+            FROM token_usage
+            WHERE tenant_id = #{tenantId}
+              AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at)
+            """)
+    List<DailySparklineRow> dailyTokenSparkline(Long tenantId);
 }

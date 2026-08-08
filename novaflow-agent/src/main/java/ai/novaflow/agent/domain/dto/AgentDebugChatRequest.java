@@ -9,4 +9,6 @@ public class AgentDebugChatRequest {
     @NotBlank(message = "消息不能为空")
     private String message;
     private String conversationId;
+    private Boolean enableDeepThinking;
+    private Boolean enableWebSearch;
 }

@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -19,6 +20,8 @@ public class DashboardOverviewVO {
     private List<TrendPointVO> trend;
     private List<QuickActionVO> quickActions;
     private PlanInfoVO planInfo;
+    private String totalModelTokens;
+    private Map<String, List<Long>> sparklines;
 
     @Data
     @Builder

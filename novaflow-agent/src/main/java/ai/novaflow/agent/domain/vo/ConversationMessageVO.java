@@ -3,17 +3,18 @@ package ai.novaflow.agent.domain.vo;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 @Builder
-public class AgentDebugChatVO {
+public class ConversationMessageVO {
 
-    private String reply;
-    private String agentName;
+    private Long id;
+    private String role;
+    private String content;
     private Integer tokensUsed;
     private Long latencyMs;
-    private Boolean debugMode;
     private List<RetrievalSourceVO> sources;
-    private ModelCapabilitiesVO modelCapabilities;
+    private LocalDateTime createdAt;
 }

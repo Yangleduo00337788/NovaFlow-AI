@@ -2,8 +2,11 @@ package ai.novaflow.agent.controller;
 
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
+import ai.novaflow.agent.domain.vo.ConversationMessageVO;
+import ai.novaflow.agent.domain.vo.ConversationVO;
 import ai.novaflow.agent.service.AgentOpenService;
 import ai.novaflow.common.domain.ApiResult;
+import ai.novaflow.common.domain.PageResult;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +17,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/open/agents")
@@ -43,6 +49,23 @@ public class AgentOpenController {
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
         return agentOpenService.streamChat(id, resolveApiKey(httpRequest), request);
+    }
+
+    @GetMapping("/{id}/conversations")
+    public ApiResult<PageResult<ConversationVO>> listConversations(
+            @PathVariable Long id,
+            HttpServletRequest request,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return ApiResult.ok(agentOpenService.listConversations(id, resolveApiKey(request), page, pageSize));
+    }
+
+    @GetMapping("/{id}/conversations/messages")
+    public ApiResult<List<ConversationMessageVO>> listConversationMessages(
+            @PathVariable Long id,
+            @RequestParam String conversationKey,
+            HttpServletRequest request) {
+        return ApiResult.ok(agentOpenService.listMessages(id, resolveApiKey(request), conversationKey));
     }
 
     private String resolveApiKey(HttpServletRequest request) {

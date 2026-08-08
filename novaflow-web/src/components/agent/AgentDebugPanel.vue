@@ -9,6 +9,12 @@
         <div class="subtitle">{{ debugMode ? '实时预览 Agent 回复（调试模式）' : '已接入模型引擎，流式返回真实 AI 回复' }}</div>
       </div>
       <a-space v-if="showLayoutToggle" size="small">
+        <a-tooltip title="查看并切换历史调试会话" placement="top">
+          <a-button size="small" @click="openHistory">
+            <HistoryOutlined />
+            历史
+          </a-button>
+        </a-tooltip>
         <a-tooltip title="切换调试面板宽窄布局。宽屏模式下引用来源横向排列，便于查看多个文档。" placement="top">
           <a-button size="small" @click="toggleLayout">
             <ColumnWidthOutlined />
@@ -20,9 +26,50 @@
         </a-tooltip>
       </a-space>
       <a-tooltip v-else title="清空当前调试会话的消息记录与上下文记忆，相当于开始一段新对话。" placement="top">
-        <a-button size="small" @click="resetChat">清空</a-button>
+        <a-space size="small">
+          <a-button size="small" @click="openHistory">
+            <HistoryOutlined />
+            历史
+          </a-button>
+          <a-button size="small" @click="resetChat">清空</a-button>
+        </a-space>
       </a-tooltip>
     </div>
+
+    <a-drawer
+      v-model:open="historyOpen"
+      title="会话历史"
+      :width="400"
+      placement="right"
+      :z-index="1100"
+    >
+      <div class="history-actions">
+        <a-button type="primary" block @click="startNewConversation">新建会话</a-button>
+      </div>
+      <a-spin :spinning="historyLoading">
+        <a-empty v-if="!historyList.length" description="暂无历史会话">
+          <template #description>
+            <span>暂无历史会话</span>
+            <p class="history-empty-hint">在调试面板发送消息后，会话将自动保存到此列表</p>
+          </template>
+        </a-empty>
+        <div v-else class="history-list">
+          <div
+            v-for="item in historyList"
+            :key="item.id"
+            class="history-item"
+            :class="{ active: item.conversationKey === conversationId }"
+            @click="selectConversation(item)"
+          >
+            <div class="history-preview">{{ item.preview || '（无预览）' }}</div>
+            <div class="history-meta">
+              <span>{{ item.messageCount || 0 }} 条消息</span>
+              <span>{{ formatHistoryTime(item.lastMessageAt || item.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+      </a-spin>
+    </a-drawer>
 
     <div ref="messageListRef" class="message-list">
       <div
@@ -35,6 +82,62 @@
         <div v-if="msg.role === 'user'" class="bubble user-bubble">
           {{ msg.content }}
         </div>
+        <template v-else-if="msg.deepThinkingUsed || msg.thinkingContent">
+          <div class="deep-think-block">
+            <button type="button" class="deep-think-block__toggle" @click="toggleThinkingExpanded(msg)">
+              <div
+                class="tech-loader tech-loader--xs"
+                :class="{ 'tech-loader--paused': isThinkingPaused(msg) }"
+                aria-hidden="true"
+              >
+                <span class="tech-loader__ring tech-loader__ring--outer" />
+                <span class="tech-loader__ring tech-loader__ring--inner" />
+                <span class="tech-loader__core">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linejoin="round"
+                    />
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                  </svg>
+                </span>
+              </div>
+              <span class="deep-think-block__title">{{ getThinkingTitle(msg) }}</span>
+              <DownOutlined class="deep-think-block__chevron" :class="{ 'is-collapsed': msg.thinkingExpanded === false }" />
+            </button>
+            <div v-show="msg.thinkingExpanded !== false" class="deep-think-block__panel">
+              <div v-if="msg.thinkingContent" class="deep-think-block__text">
+                {{ msg.thinkingContent }}<span v-if="!isThinkingPaused(msg)" class="cursor">|</span>
+              </div>
+              <div v-else-if="!isThinkingPaused(msg)" class="deep-think-block__text deep-think-block__text--muted">
+                正在分析问题...
+              </div>
+            </div>
+          </div>
+          <div v-if="msg.content" class="assistant-content">
+            {{ msg.content }}<span v-if="msg.streaming" class="cursor">|</span>
+          </div>
+          <div v-if="msg.sources?.length" class="source-list">
+            <div class="source-title">
+              引用来源
+              <FieldHelpIcon text="RAG 检索命中的知识库文档。点击文件名可跳转至知识库详情页并高亮对应文档，用于核对回答依据。" />
+            </div>
+            <div class="source-links" :class="{ 'source-links--horizontal': wide }">
+              <a
+                v-for="(source, index) in uniqueSources(msg.sources)"
+                :key="index"
+                class="source-link"
+                :title="sourceLinkTitle(source)"
+                @click="openSource(source)"
+              >
+                <LinkOutlined />
+                <span>{{ sourceLinkLabel(source) }}</span>
+              </a>
+            </div>
+          </div>
+        </template>
         <template v-else>
           <div v-if="msg.streaming && !msg.content" class="assistant-loading">
             <div class="tech-loader" aria-label="思考中">
@@ -52,8 +155,33 @@
                 </svg>
               </span>
             </div>
+            <span class="thinking-label">正在思考......</span>
           </div>
-          <div v-else class="assistant-content">
+          <div v-else-if="msg.content && (msg.streaming || hasReplyMeta(msg))" class="assistant-reply-head">
+            <div
+              class="tech-loader tech-loader--xs"
+              :class="{ 'tech-loader--paused': !msg.streaming }"
+              aria-hidden="true"
+            >
+              <span class="tech-loader__ring tech-loader__ring--outer" />
+              <span class="tech-loader__ring tech-loader__ring--inner" />
+              <span class="tech-loader__core">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                </svg>
+              </span>
+            </div>
+            <span class="assistant-reply-head__label">
+              {{ msg.streaming ? '正在回答......' : '已完成' }}
+            </span>
+          </div>
+          <div v-if="msg.content" class="assistant-content">
             {{ msg.content }}<span v-if="msg.streaming" class="cursor">|</span>
           </div>
           <div v-if="msg.sources?.length" class="source-list">
@@ -126,6 +254,30 @@
           @keydown.enter.exact.prevent="onSend"
         />
         <div class="input-toolbar">
+          <div class="input-toolbar__left">
+            <button
+              v-if="showDeepThinkingToggle"
+              type="button"
+              class="capability-btn"
+              :class="{ active: deepThinkingEnabled }"
+              :disabled="loading"
+              @click="deepThinkingEnabled = !deepThinkingEnabled"
+            >
+              <BulbOutlined />
+              深度思考
+            </button>
+            <button
+              v-if="showWebSearchToggle"
+              type="button"
+              class="capability-btn"
+              :class="{ active: webSearchEnabled }"
+              :disabled="loading"
+              @click="webSearchEnabled = !webSearchEnabled"
+            >
+              <GlobalOutlined />
+              全网搜索
+            </button>
+          </div>
           <div class="input-toolbar__actions">
             <button
               type="button"
@@ -172,19 +324,29 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { ArrowUpOutlined, ColumnWidthOutlined, LinkOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
+import { ArrowUpOutlined, BulbOutlined, ColumnWidthOutlined, DownOutlined, GlobalOutlined, HistoryOutlined, LinkOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
 import FieldHelpIcon from '@/components/common/FieldHelpIcon.vue'
 import {
   clearAgentDebugConversation,
   fetchAgentDebugWelcome,
+  fetchDebugConversationMessages,
+  fetchDebugConversations,
   streamAgentDebugChat,
+  type ConversationItem,
   type RetrievalSourceItem,
 } from '@/api/agent'
+import { formatDateTime } from '@/utils/datetime'
 
 interface ChatMessage {
   id: number
   role: 'user' | 'assistant'
   content: string
+  thinkingContent?: string
+  deepThinkingUsed?: boolean
+  thinkingExpanded?: boolean
+  thinkingStartedAt?: number
+  thinkingFinishedAt?: number
+  thinkingComplete?: boolean
   meta?: string
   streaming?: boolean
   sources?: RetrievalSourceItem[]
@@ -195,6 +357,13 @@ interface DebugSession {
   messages: ChatMessage[]
   debugMode: boolean
   seq: number
+  deepThinkingEnabled?: boolean
+  webSearchEnabled?: boolean
+}
+
+interface ModelCapabilities {
+  supportsDeepThinking?: boolean
+  supportsWebSearch?: boolean
 }
 
 const props = withDefaults(
@@ -226,6 +395,14 @@ const debugMode = ref(true)
 const conversationId = ref(createConversationId())
 const streamingMessageId = ref<number | null>(null)
 const messageListRef = ref<HTMLElement | null>(null)
+const historyOpen = ref(false)
+const historyLoading = ref(false)
+const historyList = ref<ConversationItem[]>([])
+const modelCapabilities = ref<ModelCapabilities | null>(null)
+const deepThinkingEnabled = ref(false)
+const webSearchEnabled = ref(false)
+const showDeepThinkingToggle = computed(() => Boolean(modelCapabilities.value?.supportsDeepThinking))
+const showWebSearchToggle = computed(() => Boolean(modelCapabilities.value?.supportsWebSearch))
 let seq = 1
 let abortController: AbortController | null = null
 let tokenBuffer = ''
@@ -242,6 +419,59 @@ function storageKey(agentId: number) {
 
 function onInputChange(value: string) {
   input.value = value
+}
+
+function patchMessage(id: number, patch: Partial<ChatMessage>) {
+  const index = messages.value.findIndex((item) => item.id === id)
+  if (index < 0) return
+  messages.value[index] = { ...messages.value[index], ...patch }
+}
+
+function isThinkingPaused(msg: ChatMessage) {
+  return Boolean(msg.thinkingComplete)
+}
+
+function getThinkingTitle(msg: ChatMessage) {
+  if (!msg.thinkingComplete) {
+    return '思考中......'
+  }
+  const start = msg.thinkingStartedAt || Date.now()
+  const end = msg.thinkingFinishedAt || Date.now()
+  const seconds = Math.max(1, Math.round((end - start) / 1000))
+  return `已思考 (用时 ${seconds} 秒)`
+}
+
+function toggleThinkingExpanded(msg: ChatMessage) {
+  patchMessage(msg.id, { thinkingExpanded: msg.thinkingExpanded === false })
+}
+
+function markThinkingComplete(msg: ChatMessage | undefined) {
+  if (!msg || msg.thinkingComplete) {
+    return
+  }
+  if (!msg.deepThinkingUsed && !msg.thinkingContent) {
+    return
+  }
+  patchMessage(msg.id, {
+    thinkingComplete: true,
+    thinkingFinishedAt: Date.now(),
+    deepThinkingUsed: true,
+  })
+}
+
+function finalizeAssistantMessage(assistantMessageId: number) {
+  const target = messages.value.find((item) => item.id === assistantMessageId)
+  if (!target || target.role !== 'assistant') {
+    return
+  }
+  markThinkingComplete(target)
+  if (target.streaming) {
+    patchMessage(assistantMessageId, { streaming: false })
+  }
+}
+
+function hasReplyMeta(msg: ChatMessage) {
+  return Boolean(msg.meta?.includes('tokens'))
 }
 
 function getDocumentBaseName(fileName?: string) {
@@ -272,6 +502,85 @@ function sourceLinkTitle(source: RetrievalSourceItem) {
   return `${kb}${getDocumentBaseName(source.docName)}${score}`
 }
 
+function formatHistoryTime(value?: string) {
+  if (!value) return '—'
+  return formatDateTime(value)
+}
+
+async function openHistory() {
+  historyOpen.value = true
+  await loadHistory()
+}
+
+function mergeCurrentSession(remote: ConversationItem[]): ConversationItem[] {
+  const list = [...remote]
+  const userMessages = messages.value.filter((item) => item.role === 'user' && item.content && !item.streaming)
+  if (!userMessages.length) {
+    return list
+  }
+  const exists = list.some((item) => item.conversationKey === conversationId.value)
+  if (exists) {
+    return list
+  }
+  const lastUser = userMessages[userMessages.length - 1]
+  const preview = lastUser.content.length > 80 ? `${lastUser.content.slice(0, 80)}...` : lastUser.content
+  list.unshift({
+    id: 0,
+    conversationKey: conversationId.value,
+    channel: 'debug',
+    messageCount: messages.value.filter((item) => !item.streaming).length,
+    preview: `${preview}（当前会话）`,
+    lastMessageAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  })
+  return list
+}
+
+async function loadHistory() {
+  if (!props.agentId) return
+  historyLoading.value = true
+  try {
+    const res = await fetchDebugConversations(props.agentId, { page: 1, pageSize: 50 })
+    historyList.value = mergeCurrentSession(res.data.data?.list ?? [])
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载会话历史失败')
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function selectConversation(item: ConversationItem) {
+  if (!props.agentId) return
+  historyLoading.value = true
+  try {
+    const res = await fetchDebugConversationMessages(props.agentId, item.conversationKey)
+    conversationId.value = item.conversationKey
+    messages.value = res.data.data.map((msg, index) => ({
+      id: index + 1,
+      role: msg.role,
+      content: msg.content,
+      sources: msg.sources,
+      meta: msg.role === 'assistant' && msg.tokensUsed
+        ? `${msg.tokensUsed} tokens · ${msg.latencyMs || 0}ms`
+        : undefined,
+    }))
+    seq = messages.value.length + 1
+    debugMode.value = false
+    saveSession()
+    historyOpen.value = false
+    await scrollToBottom()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载会话消息失败')
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function startNewConversation() {
+  historyOpen.value = false
+  await resetChat()
+}
+
 function toggleLayout() {
   emit('toggleLayout', !props.wide)
 }
@@ -294,6 +603,8 @@ function saveSession() {
     messages: messages.value.filter((item) => !item.streaming),
     debugMode: debugMode.value,
     seq,
+    deepThinkingEnabled: deepThinkingEnabled.value,
+    webSearchEnabled: webSearchEnabled.value,
   }
   sessionStorage.setItem(storageKey(props.agentId), JSON.stringify(payload))
 }
@@ -304,8 +615,19 @@ function restoreSession(agentId: number) {
   try {
     const data = JSON.parse(raw) as DebugSession
     conversationId.value = data.conversationId || createConversationId()
-    messages.value = data.messages || []
+    messages.value = (data.messages || []).map((msg) => {
+      if (msg.role === 'assistant' && !msg.streaming && (msg.thinkingContent || msg.deepThinkingUsed)) {
+        return {
+          ...msg,
+          thinkingComplete: msg.thinkingComplete ?? true,
+          deepThinkingUsed: msg.deepThinkingUsed ?? Boolean(msg.thinkingContent),
+        }
+      }
+      return msg
+    })
     debugMode.value = data.debugMode ?? true
+    deepThinkingEnabled.value = data.deepThinkingEnabled ?? false
+    webSearchEnabled.value = data.webSearchEnabled ?? false
     seq = data.seq ?? messages.value.length + 1
     return messages.value.length > 0
   } catch {
@@ -347,7 +669,20 @@ function startTypewriter(assistantMessageId: number) {
   }, TYPEWRITER_INTERVAL_MS)
 }
 
+function appendThinkingToken(token: string, assistantMessageId: number) {
+  const target = messages.value.find((item) => item.id === assistantMessageId)
+  if (!target) return
+  patchMessage(assistantMessageId, {
+    deepThinkingUsed: true,
+    thinkingStartedAt: target.thinkingStartedAt || Date.now(),
+    thinkingContent: (target.thinkingContent || '') + token,
+  })
+  scrollToBottom()
+}
+
 function enqueueToken(token: string, assistantMessageId: number) {
+  const target = messages.value.find((item) => item.id === assistantMessageId)
+  markThinkingComplete(target)
   tokenBuffer += token
   startTypewriter(assistantMessageId)
 }
@@ -384,6 +719,13 @@ async function loadWelcome() {
       meta: data.debugMode ? '调试模式' : undefined,
     })
     debugMode.value = data.debugMode
+    modelCapabilities.value = data.modelCapabilities || null
+    if (!showDeepThinkingToggle.value) {
+      deepThinkingEnabled.value = false
+    }
+    if (!showWebSearchToggle.value) {
+      webSearchEnabled.value = false
+    }
     saveSession()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载欢迎语失败')
@@ -397,12 +739,21 @@ async function initPanel() {
   if (!props.agentId) return
   clearTypewriter()
   input.value = ''
-  if (restoreSession(props.agentId)) {
+  modelCapabilities.value = null
+  deepThinkingEnabled.value = false
+  webSearchEnabled.value = false
+  const restored = restoreSession(props.agentId)
+  if (!restored) {
+    conversationId.value = createConversationId()
+    await loadWelcome()
+  } else {
     await scrollToBottom()
-    return
+    fetchAgentDebugWelcome(props.agentId)
+      .then((res) => {
+        modelCapabilities.value = res.data.data.modelCapabilities || null
+      })
+      .catch(() => {})
   }
-  conversationId.value = createConversationId()
-  await loadWelcome()
 }
 
 async function resetChat() {
@@ -440,6 +791,10 @@ async function onSend() {
     role: 'assistant',
     content: '',
     streaming: true,
+    deepThinkingUsed: deepThinkingEnabled.value,
+    thinkingExpanded: true,
+    thinkingStartedAt: deepThinkingEnabled.value ? Date.now() : undefined,
+    thinkingComplete: false,
   })
 
   abortController?.abort()
@@ -455,23 +810,37 @@ async function onSend() {
         onToken: (token) => {
           enqueueToken(token, assistantMessageId)
         },
+        onThinkingToken: (token) => {
+          appendThinkingToken(token, assistantMessageId)
+        },
         onDone: async (data) => {
           flushTypewriter(assistantMessageId)
           const target = messages.value.find((item) => item.id === assistantMessageId)
           if (target) {
-            target.content = data.reply || target.content
-            target.streaming = false
-            target.meta = `${data.tokensUsed} tokens · ${data.latencyMs}ms`
-            target.sources = data.sources
+            patchMessage(assistantMessageId, {
+              content: data.reply || target.content,
+              thinkingContent: data.thinking || target.thinkingContent,
+              streaming: false,
+              meta: `${data.tokensUsed} tokens · ${data.latencyMs}ms`,
+              sources: data.sources,
+            })
+            markThinkingComplete(messages.value.find((item) => item.id === assistantMessageId))
           }
           debugMode.value = data.debugMode
           saveSession()
+          if (historyOpen.value) {
+            await loadHistory()
+          }
         },
         onError: (error) => {
           message.error(error.message)
         },
       },
       abortController.signal,
+      {
+        enableDeepThinking: deepThinkingEnabled.value,
+        enableWebSearch: webSearchEnabled.value,
+      },
     )
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
@@ -482,11 +851,12 @@ async function onSend() {
     if (target && !target.content) {
       messages.value = messages.value.filter((item) => item.id !== assistantMessageId)
     } else if (target) {
-      target.streaming = false
+      finalizeAssistantMessage(assistantMessageId)
     }
     saveSession()
     message.error(e instanceof Error ? e.message : '发送失败')
   } finally {
+    finalizeAssistantMessage(assistantMessageId)
     loading.value = false
     streamingMessageId.value = null
     scrollToBottom()
@@ -545,6 +915,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.message-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .message {
@@ -588,9 +966,144 @@ onUnmounted(() => {
 .assistant-loading {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  padding: 8px 0;
   min-height: 48px;
-  padding: 6px 0;
+}
+
+.assistant-reply-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 6px;
+}
+
+.assistant-reply-head__label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.thinking-label {
+  font-size: 14px;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+.deep-think-block {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.deep-think-block__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.deep-think-block__toggle:hover .deep-think-block__title {
+  color: #475569;
+}
+
+.deep-think-block__title {
+  flex: 1;
+  font-size: 13px;
+  color: #64748b;
+  transition: color 0.15s ease;
+}
+
+.deep-think-block__chevron {
+  font-size: 10px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.deep-think-block__chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.deep-think-block__panel {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0 8px 28px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.deep-think-block__panel::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.deep-think-block__text {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.deep-think-block__text--muted {
+  color: #cbd5e1;
+}
+
+.input-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0;
+}
+
+.input-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.capability-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.capability-btn:hover:not(:disabled) {
+  border-color: #91caff;
+  color: #1677ff;
+}
+
+.capability-btn.active {
+  border-color: #69b1ff;
+  background: #e6f4ff;
+  color: #1677ff;
+  box-shadow: inset 0 0 0 1px rgba(22, 119, 255, 0.12);
+}
+
+.capability-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .tech-loader {
@@ -601,6 +1114,31 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.tech-loader--xs {
+  width: 20px;
+  height: 20px;
+}
+
+.tech-loader--xs .tech-loader__ring--inner {
+  inset: 4px;
+}
+
+.tech-loader--xs .tech-loader__core {
+  width: 10px;
+  height: 10px;
+}
+
+.tech-loader--paused .tech-loader__ring--outer,
+.tech-loader--paused .tech-loader__ring--inner,
+.tech-loader--paused .tech-loader__core {
+  animation-play-state: paused;
+}
+
+.tech-loader--paused .tech-loader__ring--outer,
+.tech-loader--paused .tech-loader__ring--inner {
+  opacity: 0.9;
 }
 
 .tech-loader__ring {
@@ -759,12 +1297,63 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
+.history-actions {
+  margin-bottom: 12px;
+}
+
+.history-empty-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-item {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-item:hover,
+.history-item.active {
+  border-color: #91caff;
+  background: #f0f7ff;
+}
+
+.history-preview {
+  font-size: 13px;
+  color: #1f2937;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.history-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
 .input-box {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 24px;
   padding: 12px 14px 10px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: visible;
 }
 
 .input-box--focused {
@@ -794,19 +1383,6 @@ onUnmounted(() => {
 .input-box :deep(.ant-input:disabled) {
   color: #94a3b8;
   cursor: not-allowed;
-}
-
-.input-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
-.input-toolbar__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .input-icon-btn {

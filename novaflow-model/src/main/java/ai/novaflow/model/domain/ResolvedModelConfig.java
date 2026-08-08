@@ -18,4 +18,6 @@ public class ResolvedModelConfig {
     private String apiKey;
     private BigDecimal temperature;
     private Integer maxTokens;
+    private Boolean enableDeepThinking;
+    private Boolean enableWebSearch;
 }

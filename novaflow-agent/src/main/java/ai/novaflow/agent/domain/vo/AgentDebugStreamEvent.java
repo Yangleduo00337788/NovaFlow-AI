@@ -12,6 +12,7 @@ public class AgentDebugStreamEvent {
     private String type;
     private String content;
     private String reply;
+    private String thinking;
     private String agentName;
     private Integer tokensUsed;
     private Long latencyMs;

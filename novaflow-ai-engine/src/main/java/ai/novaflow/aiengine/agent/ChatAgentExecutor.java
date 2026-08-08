@@ -1,6 +1,9 @@
 package ai.novaflow.aiengine.agent;
 
 import ai.novaflow.aiengine.llm.LlmAdapterFactory;
+import ai.novaflow.aiengine.llm.OpenAiCompatibleStreamClient;
+import ai.novaflow.model.domain.ModelExtraParametersBuilder;
+import ai.novaflow.model.domain.ResolvedModelConfig;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -18,6 +21,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class ChatAgentExecutor {
 
     private final LlmAdapterFactory llmAdapterFactory;
     private final ChatMemoryStore chatMemoryStore;
+    private final OpenAiCompatibleStreamClient openAiCompatibleStreamClient;
 
     public ChatExecuteResult execute(ChatExecuteRequest request) {
         ChatLanguageModel chatModel = llmAdapterFactory.createChatModel(request.getModelConfig());
@@ -43,6 +48,11 @@ public class ChatAgentExecutor {
     }
 
     public void executeStream(ChatExecuteRequest request, ChatStreamListener listener) {
+        if (hasExtraParameters(request.getModelConfig())) {
+            executeStreamWithExtraParameters(request, listener);
+            return;
+        }
+
         StreamingChatLanguageModel chatModel = llmAdapterFactory.createStreamingChatModel(request.getModelConfig());
         MessageWindowChatMemory memory = buildMemory(request);
         List<ChatMessage> messages = buildMessages(request, memory);
@@ -70,6 +80,71 @@ public class ChatAgentExecutor {
                 listener.onError(error);
             }
         });
+    }
+
+    private void executeStreamWithExtraParameters(ChatExecuteRequest request, ChatStreamListener listener) {
+        MessageWindowChatMemory memory = buildMemory(request);
+        List<Map<String, String>> messages = buildOpenAiMessages(request, memory);
+        long start = System.currentTimeMillis();
+        StringBuilder replyBuilder = new StringBuilder();
+        StringBuilder thinkingBuilder = new StringBuilder();
+        final OpenAiCompatibleStreamClient.TokenUsageSummary usageSummary =
+                new OpenAiCompatibleStreamClient.TokenUsageSummary();
+
+        try {
+            openAiCompatibleStreamClient.streamChat(
+                    request.getModelConfig(),
+                    messages,
+                    token -> {
+                        thinkingBuilder.append(token);
+                        listener.onThinkingToken(token);
+                    },
+                    token -> {
+                        replyBuilder.append(token);
+                        listener.onToken(token);
+                    },
+                    usage -> usageSummary.updateFrom(usage));
+
+            String reply = replyBuilder.toString();
+            String thinking = thinkingBuilder.toString();
+            memory.add(UserMessage.from(request.getUserMessage()));
+            memory.add(AiMessage.from(reply));
+
+            ChatExecuteResult result = ChatExecuteResult.builder()
+                    .reply(reply)
+                    .thinking(thinking)
+                    .tokensUsed(usageSummary.totalTokens())
+                    .inputTokens(usageSummary.inputTokens())
+                    .outputTokens(usageSummary.outputTokens())
+                    .latencyMs(System.currentTimeMillis() - start)
+                    .modelName(request.getModelConfig().getModelName())
+                    .build();
+            listener.onComplete(result);
+        } catch (Exception error) {
+            listener.onError(error);
+        }
+    }
+
+    private boolean hasExtraParameters(ResolvedModelConfig config) {
+        return !ModelExtraParametersBuilder.build(config).isEmpty();
+    }
+
+    private List<Map<String, String>> buildOpenAiMessages(ChatExecuteRequest request, MessageWindowChatMemory memory) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        if (StringUtils.hasText(request.getSystemPrompt())) {
+            messages.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+        }
+        for (ChatMessage message : memory.messages()) {
+            if (message instanceof SystemMessage systemMessage) {
+                messages.add(Map.of("role", "system", "content", systemMessage.text()));
+            } else if (message instanceof UserMessage userMessage) {
+                messages.add(Map.of("role", "user", "content", userMessage.singleText()));
+            } else if (message instanceof AiMessage aiMessage) {
+                messages.add(Map.of("role", "assistant", "content", aiMessage.text()));
+            }
+        }
+        messages.add(Map.of("role", "user", "content", request.getUserMessage()));
+        return messages;
     }
 
     public void clearConversation(String conversationId) {

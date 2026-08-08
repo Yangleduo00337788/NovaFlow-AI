@@ -8,6 +8,7 @@ import lombok.Data;
 public class ChatExecuteResult {
 
     private String reply;
+    private String thinking;
     private Integer tokensUsed;
     private Integer inputTokens;
     private Integer outputTokens;

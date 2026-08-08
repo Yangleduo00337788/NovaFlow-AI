@@ -189,6 +189,8 @@
       v-model:open="debugOnlyOpen"
       title="Agent 调试"
       :width="debugDrawerWidth"
+      class="debug-only-drawer"
+      :body-style="debugDrawerBodyStyle"
       @close="onDebugDrawerClose"
     >
       <AgentDebugPanel
@@ -260,6 +262,14 @@
             <span>流式</span>
             <code>{{ apiBaseUrl }}{{ publishInfo.streamEndpoint }}</code>
             <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.streamEndpoint}`)">复制</a-button>
+          </div>
+          <div class="endpoint-item">
+            <span>会话列表</span>
+            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations</code>
+          </div>
+          <div class="endpoint-item">
+            <span>会话消息</span>
+            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations/messages?conversationKey=</code>
           </div>
 
           <div class="section-label">调用示例</div>
@@ -366,6 +376,13 @@ const revealedApiKey = ref('')
 const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin
 
 const debugDrawerWidth = computed(() => (debugWideLayout.value ? 1080 : 480))
+const debugDrawerBodyStyle = {
+  padding: '0',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+}
 
 const curlExample = computed(() => {
   if (!publishInfo.value) return ''
@@ -529,6 +546,7 @@ function openDebug(id: number) {
   debugWideLayout.value = false
   debugAgentId.value = id
   debugOnlyOpen.value = true
+  fetchAgent(id).catch(() => {})
 }
 
 function onDebugDrawerClose() {
@@ -682,6 +700,18 @@ onMounted(loadData)
 
 .debug-side {
   min-height: 100%;
+  height: 100%;
+}
+
+.debug-only-drawer :deep(.ant-drawer-content-wrapper),
+.debug-only-drawer :deep(.ant-drawer-content) {
+  display: flex;
+  flex-direction: column;
+}
+
+.debug-only-drawer :deep(.ant-drawer-body) {
+  flex: 1;
+  min-height: 0;
 }
 
 .publish-modal {

@@ -8,6 +8,8 @@ export interface DashboardOverview {
   trend: TrendPoint[]
   quickActions: QuickAction[]
   planInfo: PlanInfo
+  totalModelTokens?: string
+  sparklines?: Record<string, number[]>
 }
 
 export interface StatCard {

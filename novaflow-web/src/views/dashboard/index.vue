@@ -74,7 +74,7 @@
           {{ item.change }} 较上周
         </div>
         <v-chart
-          v-if="statSparklines[item.key]"
+          v-if="(data.sparklines?.[item.key] || []).length"
           class="stat-spark"
           :option="sparkOption(item.key)"
           autoresize
@@ -120,6 +120,12 @@
               >我的收藏</button>
             </div>
             <div class="recent-list">
+              <a-empty v-if="!displayRecentItems.length" description="暂无最近访问">
+                <template #description>
+                  <span>暂无最近访问</span>
+                  <p class="dashboard-empty-hint">打开 Agent 编辑/调试或知识库详情后，将在此展示最近访问</p>
+                </template>
+              </a-empty>
               <router-link
                 v-for="item in displayRecentItems"
                 :key="item.name"
@@ -199,11 +205,18 @@
               <span>模型使用情况</span>
             </div>
             <div class="chart-legend-wrap">
+              <a-empty v-if="!data.modelUsage?.length" description="暂无模型用量数据">
+                <template #description>
+                  <span>暂无模型用量数据</span>
+                  <p class="dashboard-empty-hint">完成 Agent 真实对话调用后，将统计各模型 Token 消耗</p>
+                </template>
+              </a-empty>
+              <template v-else>
               <div class="donut-wrap">
                 <v-chart class="donut-chart" :option="modelChartOption" autoresize />
                 <div class="donut-center">
                   <div class="donut-label-top">总消耗</div>
-                  <div class="donut-total">348.6M</div>
+                  <div class="donut-total">{{ data.totalModelTokens || '0' }}</div>
                   <div class="donut-label-bottom">Tokens</div>
                 </div>
               </div>
@@ -217,16 +230,23 @@
                   <span class="legend-tokens">{{ item.tokens }}</span>
                 </div>
               </div>
+              </template>
             </div>
           </div>
 
           <div class="page-card log-card">
             <div class="section-title log-section-title">
               <span>最近运行日志</span>
-              <a class="view-more">查看更多 <RightOutlined /></a>
+              <router-link to="/log" class="view-more">查看更多 <RightOutlined /></router-link>
             </div>
             <div class="log-list">
-              <div v-for="record in displayLogs" :key="record.name" class="log-row">
+              <a-empty v-if="!displayLogs.length" description="暂无调用记录">
+                <template #description>
+                  <span>暂无调用记录</span>
+                  <p class="dashboard-empty-hint">可在 <router-link to="/log">调用日志</router-link> 查看完整记录</p>
+                </template>
+              </a-empty>
+              <div v-for="record in displayLogs" :key="record.name + record.time" class="log-row">
                 <span class="log-name" :title="record.name">{{ record.name }}</span>
                 <span class="log-status" :class="record.success ? 'success' : 'failed'">
                   <CheckCircleOutlined v-if="record.success" class="log-status-icon" />
@@ -269,7 +289,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons-vue'
 import { fetchDashboardOverview } from '@/api/dashboard'
-import { dashboardMock, statSparklines } from '@/mocks/dashboard'
+import { message } from 'ant-design-vue'
 import { getMenuIcon } from '@/config/menuIcons'
 import DashboardRightPanel from '@/components/dashboard/DashboardRightPanel.vue'
 import type { DashboardOverview, RecentLog } from '@/types/dashboard'
@@ -284,7 +304,19 @@ const auth = useAuthStore()
 const themeStore = useThemeStore()
 const { mode } = storeToRefs(themeStore)
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
-const data = ref<DashboardOverview>(dashboardMock)
+const data = ref<DashboardOverview>({
+  stats: [],
+  recentItems: [],
+  recentLogs: [],
+  modelUsage: [],
+  topApps: [],
+  systemHealth: [],
+  trend: [],
+  quickActions: [],
+  planInfo: { planType: '—', expireAt: '—', usedPercent: 0 },
+  totalModelTokens: '0',
+  sparklines: {},
+})
 const recentTab = ref<'recent' | 'favorite'>('recent')
 const dagScale = ref(0.86)
 const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -340,7 +372,7 @@ const modelChartOption = computed(() => {
 })
 
 function sparkOption(key: string) {
-  const points = statSparklines[key] || []
+  const points = data.value.sparklines?.[key] || []
   return {
     grid: { left: 0, right: 0, top: 6, bottom: 0 },
     xAxis: { type: 'category', show: false, data: points.map((_, i) => i) },
@@ -386,33 +418,12 @@ onMounted(async () => {
   try {
     const res = await fetchDashboardOverview()
     if (res.data.data) {
-      data.value = mergeOverview(res.data.data)
+      data.value = res.data.data
     }
-  } catch {
-    data.value = dashboardMock
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载工作台数据失败')
   }
 })
-
-/** 后端缺字段或空数组时回退 mock，避免底排图表空白 */
-function mergeOverview(remote: DashboardOverview): DashboardOverview {
-  const pick = <K extends keyof DashboardOverview>(key: K): DashboardOverview[K] => {
-    const val = remote[key]
-    if (Array.isArray(val) && val.length === 0) return dashboardMock[key]
-    if (val == null) return dashboardMock[key]
-    return val
-  }
-  return {
-    stats: dashboardMock.stats,
-    recentItems: pick('recentItems'),
-    recentLogs: pick('recentLogs'),
-    modelUsage: pick('modelUsage'),
-    topApps: pick('topApps'),
-    systemHealth: pick('systemHealth'),
-    trend: pick('trend'),
-    quickActions: pick('quickActions'),
-    planInfo: pick('planInfo'),
-  }
-}
 </script>
 
 <style scoped>
@@ -528,7 +539,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 /* 指标卡片 */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -577,6 +588,7 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
 .stat-icon.invocations { background: var(--stat-invocations-bg); color: #13c2c2; }
 .stat-icon.tokens { background: var(--stat-tokens-bg); color: #fa8c16; }
 .stat-icon.cost { background: var(--stat-cost-bg); color: #f5222d; }
+.stat-icon.knowledge { background: rgba(19, 194, 194, 0.12); color: #13c2c2; }
 
 .trend-icon {
   font-size: 11px;
@@ -957,6 +969,14 @@ function mergeOverview(remote: DashboardOverview): DashboardOverview {
   min-height: 0;
   justify-content: flex-start;
   overflow: hidden;
+}
+
+.dashboard-empty-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .recent-item {

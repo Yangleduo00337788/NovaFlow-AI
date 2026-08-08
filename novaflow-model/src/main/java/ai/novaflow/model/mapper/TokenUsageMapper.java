@@ -1,6 +1,7 @@
 package ai.novaflow.model.mapper;
 
 import ai.novaflow.model.domain.ModelUsageAggregate;
+import ai.novaflow.model.domain.TokenUsageLogRow;
 import ai.novaflow.model.entity.TokenUsageEntity;
 import com.mybatisflex.core.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
@@ -41,4 +42,42 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             LIMIT 5
             """)
     List<ModelUsageAggregate> topModelsByTenant(Long tenantId);
+
+    @Select("""
+            <script>
+            SELECT tu.id, tu.agent_id, a.agent_name, mc.model_name, mc.display_name,
+                   tu.usage_type, tu.input_tokens, tu.output_tokens, tu.total_tokens,
+                   tu.cost, tu.currency, tu.latency_ms, tu.user_id, tu.created_at
+            FROM token_usage tu
+            LEFT JOIN agent a ON tu.agent_id = a.id
+            LEFT JOIN model_config mc ON tu.model_config_id = mc.id
+            WHERE tu.tenant_id = #{tenantId}
+            <if test="agentId != null">AND tu.agent_id = #{agentId}</if>
+            <if test="keyword != null and keyword != ''">
+              AND (a.agent_name LIKE CONCAT('%', #{keyword}, '%')
+                   OR mc.model_name LIKE CONCAT('%', #{keyword}, '%')
+                   OR mc.display_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            ORDER BY tu.created_at DESC
+            LIMIT #{offset}, #{pageSize}
+            </script>
+            """)
+    List<TokenUsageLogRow> pageLogs(Long tenantId, Long agentId, String keyword, int offset, int pageSize);
+
+    @Select("""
+            <script>
+            SELECT COUNT(*)
+            FROM token_usage tu
+            LEFT JOIN agent a ON tu.agent_id = a.id
+            LEFT JOIN model_config mc ON tu.model_config_id = mc.id
+            WHERE tu.tenant_id = #{tenantId}
+            <if test="agentId != null">AND tu.agent_id = #{agentId}</if>
+            <if test="keyword != null and keyword != ''">
+              AND (a.agent_name LIKE CONCAT('%', #{keyword}, '%')
+                   OR mc.model_name LIKE CONCAT('%', #{keyword}, '%')
+                   OR mc.display_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            </script>
+            """)
+    Long countLogs(Long tenantId, Long agentId, String keyword);
 }

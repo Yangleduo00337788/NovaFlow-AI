@@ -3,11 +3,15 @@ package ai.novaflow.agent.controller;
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.dto.AgentSaveRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
-import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.domain.vo.AgentPublishVO;
+import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.agent.domain.vo.ConversationMessageVO;
+import ai.novaflow.agent.domain.vo.ConversationVO;
 import ai.novaflow.agent.service.AgentDebugService;
 import ai.novaflow.agent.service.AgentPublishService;
 import ai.novaflow.agent.service.AgentService;
+import ai.novaflow.agent.service.ConversationService;
+import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
 import jakarta.validation.Valid;
@@ -24,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/agents")
 @RequiredArgsConstructor
@@ -32,6 +38,7 @@ public class AgentController {
     private final AgentService agentService;
     private final AgentDebugService agentDebugService;
     private final AgentPublishService agentPublishService;
+    private final ConversationService conversationService;
 
     @GetMapping
     public ApiResult<PageResult<AgentVO>> page(
@@ -108,5 +115,22 @@ public class AgentController {
             @RequestParam String conversationId) {
         agentDebugService.clearConversation(id, conversationId);
         return ApiResult.ok();
+    }
+
+    @GetMapping("/{id}/debug/conversations")
+    public ApiResult<PageResult<ConversationVO>> listDebugConversations(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return ApiResult.ok(conversationService.pageConversations(
+                id, TenantContext.getTenantId(), "debug", page, pageSize));
+    }
+
+    @GetMapping("/{id}/debug/conversations/messages")
+    public ApiResult<List<ConversationMessageVO>> listDebugConversationMessages(
+            @PathVariable Long id,
+            @RequestParam String conversationKey) {
+        return ApiResult.ok(conversationService.listMessages(
+                id, TenantContext.getTenantId(), conversationKey));
     }
 }

@@ -2,6 +2,7 @@ package ai.novaflow.dashboard.service;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.dashboard.domain.DailySparklineRow;
 import ai.novaflow.dashboard.domain.DashboardOverviewVO;
 import ai.novaflow.dashboard.domain.NamedCountRow;
 import ai.novaflow.dashboard.domain.RecentUsageLogRow;
@@ -21,8 +22,10 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -74,6 +77,7 @@ public class DashboardService {
                 .quickActions(List.of(
                         action("agent", "Agent 管理", "/agent"),
                         action("knowledge", "知识库", "/knowledge"),
+                        action("log", "调用日志", "/log"),
                         action("model", "模型配置", "/model"),
                         action("settings", "系统设置", "/settings")
                 ))
@@ -82,7 +86,42 @@ public class DashboardService {
                         .expireAt("—")
                         .usedPercent(estimateUsagePercent(totalTokens))
                         .build())
+                .totalModelTokens(formatCount(modelTokenSum))
+                .sparklines(buildSparklines(tenantId, appCount, agentCount, kbCount, totalCost))
                 .build();
+    }
+
+    private Map<String, List<Long>> buildSparklines(
+            Long tenantId,
+            long appCount,
+            long agentCount,
+            long kbCount,
+            BigDecimal totalCost) {
+        List<Long> invocationSeries = toSparklineValues(dashboardStatsMapper.dailyInvocationSparkline(tenantId));
+        List<Long> tokenSeries = toSparklineValues(dashboardStatsMapper.dailyTokenSparkline(tenantId));
+        Map<String, List<Long>> sparklines = new LinkedHashMap<>();
+        sparklines.put("apps", repeatValue(appCount, 7));
+        sparklines.put("agents", repeatValue(agentCount, 7));
+        sparklines.put("knowledge", repeatValue(kbCount, 7));
+        sparklines.put("invocations", invocationSeries);
+        sparklines.put("tokens", tokenSeries);
+        sparklines.put("cost", repeatValue(totalCost.longValue(), 7));
+        return sparklines;
+    }
+
+    private List<Long> toSparklineValues(List<DailySparklineRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return repeatValue(0L, 7);
+        }
+        return rows.stream().map(row -> safeLong(row.getValue())).toList();
+    }
+
+    private List<Long> repeatValue(long value, int size) {
+        List<Long> list = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            list.add(value);
+        }
+        return list;
     }
 
     private List<DashboardOverviewVO.RecentItemVO> buildRecentItems(Long tenantId, Long userId) {

@@ -97,13 +97,20 @@ export function rotateAgentApiKey(id: number) {
   return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/rotate-api-key`)
 }
 
+export interface ModelCapabilities {
+  supportsDeepThinking?: boolean
+  supportsWebSearch?: boolean
+}
+
 export interface AgentDebugChatResponse {
   reply: string
   agentName: string
   tokensUsed: number
   latencyMs: number
   debugMode: boolean
+  thinking?: string
   sources?: RetrievalSourceItem[]
+  modelCapabilities?: ModelCapabilities
 }
 
 export interface RetrievalSourceItem {
@@ -128,9 +135,10 @@ export function debugAgentChat(id: number, message: string, conversationId?: str
 }
 
 export interface AgentDebugStreamEvent {
-  type: 'token' | 'done' | 'error'
+  type: 'token' | 'thinking_token' | 'done' | 'error'
   content?: string
   reply?: string
+  thinking?: string
   agentName?: string
   tokensUsed?: number
   latencyMs?: number
@@ -145,16 +153,62 @@ export function clearAgentDebugConversation(id: number, conversationId: string) 
   })
 }
 
+export interface ConversationItem {
+  id: number
+  conversationKey: string
+  channel: string
+  messageCount: number
+  preview?: string
+  lastMessageAt?: string
+  createdAt?: string
+}
+
+export interface ConversationMessageItem {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  tokensUsed?: number
+  latencyMs?: number
+  sources?: RetrievalSourceItem[]
+  createdAt?: string
+}
+
+export interface ConversationPage {
+  list: ConversationItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export function fetchDebugConversations(
+  agentId: number,
+  params?: { page?: number; pageSize?: number },
+) {
+  return request.get<ApiResult<ConversationPage>>(`/v1/agents/${agentId}/debug/conversations`, { params })
+}
+
+export function fetchDebugConversationMessages(agentId: number, conversationKey: string) {
+  return request.get<ApiResult<ConversationMessageItem[]>>(
+    `/v1/agents/${agentId}/debug/conversations/messages`,
+    { params: { conversationKey } },
+  )
+}
+
 export async function streamAgentDebugChat(
   id: number,
   message: string,
   conversationId: string | undefined,
   handlers: {
     onToken: (token: string) => void
+    onThinkingToken?: (token: string) => void
     onDone: (data: AgentDebugChatResponse) => void
     onError: (error: Error) => void
   },
   signal?: AbortSignal,
+  options?: {
+    enableDeepThinking?: boolean
+    enableWebSearch?: boolean
+  },
 ) {
   const auth = useAuthStore()
   const response = await fetch(`/api/v1/agents/${id}/debug/chat/stream`, {
@@ -163,7 +217,12 @@ export async function streamAgentDebugChat(
       'Content-Type': 'application/json',
       ...(auth.token ? { Authorization: auth.token } : {}),
     },
-    body: JSON.stringify({ message, conversationId }),
+    body: JSON.stringify({
+      message,
+      conversationId,
+      enableDeepThinking: options?.enableDeepThinking,
+      enableWebSearch: options?.enableWebSearch,
+    }),
     signal,
   })
 
@@ -206,7 +265,9 @@ export async function streamAgentDebugChat(
       if (!payload) continue
 
       const event = JSON.parse(payload) as AgentDebugStreamEvent
-      if (event.type === 'token' && event.content) {
+      if (event.type === 'thinking_token' && event.content) {
+        handlers.onThinkingToken?.(event.content)
+      } else if (event.type === 'token' && event.content) {
         handlers.onToken(event.content)
       } else if (event.type === 'done') {
         handlers.onDone({
@@ -215,6 +276,7 @@ export async function streamAgentDebugChat(
           tokensUsed: event.tokensUsed || 0,
           latencyMs: event.latencyMs || 0,
           debugMode: event.debugMode ?? false,
+          thinking: event.thinking,
           sources: event.sources,
         })
       } else if (event.type === 'error') {

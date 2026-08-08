@@ -4,8 +4,11 @@ import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.agent.domain.vo.ConversationMessageVO;
+import ai.novaflow.agent.domain.vo.ConversationVO;
 import ai.novaflow.agent.entity.AgentApiKeyEntity;
 import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -27,6 +31,7 @@ public class AgentOpenService {
     private final AgentPublishService agentPublishService;
     private final AgentService agentService;
     private final AgentChatService agentChatService;
+    private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
 
     public AgentDebugChatVO chat(Long agentId, String rawApiKey, AgentDebugChatRequest request) {
@@ -81,6 +86,28 @@ public class AgentOpenService {
                     .latencyMs(0L)
                     .debugMode(false)
                     .build();
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    public PageResult<ConversationVO> listConversations(Long agentId, String rawApiKey, int page, int pageSize) {
+        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+        try {
+            TenantContext.setTenantId(apiKey.getTenantId());
+            agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
+            return conversationService.pageConversations(agentId, apiKey.getTenantId(), "open", page, pageSize);
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    public List<ConversationMessageVO> listMessages(Long agentId, String rawApiKey, String conversationKey) {
+        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+        try {
+            TenantContext.setTenantId(apiKey.getTenantId());
+            agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
+            return conversationService.listMessages(agentId, apiKey.getTenantId(), conversationKey);
         } finally {
             TenantContext.clear();
         }

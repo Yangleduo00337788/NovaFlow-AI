@@ -4,8 +4,12 @@ import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.agent.domain.vo.ModelCapabilitiesVO;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.model.domain.ModelCapabilityResolver;
+import ai.novaflow.model.domain.ResolvedModelConfig;
+import ai.novaflow.model.service.ModelResolutionService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +19,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -26,6 +31,8 @@ public class AgentDebugService {
 
     private final AgentService agentService;
     private final AgentChatService agentChatService;
+    private final ConversationService conversationService;
+    private final ModelResolutionService modelResolutionService;
     private final ObjectMapper objectMapper;
 
     public AgentDebugChatVO chat(Long agentId, AgentDebugChatRequest request) {
@@ -33,7 +40,9 @@ public class AgentDebugService {
         String message = request.getMessage().trim();
 
         if (!agentChatService.supportsRealExecution(agent)) {
-            return buildMockResponse(agent, message);
+            AgentDebugChatVO mock = buildMockResponse(agent, message);
+            persistMockExchange(agent.getId(), requireTenantId(), StpUtil.getLoginIdAsLong(), request, mock);
+            return mock;
         }
 
         try {
@@ -63,7 +72,7 @@ public class AgentDebugService {
             try {
                 TenantContext.setTenantId(tenantId);
                 if (!realExecution) {
-                    streamMockResponse(emitter, agent, message);
+                    streamMockResponse(emitter, agent, request, tenantId, userId);
                     return;
                 }
                 agentChatService.streamChat(agent, request, tenantId, userId, "debug", emitter);
@@ -87,12 +96,36 @@ public class AgentDebugService {
                 ? agent.getWelcomeMessage()
                 : "您好，我是 " + agent.getAgentName() + "，有什么可以帮您？";
 
+        ModelCapabilitiesVO capabilities = null;
+        if (agentChatService.supportsRealExecution(agent)) {
+            try {
+                ResolvedModelConfig modelConfig = modelResolutionService.resolve(
+                        agent.getModelConfigId(),
+                        requireTenantId(),
+                        agent.getTemperature(),
+                        agent.getMaxTokens()
+                );
+                capabilities = ModelCapabilitiesVO.builder()
+                        .supportsDeepThinking(ModelCapabilityResolver.supportsDeepThinking(
+                                modelConfig.getProviderCode(), modelConfig.getModelName()))
+                        .supportsWebSearch(ModelCapabilityResolver.supportsWebSearch(
+                                modelConfig.getProviderCode(), modelConfig.getModelName()))
+                        .build();
+            } catch (BusinessException ignored) {
+                capabilities = ModelCapabilitiesVO.builder()
+                        .supportsDeepThinking(false)
+                        .supportsWebSearch(false)
+                        .build();
+            }
+        }
+
         return AgentDebugChatVO.builder()
                 .reply(welcome)
                 .agentName(agent.getAgentName())
                 .tokensUsed(0)
                 .latencyMs(0L)
                 .debugMode(!agentChatService.supportsRealExecution(agent))
+                .modelCapabilities(capabilities)
                 .build();
     }
 
@@ -100,24 +133,58 @@ public class AgentDebugService {
         agentChatService.clearConversation(conversationId);
     }
 
-    private void streamMockResponse(SseEmitter emitter, AgentVO agent, String message) throws IOException {
+    private void streamMockResponse(
+            SseEmitter emitter,
+            AgentVO agent,
+            AgentDebugChatRequest request,
+            Long tenantId,
+            Long userId) throws IOException {
         long start = System.currentTimeMillis();
-        AgentDebugChatVO mock = buildMockResponse(agent, message);
+        AgentDebugChatVO mock = buildMockResponse(agent, request.getMessage().trim());
         for (char ch : mock.getReply().toCharArray()) {
             sendEvent(emitter, AgentDebugStreamEvent.builder()
                     .type("token")
                     .content(String.valueOf(ch))
                     .build());
         }
+        mock.setLatencyMs(System.currentTimeMillis() - start);
+        persistMockExchange(agent.getId(), tenantId, userId, request, mock);
         sendEvent(emitter, AgentDebugStreamEvent.builder()
                 .type("done")
                 .reply(mock.getReply())
                 .agentName(mock.getAgentName())
                 .tokensUsed(mock.getTokensUsed())
-                .latencyMs(System.currentTimeMillis() - start)
+                .latencyMs(mock.getLatencyMs())
                 .debugMode(true)
                 .build());
         emitter.complete();
+    }
+
+    private void persistMockExchange(
+            Long agentId,
+            Long tenantId,
+            Long userId,
+            AgentDebugChatRequest request,
+            AgentDebugChatVO response) {
+        if (!StringUtils.hasText(request.getConversationId()) || !StringUtils.hasText(request.getMessage())) {
+            return;
+        }
+        try {
+            conversationService.persistExchange(ConversationService.ExchangeRequest.builder()
+                    .tenantId(tenantId)
+                    .agentId(agentId)
+                    .conversationKey(request.getConversationId())
+                    .channel("debug")
+                    .userId(userId)
+                    .userMessage(request.getMessage().trim())
+                    .assistantReply(response.getReply())
+                    .tokensUsed(response.getTokensUsed())
+                    .latencyMs(response.getLatencyMs())
+                    .sources(List.of())
+                    .build());
+        } catch (Exception e) {
+            log.warn("Failed to persist mock conversation, agentId={}", agentId, e);
+        }
     }
 
     private void sendEvent(SseEmitter emitter, AgentDebugStreamEvent event) {

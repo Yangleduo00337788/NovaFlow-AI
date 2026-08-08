@@ -66,6 +66,14 @@ public class AgentChatService {
 
         chatAgentExecutor.executeStream(plan.executeRequest(), new ai.novaflow.aiengine.agent.ChatStreamListener() {
             @Override
+            public void onThinkingToken(String token) {
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("thinking_token")
+                        .content(token)
+                        .build());
+            }
+
+            @Override
             public void onToken(String token) {
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("token")
@@ -80,6 +88,7 @@ public class AgentChatService {
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("done")
                         .reply(result.getReply())
+                        .thinking(result.getThinking())
                         .agentName(agent.getAgentName())
                         .tokensUsed(result.getTokensUsed())
                         .latencyMs(result.getLatencyMs())
@@ -155,18 +164,23 @@ public class AgentChatService {
             ChatExecuteResult result,
             List<RetrievalSourceVO> sources,
             String channel) {
-        conversationService.persistExchange(ConversationService.ExchangeRequest.builder()
-                .tenantId(context.tenantId())
-                .agentId(context.agent().getId())
-                .conversationKey(context.conversationId())
-                .channel(channel)
-                .userId(context.userId())
-                .userMessage(userMessage)
-                .assistantReply(result.getReply())
-                .tokensUsed(result.getTokensUsed())
-                .latencyMs(result.getLatencyMs())
-                .sources(sources)
-                .build());
+        try {
+            conversationService.persistExchange(ConversationService.ExchangeRequest.builder()
+                    .tenantId(context.tenantId())
+                    .agentId(context.agent().getId())
+                    .conversationKey(context.conversationId())
+                    .channel(channel)
+                    .userId(context.userId())
+                    .userMessage(userMessage)
+                    .assistantReply(result.getReply())
+                    .tokensUsed(result.getTokensUsed())
+                    .latencyMs(result.getLatencyMs())
+                    .sources(sources)
+                    .build());
+        } catch (Exception e) {
+            log.warn("Failed to persist conversation, agentId={}, key={}",
+                    context.agent().getId(), context.conversationId(), e);
+        }
     }
 
     private RetrievalSourceVO toSourceVO(RetrievedChunk chunk) {
@@ -193,6 +207,8 @@ public class AgentChatService {
                 agent.getTemperature(),
                 agent.getMaxTokens()
         );
+        modelConfig.setEnableDeepThinking(Boolean.TRUE.equals(request.getEnableDeepThinking()));
+        modelConfig.setEnableWebSearch(Boolean.TRUE.equals(request.getEnableWebSearch()));
         String prefix = StringUtils.hasText(conversationPrefix) ? conversationPrefix : "chat";
         String conversationId = StringUtils.hasText(request.getConversationId())
                 ? request.getConversationId()

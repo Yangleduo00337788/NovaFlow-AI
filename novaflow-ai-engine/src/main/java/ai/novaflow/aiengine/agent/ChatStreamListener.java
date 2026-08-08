@@ -5,6 +5,9 @@ public interface ChatStreamListener {
 
     void onToken(String token);
 
+    default void onThinkingToken(String token) {
+    }
+
     default void onComplete(ChatExecuteResult result) {
     }
 
