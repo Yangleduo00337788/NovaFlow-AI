@@ -1,0 +1,51 @@
+-- 知识库体系
+
+CREATE TABLE IF NOT EXISTS `knowledge_base` (
+    `id`                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `tenant_id`         BIGINT UNSIGNED  NOT NULL,
+    `application_id`    BIGINT UNSIGNED  NULL,
+    `kb_name`           VARCHAR(128)     NOT NULL                COMMENT '知识库名称',
+    `description`       VARCHAR(512)     NULL,
+    `embedding_model`   VARCHAR(64)      NOT NULL                COMMENT 'Embedding模型',
+    `chunk_strategy`    VARCHAR(32)      NOT NULL DEFAULT 'fixed' COMMENT '分块策略：fixed/paragraph/semantic',
+    `chunk_size`        INT              NOT NULL DEFAULT 512    COMMENT '分块大小（字符）',
+    `chunk_overlap`     INT              NOT NULL DEFAULT 50     COMMENT '分块重叠（字符）',
+    `document_count`    INT              NOT NULL DEFAULT 0      COMMENT '文档数量',
+    `chunk_count`       INT              NOT NULL DEFAULT 0      COMMENT '分块总数',
+    `total_size_bytes`  BIGINT           NOT NULL DEFAULT 0      COMMENT '总大小（字节）',
+    `qdrant_collection` VARCHAR(128)     NULL                    COMMENT 'Qdrant集合名',
+    `visibility`        VARCHAR(16)      NOT NULL DEFAULT 'private' COMMENT '可见性：public/team/private',
+    `status`            TINYINT          NOT NULL DEFAULT 1,
+    `created_by`        BIGINT UNSIGNED  NULL,
+    `created_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `is_deleted`        TINYINT(1)       NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_tenant_app` (`tenant_id`, `application_id`),
+    KEY `idx_tenant_name` (`tenant_id`, `kb_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识库表';
+
+CREATE TABLE IF NOT EXISTS `document` (
+    `id`                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `tenant_id`         BIGINT UNSIGNED  NOT NULL,
+    `knowledge_base_id` BIGINT UNSIGNED  NOT NULL,
+    `doc_name`          VARCHAR(256)     NOT NULL                COMMENT '文档名称',
+    `doc_type`          VARCHAR(16)      NOT NULL                COMMENT '文件类型：pdf/docx/xlsx/pptx/txt/md/html',
+    `file_path`         VARCHAR(512)     NOT NULL                COMMENT '对象存储路径',
+    `file_size`         BIGINT           NOT NULL DEFAULT 0      COMMENT '文件大小（字节）',
+    `file_hash`         VARCHAR(64)      NULL                    COMMENT '文件MD5',
+    `source_type`       VARCHAR(16)      NOT NULL DEFAULT 'upload' COMMENT '来源：upload/url/database',
+    `source_url`        VARCHAR(1024)    NULL                    COMMENT '来源URL',
+    `process_status`    TINYINT          NOT NULL DEFAULT 0      COMMENT '0-待处理 1-处理中 2-完成 3-失败',
+    `process_error`     TEXT             NULL                    COMMENT '处理错误信息',
+    `chunk_count`       INT              NOT NULL DEFAULT 0      COMMENT '分块数量',
+    `char_count`        INT              NOT NULL DEFAULT 0      COMMENT '字符总数',
+    `processed_at`      DATETIME         NULL                    COMMENT '处理完成时间',
+    `created_by`        BIGINT UNSIGNED  NULL,
+    `created_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`        DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `is_deleted`        TINYINT(1)       NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_kb_status` (`knowledge_base_id`, `process_status`),
+    KEY `idx_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档表';
