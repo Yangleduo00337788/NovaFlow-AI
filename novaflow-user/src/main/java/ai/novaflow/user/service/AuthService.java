@@ -3,32 +3,44 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.user.domain.dto.LoginRequest;
+import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.TenantEntity;
 import ai.novaflow.user.entity.TenantMemberEntity;
 import ai.novaflow.user.entity.UserEntity;
+import ai.novaflow.user.entity.WorkspaceEntity;
 import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.user.mapper.TenantMapper;
 import ai.novaflow.user.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
+import ai.novaflow.user.mapper.WorkspaceMapper;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).+$");
+
     private final UserMapper userMapper;
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
     private final RoleMapper roleMapper;
+    private final WorkspaceMapper workspaceMapper;
+    private final PermissionService permissionService;
     private final PasswordEncoder passwordEncoder;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
@@ -64,22 +76,90 @@ public class AuthService {
 
         TenantContext.setTenantId(tenant.getId());
 
-        return LoginVO.builder()
-                .token(StpUtil.getTokenValue())
-                .user(LoginVO.UserInfoVO.builder()
-                        .id(user.getId())
-                        .username(user.getUsername())
-                        .nickname(user.getNickname())
-                        .email(user.getEmail())
-                        .roleCode(role != null ? role.getRoleCode() : null)
-                        .roleName(role != null ? role.getRoleName() : null)
-                        .build())
-                .tenant(LoginVO.TenantInfoVO.builder()
-                        .id(tenant.getId())
-                        .tenantName(tenant.getTenantName())
-                        .planType(tenant.getPlanType())
-                        .build())
-                .build();
+        return buildLoginVO(user, tenant, role);
+    }
+
+    @Transactional
+    public LoginVO register(RegisterRequest request, HttpServletRequest httpRequest) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException("两次输入的密码不一致");
+        }
+        validatePassword(request.getPassword());
+
+        long existing = userMapper.selectCountByQuery(
+                QueryWrapper.create().eq("email", request.getEmail()).eq("is_deleted", 0)
+        );
+        if (existing > 0) {
+            throw new BusinessException("该邮箱已被注册");
+        }
+
+        RoleEntity adminRole = roleMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", 0)
+                        .eq("role_code", "tenant_admin")
+                        .eq("is_deleted", 0)
+        );
+        if (adminRole == null) {
+            throw new BusinessException("系统角色未初始化，请联系管理员");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        TenantEntity tenant = new TenantEntity();
+        tenant.setTenantCode(generateTenantCode(request.getCompanyName()));
+        tenant.setTenantName(request.getCompanyName().trim());
+        tenant.setPlanType("free");
+        tenant.setStatus(1);
+        tenant.setExpireAt(now.plusYears(1));
+        tenant.setIsDeleted(0);
+        tenant.setCreatedAt(now);
+        tenant.setUpdatedAt(now);
+        tenantMapper.insert(tenant);
+
+        String username = buildUsername(request.getEmail());
+        UserEntity user = new UserEntity();
+        user.setUsername(username);
+        user.setEmail(request.getEmail().trim().toLowerCase(Locale.ROOT));
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setNickname(resolveNickname(request));
+        user.setStatus(1);
+        user.setIsDeleted(0);
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        userMapper.insert(user);
+
+        TenantMemberEntity member = new TenantMemberEntity();
+        member.setTenantId(tenant.getId());
+        member.setUserId(user.getId());
+        member.setRoleId(adminRole.getId());
+        member.setStatus(1);
+        member.setIsDeleted(0);
+        member.setJoinedAt(now);
+        member.setCreatedAt(now);
+        member.setUpdatedAt(now);
+        tenantMemberMapper.insert(member);
+
+        WorkspaceEntity workspace = new WorkspaceEntity();
+        workspace.setTenantId(tenant.getId());
+        workspace.setWorkspaceName("默认工作空间");
+        workspace.setIsDefault(1);
+        workspace.setCreatedBy(user.getId());
+        workspace.setIsDeleted(0);
+        workspace.setCreatedAt(now);
+        workspace.setUpdatedAt(now);
+        workspaceMapper.insert(workspace);
+
+        StpUtil.login(user.getId());
+        StpUtil.getSession().set("tenantId", tenant.getId());
+        StpUtil.getSession().set("roleCode", adminRole.getRoleCode());
+
+        user.setLastLoginAt(now);
+        user.setLastLoginIp(httpRequest.getRemoteAddr());
+        userMapper.update(user);
+
+        TenantContext.setTenantId(tenant.getId());
+
+        return buildLoginVO(user, tenant, adminRole);
     }
 
     public LoginVO currentUser() {
@@ -88,10 +168,20 @@ public class AuthService {
 
         UserEntity user = userMapper.selectOneById(userId);
         TenantEntity tenant = tenantMapper.selectOneById(tenantId);
-        TenantMemberEntity member = tenantMemberMapper.selectOneByQuery(
-                QueryWrapper.create().where("user_id = ?", userId).and("tenant_id = ?", tenantId).limit(1)
+        RoleEntity role = permissionService.resolveRole(userId, tenantId);
+
+        return buildLoginVO(user, tenant, role);
+    }
+
+    public void logout() {
+        StpUtil.logout();
+    }
+
+    private LoginVO buildLoginVO(UserEntity user, TenantEntity tenant, RoleEntity role) {
+        List<String> permissions = permissionService.getPermissionCodes(
+                user.getId(),
+                tenant != null ? tenant.getId() : null
         );
-        RoleEntity role = member != null ? roleMapper.selectOneById(member.getRoleId()) : null;
 
         return LoginVO.builder()
                 .token(StpUtil.getTokenValue())
@@ -108,10 +198,57 @@ public class AuthService {
                         .tenantName(tenant.getTenantName())
                         .planType(tenant.getPlanType())
                         .build())
+                .permissions(permissions)
                 .build();
     }
 
-    public void logout() {
-        StpUtil.logout();
+    private void validatePassword(String password) {
+        if (!PASSWORD_PATTERN.matcher(password).matches()) {
+            throw new BusinessException("密码需至少包含一个字母和一个数字");
+        }
+    }
+
+    private String resolveNickname(RegisterRequest request) {
+        if (request.getNickname() != null && !request.getNickname().isBlank()) {
+            return request.getNickname().trim();
+        }
+        return request.getEmail().substring(0, request.getEmail().indexOf('@'));
+    }
+
+    private String buildUsername(String email) {
+        String base = email.substring(0, email.indexOf('@'))
+                .replaceAll("[^a-zA-Z0-9_]", "")
+                .toLowerCase(Locale.ROOT);
+        if (base.isBlank()) {
+            base = "user";
+        }
+        String candidate = base;
+        int suffix = 1;
+        while (userMapper.selectCountByQuery(
+                QueryWrapper.create().eq("username", candidate).eq("is_deleted", 0)
+        ) > 0) {
+            candidate = base + suffix++;
+        }
+        return candidate;
+    }
+
+    private String generateTenantCode(String companyName) {
+        String base = companyName.trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-|-$", "");
+        if (base.isBlank()) {
+            base = "tenant";
+        }
+        if (base.length() > 40) {
+            base = base.substring(0, 40);
+        }
+        String candidate = base;
+        while (tenantMapper.selectCountByQuery(
+                QueryWrapper.create().eq("tenant_code", candidate).eq("is_deleted", 0)
+        ) > 0) {
+            candidate = base + "-" + UUID.randomUUID().toString().substring(0, 4);
+        }
+        return candidate;
     }
 }

@@ -11,11 +11,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { fetchCurrentUser } from '@/api/auth'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const collapsed = ref(false)
+const auth = useAuthStore()
+
+onMounted(async () => {
+  if (!auth.isLoggedIn()) {
+    return
+  }
+  try {
+    const res = await fetchCurrentUser()
+    auth.setAuth(res.data.data)
+  } catch {
+    // 401 由 request 拦截器处理
+  }
+})
 </script>
 
 <style scoped>

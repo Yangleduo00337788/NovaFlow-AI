@@ -15,7 +15,7 @@
         <span v-if="!collapsed" class="menu-text">工作台</span>
       </router-link>
 
-      <div v-for="group in menuGroups" :key="group.title" class="menu-group">
+      <div v-for="group in visibleMenuGroups" :key="group.title" class="menu-group">
         <div v-if="!collapsed" class="group-title">{{ group.title }}</div>
         <router-link
           v-for="item in group.items"
@@ -67,18 +67,22 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { DashboardOutlined, CrownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
-import { menuGroups } from '@/config/menu'
+import { filterMenuGroups } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
+import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 
 defineProps<{ collapsed: boolean }>()
 
 const route = useRoute()
 const themeStore = useThemeStore()
+const auth = useAuthStore()
+
+const visibleMenuGroups = computed(() => filterMenuGroups(auth.hasAnyPermission))
 
 const planInfo = reactive({
   planType: '企业版',

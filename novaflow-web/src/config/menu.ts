@@ -4,6 +4,7 @@ export interface MenuItem {
   path: string
   icon: string
   beta?: boolean
+  permissions?: string[]
 }
 
 export interface MenuGroup {
@@ -21,34 +22,69 @@ export const menuGroups: MenuGroup[] = [
   {
     title: 'AI 开发',
     items: [
-      { key: 'agent', label: 'Agent Studio', path: '/agent', icon: 'robot' },
-      { key: 'workflow', label: '工作流 Studio', path: '/workflow', icon: 'workflow' },
-      { key: 'knowledge', label: '知识库 Hub', path: '/knowledge', icon: 'knowledge' },
-      { key: 'model', label: '模型中心', path: '/model', icon: 'model' },
-      { key: 'tool', label: '工具市场', path: '/tool', icon: 'tool' },
-      { key: 'prompt', label: 'Prompt 管理', path: '/prompt', icon: 'prompt' },
+      { key: 'agent', label: 'Agent Studio', path: '/agent', icon: 'robot', permissions: ['agent:create', 'agent:edit', 'agent:chat'] },
+      { key: 'workflow', label: '工作流 Studio', path: '/workflow', icon: 'workflow', permissions: ['workflow:create', 'workflow:edit'] },
+      { key: 'knowledge', label: '知识库 Hub', path: '/knowledge', icon: 'knowledge', permissions: ['knowledge:create', 'knowledge:upload'] },
+      { key: 'model', label: '模型中心', path: '/model', icon: 'model', permissions: ['model:config'] },
+      { key: 'tool', label: '工具市场', path: '/tool', icon: 'tool', permissions: ['agent:edit'] },
+      { key: 'prompt', label: 'Prompt 管理', path: '/prompt', icon: 'prompt', permissions: ['prompt:create', 'prompt:edit'] },
     ],
   },
   {
     title: '运行与监控',
     items: [
-      { key: 'application', label: '应用管理', path: '/application', icon: 'application' },
-      { key: 'monitor', label: '运行监控', path: '/monitor', icon: 'monitor' },
-      { key: 'log', label: '调用日志', path: '/log', icon: 'log' },
-      { key: 'trace', label: '链路分析', path: '/trace', icon: 'trace', beta: true },
-      { key: 'observability', label: '可观测性', path: '/observability', icon: 'observability' },
+      { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:manage'] },
+      { key: 'monitor', label: '运行监控', path: '/monitor', icon: 'monitor', permissions: ['monitor:view'] },
+      { key: 'log', label: '调用日志', path: '/log', icon: 'log', permissions: ['monitor:view', 'billing:view'] },
+      { key: 'trace', label: '链路分析', path: '/trace', icon: 'trace', beta: true, permissions: ['trace:view'] },
+      { key: 'observability', label: '可观测性', path: '/observability', icon: 'observability', permissions: ['monitor:view'] },
     ],
   },
   {
     title: '系统管理',
     items: [
-      { key: 'org', label: '组织管理', path: '/org', icon: 'org' },
-      { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission' },
-      { key: 'settings', label: '系统设置', path: '/settings', icon: 'settings' },
-      { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing' },
+      { key: 'org', label: '组织管理', path: '/org', icon: 'org', permissions: ['tenant:manage', 'member:manage'] },
+      { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage'] },
+      { key: 'settings', label: '系统设置', path: '/settings', icon: 'settings', permissions: ['tenant:manage'] },
+      { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing', permissions: ['billing:view', 'billing:manage'] },
     ],
   },
 ]
+
+const routePermissionMap: Record<string, string[]> = {
+  '/dashboard': [],
+  '/agent': ['agent:create', 'agent:edit', 'agent:chat'],
+  '/workflow': ['workflow:create', 'workflow:edit'],
+  '/knowledge': ['knowledge:create', 'knowledge:upload'],
+  '/model': ['model:config'],
+  '/tool': ['agent:edit'],
+  '/prompt': ['prompt:create', 'prompt:edit'],
+  '/application': ['application:manage'],
+  '/monitor': ['monitor:view'],
+  '/log': ['monitor:view', 'billing:view'],
+  '/trace': ['trace:view'],
+  '/observability': ['monitor:view'],
+  '/org': ['tenant:manage', 'member:manage'],
+  '/permission': ['member:manage'],
+  '/settings': ['tenant:manage'],
+  '/billing': ['billing:view', 'billing:manage'],
+}
+
+export function filterMenuGroups(hasAnyPermission: (codes?: string[]) => boolean): MenuGroup[] {
+  return menuGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => hasAnyPermission(item.permissions)),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
+export function getRoutePermissions(path: string): string[] | undefined {
+  const matched = Object.keys(routePermissionMap)
+    .filter((route) => path === route || path.startsWith(`${route}/`))
+    .sort((a, b) => b.length - a.length)[0]
+  return matched ? routePermissionMap[matched] : undefined
+}
 
 export function getBreadcrumbByPath(path: string): BreadcrumbInfo {
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {

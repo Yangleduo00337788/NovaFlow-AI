@@ -45,26 +45,21 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         long count = userMapper.selectCountByQuery(QueryWrapper.create());
         if (count > 0) {
-            roleMapper.selectListByQuery(QueryWrapper.create()).forEach(role -> {
-                if ("企业管理员".equals(role.getRoleName())) {
-                    role.setRoleName("超级管理员");
-                    roleMapper.update(role);
-                }
-            });
             return;
         }
         log.info("Initializing demo data...");
         LocalDateTime now = LocalDateTime.now();
 
-        RoleEntity adminRole = new RoleEntity();
-        adminRole.setTenantId(0L);
-        adminRole.setRoleCode("tenant_admin");
-        adminRole.setRoleName("超级管理员");
-        adminRole.setIsSystem(1);
-        adminRole.setIsDeleted(0);
-        adminRole.setCreatedAt(now);
-        adminRole.setUpdatedAt(now);
-        roleMapper.insert(adminRole);
+        RoleEntity adminRole = roleMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", 0)
+                        .eq("role_code", "tenant_admin")
+                        .eq("is_deleted", 0)
+        );
+        if (adminRole == null) {
+            log.error("tenant_admin role not found, skip demo data initialization");
+            return;
+        }
 
         TenantEntity tenant = new TenantEntity();
         tenant.setTenantCode("demo");

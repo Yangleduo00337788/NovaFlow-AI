@@ -6,6 +6,14 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterRequest {
+  email: string
+  password: string
+  confirmPassword: string
+  nickname?: string
+  companyName: string
+}
+
 export interface LoginResponse {
   token: string
   user: {
@@ -21,6 +29,11 @@ export interface LoginResponse {
     tenantName: string
     planType: string
   }
+  permissions?: string[]
+}
+
+export function register(data: RegisterRequest) {
+  return request.post<ApiResult<LoginResponse>>('/v1/auth/register', data)
 }
 
 export function login(data: LoginRequest) {

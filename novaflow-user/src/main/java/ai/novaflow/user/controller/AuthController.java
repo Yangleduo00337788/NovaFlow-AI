@@ -2,6 +2,7 @@ package ai.novaflow.user.controller;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.user.domain.dto.LoginRequest;
+import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
 import ai.novaflow.user.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+
+    @PostMapping("/register")
+    public ApiResult<LoginVO> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
+        return ApiResult.ok(authService.register(request, httpRequest));
+    }
 
     @PostMapping("/login")
     public ApiResult<LoginVO> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {

@@ -51,7 +51,7 @@
               <a-button type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
               <a-button type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
               <a-button
-                v-if="record.agentType === 'chat' || record.agentType === 'rag'"
+                v-if="record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool'"
                 type="link"
                 @click="openPublish(record.id)"
               >
@@ -407,7 +407,7 @@ import { formatDateTime } from '@/utils/datetime'
 const AGENT_FIELD_TIPS = {
   agentName: 'Agent 的显示名称，会出现在列表、调试对话和对外 API 的标识中。',
   agentType:
-    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool / Workflow 用于工具调用与工作流编排（后续扩展）。',
+    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 HTTP 工具；Workflow 用于工作流编排（后续扩展）。',
   description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
   modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
   knowledgeBaseIds: 'RAG Agent 进行向量检索的知识库，支持多选。每次提问会从中召回与问题最相关的文档分块作为参考。',

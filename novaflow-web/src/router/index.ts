@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
+import { getRoutePermissions } from '@/config/menu'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -9,6 +10,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/login/index.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/register/index.vue'),
       meta: { public: true },
     },
     {
@@ -49,8 +56,15 @@ router.beforeEach((to) => {
   if (!to.meta.public && !auth.isLoggedIn()) {
     return '/login'
   }
-  if (to.path === '/login' && auth.isLoggedIn()) {
+  if ((to.path === '/login' || to.path === '/register') && auth.isLoggedIn()) {
     return '/dashboard'
+  }
+
+  if (!to.meta.public) {
+    const requiredPermissions = getRoutePermissions(to.path)
+    if (requiredPermissions && !auth.hasAnyPermission(requiredPermissions)) {
+      return '/dashboard'
+    }
   }
 })
 

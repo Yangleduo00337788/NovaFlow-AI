@@ -8,55 +8,7 @@
         <p>今天是 {{ today }}，NovaFlow AI 助力您高效构建智能应用</p>
       </div>
       <div class="welcome-visual" aria-hidden="true">
-        <svg class="welcome-cube-svg cube-main" viewBox="0 0 80 72" width="80" height="72">
-          <defs>
-            <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#91caff" />
-              <stop offset="100%" stop-color="#4096ff" />
-            </linearGradient>
-            <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#1677ff" />
-              <stop offset="100%" stop-color="#0958d9" />
-            </linearGradient>
-            <linearGradient id="cubeRight" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#69b1ff" />
-              <stop offset="100%" stop-color="#1677ff" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(8,4)">
-            <path d="M32 10 L58 25 L32 40 L6 25 Z" fill="url(#cubeTop)" opacity="0.95" />
-            <path d="M6 25 L32 40 L32 62 L6 47 Z" fill="url(#cubeLeft)" />
-            <path d="M32 40 L58 25 L58 47 L32 62 Z" fill="url(#cubeRight)" />
-          </g>
-        </svg>
-        <svg class="welcome-cube-svg cube-sub" viewBox="0 0 56 52" width="52" height="48">
-          <defs>
-            <linearGradient id="cubeTop2" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#d3adf7" />
-              <stop offset="100%" stop-color="#9254de" />
-            </linearGradient>
-            <linearGradient id="cubeLeft2" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#b37feb" />
-              <stop offset="100%" stop-color="#722ed1" />
-            </linearGradient>
-            <linearGradient id="cubeRight2" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#d3adf7" />
-              <stop offset="100%" stop-color="#9254de" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(4,2)" opacity="0.75">
-            <path d="M24 8 L44 20 L24 32 L4 20 Z" fill="url(#cubeTop2)" />
-            <path d="M4 20 L24 32 L24 48 L4 36 Z" fill="url(#cubeLeft2)" />
-            <path d="M24 32 L44 20 L44 36 L24 48 Z" fill="url(#cubeRight2)" />
-          </g>
-        </svg>
-        <svg class="welcome-cube-svg cube-mini" viewBox="0 0 40 36" width="36" height="32">
-          <g transform="translate(4,2)" opacity="0.55">
-            <path d="M16 6 L30 14 L16 22 L2 14 Z" fill="#69b1ff" />
-            <path d="M2 14 L16 22 L16 32 L2 24 Z" fill="#4096ff" />
-            <path d="M16 22 L30 14 L30 24 L16 32 Z" fill="#91caff" />
-          </g>
-        </svg>
+        <img :src="welcomeIllustration" alt="" class="welcome-illustration" />
       </div>
     </div>
 
@@ -297,6 +249,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { getChartTheme } from '@/utils/chartTheme'
 import { storeToRefs } from 'pinia'
+import welcomeIllustration from '@/assets/dashboard/welcome-illustration.png'
 
 use([CanvasRenderer, PieChart, LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, GraphicComponent, MarkPointComponent, VisualMapComponent])
 
@@ -476,13 +429,18 @@ onMounted(async () => {
   height: 112px;
   min-height: 112px;
   max-height: 112px;
-  padding: 0 32px;
+  padding: 0 24px 0 32px;
   background: var(--welcome-banner-bg);
   border-radius: 12px;
   border: 1px solid var(--welcome-banner-border);
   overflow: hidden;
   position: relative;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.welcome-text {
+  position: relative;
+  z-index: 1;
 }
 
 .welcome-text h1 {
@@ -502,38 +460,36 @@ onMounted(async () => {
 
 .welcome-visual {
   position: relative;
+  z-index: 1;
   flex-shrink: 0;
-  width: 140px;
-  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 196px;
+  height: 100%;
+  margin-right: -12px;
 }
 
-.welcome-cube-svg {
-  position: absolute;
-  display: block;
-  filter: drop-shadow(0 10px 20px rgba(74, 128, 255, 0.18));
+.welcome-illustration {
+  height: 108px;
+  width: auto;
+  max-width: 196px;
+  object-fit: contain;
+  object-position: right center;
+  animation: welcome-illustration-float 3.6s ease-in-out infinite;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.35) 12%, #000 28%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.35) 12%, #000 28%);
 }
 
-.welcome-cube-svg.cube-main {
-  right: 12px;
-  top: 8px;
-  animation: cube-float 3.6s ease-in-out infinite;
-}
-
-.welcome-cube-svg.cube-sub {
-  right: 68px;
-  top: 20px;
-  animation: cube-float 4.2s ease-in-out infinite 0.4s;
-}
-
-.welcome-cube-svg.cube-mini {
-  right: 44px;
-  top: 0;
-  animation: cube-float 3s ease-in-out infinite 0.8s;
-}
-
-@keyframes cube-float {
+@keyframes welcome-illustration-float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-4px); }
+}
+
+:global([data-theme='dark']) .welcome-illustration {
+  -webkit-mask-image: none;
+  mask-image: none;
+  opacity: 0.88;
 }
 
 /* 指标卡片 */

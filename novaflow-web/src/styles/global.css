@@ -24,9 +24,7 @@
   --user-toggle-bg: #eef2ff;
   --user-toggle-hover-bg: #e8f0ff;
   --user-toggle-open-bg: #e0e9ff;
-  --welcome-banner-bg:
-    radial-gradient(ellipse 72% 140% at 88% 42%, rgba(167, 192, 255, 0.28) 0%, transparent 62%),
-    linear-gradient(92deg, #f8faff 0%, #f4f7ff 28%, #eef2ff 58%, #e8ecff 100%);
+  --welcome-banner-bg: linear-gradient(90deg, #eef4ff 0%, #f4f7ff 38%, #f8faff 68%, #ffffff 100%);
   --welcome-banner-border: #e6ebf5;
   --plan-card-bg: #f3f0ff;
   --plan-card-border: #ebe6ff;
@@ -96,9 +94,7 @@
   --user-toggle-bg: rgba(22, 119, 255, 0.16);
   --user-toggle-hover-bg: rgba(22, 119, 255, 0.24);
   --user-toggle-open-bg: rgba(22, 119, 255, 0.28);
-  --welcome-banner-bg:
-    radial-gradient(ellipse 72% 140% at 88% 42%, rgba(59, 130, 246, 0.18) 0%, transparent 62%),
-    linear-gradient(92deg, #111827 0%, #141f33 28%, #172554 58%, #1e293b 100%);
+  --welcome-banner-bg: linear-gradient(90deg, #111827 0%, #141f33 42%, #172554 72%, #1e293b 100%);
   --welcome-banner-border: #243044;
   --plan-card-bg: #1a1f35;
   --plan-card-border: #2a3150;
