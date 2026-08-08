@@ -141,6 +141,25 @@
             </a-form-item>
           </a-col>
         </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="检索 Top-K">
+              <a-input-number v-model:value="form.retrievalTopK" :min="1" :max="20" style="width: 100%" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="相似度阈值">
+              <a-input-number
+                v-model:value="form.retrievalScoreThreshold"
+                :min="0"
+                :max="1"
+                :step="0.05"
+                style="width: 100%"
+                placeholder="留空不限制"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
         <a-button type="primary" block :loading="saving" @click="onSave">
           {{ editingId ? '保存修改' : '创建知识库' }}
         </a-button>
@@ -193,6 +212,8 @@ const form = reactive<KnowledgeBaseSaveRequest>({
   chunkStrategy: 'fixed',
   chunkSize: 512,
   chunkOverlap: 50,
+  retrievalTopK: 5,
+  retrievalScoreThreshold: undefined,
   visibility: 'private',
 })
 
@@ -249,6 +270,8 @@ function resetForm() {
   form.chunkStrategy = 'fixed'
   form.chunkSize = 512
   form.chunkOverlap = 50
+  form.retrievalTopK = 5
+  form.retrievalScoreThreshold = undefined
   form.visibility = 'private'
   form.embeddingModel = embeddingModels.value[0]?.value || ''
 }
@@ -266,6 +289,8 @@ function openEdit(item: KnowledgeBaseItem) {
   form.chunkStrategy = item.chunkStrategy
   form.chunkSize = item.chunkSize
   form.chunkOverlap = item.chunkOverlap
+  form.retrievalTopK = item.retrievalTopK ?? 5
+  form.retrievalScoreThreshold = item.retrievalScoreThreshold
   form.visibility = item.visibility
   drawerOpen.value = true
 }

@@ -1,11 +1,27 @@
 <template>
-  <div class="debug-panel" data-testid="agent-debug-panel">
+  <div class="debug-panel" :class="{ 'debug-panel--wide': wide }" data-testid="agent-debug-panel">
     <div class="debug-header">
       <div>
-        <div class="title">调试对话</div>
+        <div class="title">
+          调试对话
+          <FieldHelpIcon text="实时测试当前 Agent 配置效果。修改左侧配置并保存后，新的对话将使用最新设置；已存在的会话上下文需清空后才会重置。" />
+        </div>
         <div class="subtitle">{{ debugMode ? '实时预览 Agent 回复（调试模式）' : '已接入模型引擎，流式返回真实 AI 回复' }}</div>
       </div>
-      <a-button size="small" @click="resetChat">清空</a-button>
+      <a-space v-if="showLayoutToggle" size="small">
+        <a-tooltip title="切换调试面板宽窄布局。宽屏模式下引用来源横向排列，便于查看多个文档。" placement="top">
+          <a-button size="small" @click="toggleLayout">
+            <ColumnWidthOutlined />
+            {{ wide ? '窄屏' : '切换窗口' }}
+          </a-button>
+        </a-tooltip>
+        <a-tooltip title="清空当前调试会话的消息记录与上下文记忆，相当于开始一段新对话。" placement="top">
+          <a-button size="small" @click="resetChat">清空</a-button>
+        </a-tooltip>
+      </a-space>
+      <a-tooltip v-else title="清空当前调试会话的消息记录与上下文记忆，相当于开始一段新对话。" placement="top">
+        <a-button size="small" @click="resetChat">清空</a-button>
+      </a-tooltip>
     </div>
 
     <div ref="messageListRef" class="message-list">
@@ -40,8 +56,32 @@
           <div v-else class="assistant-content">
             {{ msg.content }}<span v-if="msg.streaming" class="cursor">|</span>
           </div>
+          <div v-if="msg.sources?.length" class="source-list">
+            <div class="source-title">
+              引用来源
+              <FieldHelpIcon text="RAG 检索命中的知识库文档。点击文件名可跳转至知识库详情页并高亮对应文档，用于核对回答依据。" />
+            </div>
+            <div class="source-links" :class="{ 'source-links--horizontal': wide }">
+              <a
+                v-for="(source, index) in uniqueSources(msg.sources)"
+                :key="index"
+                class="source-link"
+                :title="sourceLinkTitle(source)"
+                @click="openSource(source)"
+              >
+                <LinkOutlined />
+                <span>{{ sourceLinkLabel(source) }}</span>
+              </a>
+            </div>
+          </div>
         </template>
-        <div v-if="msg.meta" class="meta">{{ msg.meta }}</div>
+        <a-tooltip
+          v-if="msg.meta"
+          title="本次回复的耗时与 Token 消耗统计，用于评估响应速度与调用成本。"
+          placement="top"
+        >
+          <div class="meta">{{ msg.meta }}</div>
+        </a-tooltip>
       </div>
       <div v-if="loading && !streamingMessageId" class="message assistant">
         <div class="assistant-loading">
@@ -65,6 +105,10 @@
     </div>
 
     <div class="input-area">
+      <div class="input-label">
+        测试消息
+        <FieldHelpIcon text="输入问题测试 Agent 回复效果。Enter 发送，Shift+Enter 换行。RAG Agent 会自动检索关联知识库后生成回答。" />
+      </div>
       <div
         class="input-box"
         :class="{ 'input-box--focused': inputFocused, 'input-box--disabled': loading }"
@@ -126,12 +170,15 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { ArrowUpOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
+import { ArrowUpOutlined, ColumnWidthOutlined, LinkOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
+import FieldHelpIcon from '@/components/common/FieldHelpIcon.vue'
 import {
   clearAgentDebugConversation,
   fetchAgentDebugWelcome,
   streamAgentDebugChat,
+  type RetrievalSourceItem,
 } from '@/api/agent'
 
 interface ChatMessage {
@@ -140,6 +187,7 @@ interface ChatMessage {
   content: string
   meta?: string
   streaming?: boolean
+  sources?: RetrievalSourceItem[]
 }
 
 interface DebugSession {
@@ -149,9 +197,23 @@ interface DebugSession {
   seq: number
 }
 
-const props = defineProps<{
-  agentId: number | null
+const props = withDefaults(
+  defineProps<{
+    agentId: number | null
+    wide?: boolean
+    showLayoutToggle?: boolean
+  }>(),
+  {
+    wide: false,
+    showLayoutToggle: false,
+  },
+)
+
+const emit = defineEmits<{
+  toggleLayout: [wide: boolean]
 }>()
+
+const router = useRouter()
 
 const TYPEWRITER_INTERVAL_MS = 18
 
@@ -180,6 +242,49 @@ function storageKey(agentId: number) {
 
 function onInputChange(value: string) {
   input.value = value
+}
+
+function getDocumentBaseName(fileName?: string) {
+  if (!fileName) return '未知文档'
+  const dot = fileName.lastIndexOf('.')
+  return dot > 0 ? fileName.slice(0, dot) : fileName
+}
+
+function uniqueSources(sources: RetrievalSourceItem[]) {
+  const seen = new Set<string>()
+  const result: RetrievalSourceItem[] = []
+  for (const source of sources) {
+    const key = source.documentId != null ? `doc:${source.documentId}` : `name:${source.docName}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(source)
+  }
+  return result
+}
+
+function sourceLinkLabel(source: RetrievalSourceItem) {
+  return getDocumentBaseName(source.docName)
+}
+
+function sourceLinkTitle(source: RetrievalSourceItem) {
+  const kb = source.knowledgeBaseName ? `${source.knowledgeBaseName} / ` : ''
+  const score = source.score != null ? ` · 相关度 ${source.score.toFixed(3)}` : ''
+  return `${kb}${getDocumentBaseName(source.docName)}${score}`
+}
+
+function toggleLayout() {
+  emit('toggleLayout', !props.wide)
+}
+
+function openSource(source: RetrievalSourceItem) {
+  if (!source.knowledgeBaseId || !source.documentId) {
+    message.warning('来源文档信息不完整')
+    return
+  }
+  router.push({
+    path: `/knowledge/${source.knowledgeBaseId}`,
+    query: { highlightDoc: String(source.documentId) },
+  })
 }
 
 function saveSession() {
@@ -357,6 +462,7 @@ async function onSend() {
             target.content = data.reply || target.content
             target.streaming = false
             target.meta = `${data.tokensUsed} tokens · ${data.latencyMs}ms`
+            target.sources = data.sources
           }
           debugMode.value = data.debugMode
           saveSession()
@@ -422,6 +528,8 @@ onUnmounted(() => {
 
 .title {
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
 }
 
 .subtitle {
@@ -568,12 +676,87 @@ onUnmounted(() => {
   font-size: 11px;
   color: #94a3b8;
   margin-top: 4px;
+  cursor: help;
+}
+
+.source-list {
+  margin-top: 10px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.source-title {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.debug-panel--wide .assistant-content {
+  max-width: none;
+}
+
+.debug-panel--wide .message.assistant {
+  max-width: 100%;
+}
+
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.source-links--horizontal {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.source-links--horizontal .source-link {
+  flex-shrink: 0;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  max-width: 100%;
+}
+
+.source-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-link:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .input-area {
   padding: 12px 16px 16px;
   border-top: 1px solid #f0f0f0;
   background: #fafafa;
+}
+
+.input-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
 }
 
 .input-box {

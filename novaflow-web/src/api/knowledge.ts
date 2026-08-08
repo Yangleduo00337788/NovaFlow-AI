@@ -12,6 +12,8 @@ export interface KnowledgeBaseItem {
   chunkStrategy: string
   chunkSize: number
   chunkOverlap: number
+  retrievalTopK?: number
+  retrievalScoreThreshold?: number
   documentCount: number
   chunkCount: number
   totalSizeBytes: number
@@ -28,6 +30,8 @@ export interface KnowledgeBaseSaveRequest {
   chunkStrategy?: string
   chunkSize?: number
   chunkOverlap?: number
+  retrievalTopK?: number
+  retrievalScoreThreshold?: number
   visibility?: string
   applicationId?: number
 }
@@ -90,6 +94,33 @@ export function deleteDocument(knowledgeBaseId: number, documentId: number) {
 
 export function reprocessDocument(knowledgeBaseId: number, documentId: number) {
   return request.post<ApiResult<void>>(`/v1/knowledge-bases/${knowledgeBaseId}/documents/${documentId}/reprocess`)
+}
+
+export interface RetrievedChunkItem {
+  knowledgeBaseId: number
+  knowledgeBaseName?: string
+  documentId?: number
+  docName?: string
+  chunkIndex?: number
+  text: string
+  score?: number
+}
+
+export interface RetrievalTestResult {
+  query: string
+  topK: number
+  latencyMs: number
+  chunks: RetrievedChunkItem[]
+}
+
+export interface RetrievalTestRequest {
+  query: string
+  topK?: number
+  scoreThreshold?: number
+}
+
+export function retrieveKnowledge(knowledgeBaseId: number, data: RetrievalTestRequest) {
+  return request.post<ApiResult<RetrievalTestResult>>(`/v1/knowledge-bases/${knowledgeBaseId}/retrieve`, data)
 }
 
 export async function uploadDocument(knowledgeBaseId: number, file: File) {

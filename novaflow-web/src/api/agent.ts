@@ -18,6 +18,9 @@ export interface AgentItem {
   maxTokens?: number
   memoryType?: string
   memoryWindow?: number
+  retrievalTopK?: number
+  retrievalScoreThreshold?: number
+  knowledgeBaseIds?: number[]
   createdAt?: string
   updatedAt?: string
 }
@@ -42,6 +45,9 @@ export interface AgentSaveRequest {
   maxTokens?: number
   memoryType?: string
   memoryWindow?: number
+  retrievalTopK?: number
+  retrievalScoreThreshold?: number
+  knowledgeBaseIds?: number[]
 }
 
 export function fetchAgents(params: { page?: number; pageSize?: number; keyword?: string; agentType?: string }) {
@@ -64,12 +70,50 @@ export function deleteAgent(id: number) {
   return request.delete<ApiResult<void>>(`/v1/agents/${id}`)
 }
 
+export interface AgentPublishInfo {
+  agentId: number
+  status: number
+  version: number
+  publishedAt?: string
+  apiKeyPrefix?: string
+  apiKey?: string
+  chatEndpoint: string
+  streamEndpoint: string
+}
+
+export function fetchAgentPublishInfo(id: number) {
+  return request.get<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/publish`)
+}
+
+export function publishAgent(id: number) {
+  return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/publish`)
+}
+
+export function unpublishAgent(id: number) {
+  return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/unpublish`)
+}
+
+export function rotateAgentApiKey(id: number) {
+  return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/rotate-api-key`)
+}
+
 export interface AgentDebugChatResponse {
   reply: string
   agentName: string
   tokensUsed: number
   latencyMs: number
   debugMode: boolean
+  sources?: RetrievalSourceItem[]
+}
+
+export interface RetrievalSourceItem {
+  knowledgeBaseId?: number
+  knowledgeBaseName?: string
+  documentId?: number
+  docName?: string
+  chunkIndex?: number
+  text: string
+  score?: number
 }
 
 export function fetchAgentDebugWelcome(id: number) {
@@ -92,6 +136,7 @@ export interface AgentDebugStreamEvent {
   latencyMs?: number
   debugMode?: boolean
   message?: string
+  sources?: RetrievalSourceItem[]
 }
 
 export function clearAgentDebugConversation(id: number, conversationId: string) {
@@ -170,6 +215,7 @@ export async function streamAgentDebugChat(
           tokensUsed: event.tokensUsed || 0,
           latencyMs: event.latencyMs || 0,
           debugMode: event.debugMode ?? false,
+          sources: event.sources,
         })
       } else if (event.type === 'error') {
         throw new Error(event.message || '流式对话失败')

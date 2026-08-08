@@ -39,8 +39,8 @@
             <a-tag>{{ record.agentType }}</a-tag>
           </template>
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="record.status === 1 ? 'success' : 'default'">
-              {{ record.status === 1 ? '已发布' : '草稿' }}
+            <a-tag :color="statusColor(record.status)">
+              {{ statusLabel(record.status) }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'updatedAt'">
@@ -50,6 +50,13 @@
             <a-space>
               <a-button type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
               <a-button type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
+              <a-button
+                v-if="record.agentType === 'chat' || record.agentType === 'rag'"
+                type="link"
+                @click="openPublish(record.id)"
+              >
+                {{ record.status === 1 ? '发布管理' : '发布' }}
+              </a-button>
               <a-popconfirm title="确认删除？" @confirm="onDelete(record.id)">
                 <a-button type="link" danger>删除</a-button>
               </a-popconfirm>
@@ -68,10 +75,16 @@
       <div class="drawer-body" :class="{ split: !!editingId }">
         <div class="config-panel">
           <a-form layout="vertical" :model="form">
-            <a-form-item label="名称" required>
+            <a-form-item required>
+              <template #label>
+                <FormLabelTip label="名称" :tip="AGENT_FIELD_TIPS.agentName" />
+              </template>
               <a-input v-model:value="form.agentName" data-testid="agent-name-input" />
             </a-form-item>
-            <a-form-item label="类型">
+            <a-form-item>
+              <template #label>
+                <FormLabelTip label="类型" :tip="AGENT_FIELD_TIPS.agentType" />
+              </template>
               <a-select v-model:value="form.agentType">
                 <a-select-option value="chat">Chat Agent</a-select-option>
                 <a-select-option value="rag">RAG Agent</a-select-option>
@@ -79,10 +92,16 @@
                 <a-select-option value="workflow">Workflow Agent</a-select-option>
               </a-select>
             </a-form-item>
-            <a-form-item label="描述">
+            <a-form-item>
+              <template #label>
+                <FormLabelTip label="描述" :tip="AGENT_FIELD_TIPS.description" />
+              </template>
               <a-textarea v-model:value="form.description" :rows="2" />
             </a-form-item>
-            <a-form-item label="模型">
+            <a-form-item>
+              <template #label>
+                <FormLabelTip label="模型" :tip="AGENT_FIELD_TIPS.modelConfigId" />
+              </template>
               <a-select
                 v-model:value="form.modelConfigId"
                 allow-clear
@@ -91,20 +110,70 @@
                 :options="chatModelOptions"
               />
             </a-form-item>
-            <a-form-item label="System Prompt">
+            <a-form-item v-if="form.agentType === 'rag'" required>
+              <template #label>
+                <FormLabelTip label="关联知识库" :tip="AGENT_FIELD_TIPS.knowledgeBaseIds" />
+              </template>
+              <a-select
+                v-model:value="form.knowledgeBaseIds"
+                mode="multiple"
+                allow-clear
+                placeholder="选择要检索的知识库"
+                :loading="knowledgeBasesLoading"
+                :options="knowledgeBaseOptions"
+              />
+            </a-form-item>
+            <a-row v-if="form.agentType === 'rag'" :gutter="16">
+              <a-col :span="12">
+                <a-form-item>
+                  <template #label>
+                    <FormLabelTip label="检索 Top-K" :tip="AGENT_FIELD_TIPS.retrievalTopK" />
+                  </template>
+                  <a-input-number v-model:value="form.retrievalTopK" :min="1" :max="20" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="12">
+                <a-form-item>
+                  <template #label>
+                    <FormLabelTip label="相似度阈值" :tip="AGENT_FIELD_TIPS.retrievalScoreThreshold" />
+                  </template>
+                  <a-input-number
+                    v-model:value="form.retrievalScoreThreshold"
+                    :min="0"
+                    :max="1"
+                    :step="0.05"
+                    style="width: 100%"
+                    placeholder="留空不限制"
+                  />
+                </a-form-item>
+              </a-col>
+            </a-row>
+            <a-form-item>
+              <template #label>
+                <FormLabelTip label="System Prompt" :tip="AGENT_FIELD_TIPS.systemPrompt" />
+              </template>
               <a-textarea v-model:value="form.systemPrompt" :rows="6" />
             </a-form-item>
-            <a-form-item label="欢迎语">
+            <a-form-item>
+              <template #label>
+                <FormLabelTip label="欢迎语" :tip="AGENT_FIELD_TIPS.welcomeMessage" />
+              </template>
               <a-input v-model:value="form.welcomeMessage" />
             </a-form-item>
             <a-row :gutter="16">
               <a-col :span="12">
-                <a-form-item label="Temperature">
+                <a-form-item>
+                  <template #label>
+                    <FormLabelTip label="Temperature" :tip="AGENT_FIELD_TIPS.temperature" />
+                  </template>
                   <a-input-number v-model:value="form.temperature" :min="0" :max="2" :step="0.1" style="width: 100%" />
                 </a-form-item>
               </a-col>
               <a-col :span="12">
-                <a-form-item label="Max Tokens">
+                <a-form-item>
+                  <template #label>
+                    <FormLabelTip label="Max Tokens" :tip="AGENT_FIELD_TIPS.maxTokens" />
+                  </template>
                   <a-input-number v-model:value="form.maxTokens" :min="256" :max="8192" style="width: 100%" />
                 </a-form-item>
               </a-col>
@@ -116,9 +185,116 @@
       </div>
     </a-drawer>
 
-    <a-drawer v-model:open="debugOnlyOpen" title="Agent 调试" width="480" @close="debugAgentId = null">
-      <AgentDebugPanel :agent-id="debugAgentId" />
+    <a-drawer
+      v-model:open="debugOnlyOpen"
+      title="Agent 调试"
+      :width="debugDrawerWidth"
+      @close="onDebugDrawerClose"
+    >
+      <AgentDebugPanel
+        :agent-id="debugAgentId"
+        :wide="debugWideLayout"
+        show-layout-toggle
+        @toggle-layout="debugWideLayout = $event"
+      />
     </a-drawer>
+
+    <a-modal
+      v-model:open="publishModalOpen"
+      title="Agent 发布与 API"
+      :width="720"
+      :footer="null"
+      @cancel="closePublishModal"
+    >
+      <div v-if="publishInfo" class="publish-modal">
+        <a-descriptions bordered :column="1" size="small">
+          <a-descriptions-item label="发布状态">
+            <a-tag :color="statusColor(publishInfo.status)">{{ statusLabel(publishInfo.status) }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="版本">v{{ publishInfo.version }}</a-descriptions-item>
+          <a-descriptions-item v-if="publishInfo.publishedAt" label="发布时间">
+            {{ formatDateTime(publishInfo.publishedAt) }}
+          </a-descriptions-item>
+          <a-descriptions-item v-if="publishInfo.apiKeyPrefix" label="API Key 前缀">
+            <span class="key-prefix">{{ publishInfo.apiKeyPrefix }}...</span>
+            <a-popconfirm
+              title="轮换后旧 Key 将立即失效，需同步更新所有调用方"
+              ok-text="确认轮换"
+              @confirm="onRotateKey"
+            >
+              <a-button v-if="!revealedApiKey" type="link" size="small">轮换获取新 Key</a-button>
+            </a-popconfirm>
+          </a-descriptions-item>
+        </a-descriptions>
+
+        <a-alert
+          v-if="revealedApiKey"
+          type="warning"
+          show-icon
+          class="key-alert"
+          message="新 API Key 已生成"
+          description="请立即复制并更新到调用方配置。关闭弹窗后将无法再次查看完整密钥，此前使用的旧 Key 会立即失效。"
+        />
+        <a-alert
+          v-else-if="publishInfo.status === 1 && publishInfo.apiKeyPrefix"
+          type="info"
+          show-icon
+          class="key-alert"
+          message="完整 API Key 仅在发布或轮换时显示一次"
+          description="若调用返回「API Key 无效」，请点击「轮换 API Key」生成新密钥，并同步更新 Authorization 请求头中的 Bearer Token。"
+        />
+        <div v-if="revealedApiKey" class="api-key-box">
+          <code>{{ revealedApiKey }}</code>
+          <a-button type="primary" size="small" @click="copyText(revealedApiKey)">复制 API Key</a-button>
+        </div>
+
+        <div v-if="publishInfo.status === 1" class="endpoint-section">
+          <div class="section-label">API 端点</div>
+          <p class="endpoint-tip">命令行或第三方系统请使用后端地址 <code>{{ apiBaseUrl }}</code></p>
+          <div class="endpoint-item">
+            <span>对话</span>
+            <code>{{ apiBaseUrl }}{{ publishInfo.chatEndpoint }}</code>
+            <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.chatEndpoint}`)">复制</a-button>
+          </div>
+          <div class="endpoint-item">
+            <span>流式</span>
+            <code>{{ apiBaseUrl }}{{ publishInfo.streamEndpoint }}</code>
+            <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.streamEndpoint}`)">复制</a-button>
+          </div>
+
+          <div class="section-label">调用示例</div>
+          <pre class="curl-example">{{ curlExample }}</pre>
+          <a-space>
+            <a-button size="small" type="primary" @click="copyText(curlExample)">复制 cURL</a-button>
+            <span v-if="!revealedApiKey" class="curl-hint">请将 YOUR_API_KEY 替换为轮换后的最新密钥</span>
+          </a-space>
+        </div>
+
+        <div class="publish-actions">
+          <a-button
+            v-if="publishInfo.status !== 1"
+            type="primary"
+            :loading="publishLoading"
+            @click="onPublish"
+          >
+            发布并生成 API Key
+          </a-button>
+          <template v-else>
+            <a-popconfirm
+              title="轮换后旧 Key 将立即失效，需同步更新所有调用方"
+              ok-text="确认轮换"
+              @confirm="onRotateKey"
+            >
+              <a-button :loading="publishLoading">轮换 API Key</a-button>
+            </a-popconfirm>
+            <a-popconfirm title="确认下线该 Agent？对外 API 将立即停止" @confirm="onUnpublish">
+              <a-button danger :loading="publishLoading">下线</a-button>
+            </a-popconfirm>
+          </template>
+        </div>
+      </div>
+      <a-spin v-else :spinning="publishLoading" />
+    </a-modal>
   </div>
 </template>
 
@@ -126,14 +302,50 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
-import { createAgent, deleteAgent, fetchAgent, fetchAgents, updateAgent, type AgentItem, type AgentSaveRequest } from '@/api/agent'
+import FormLabelTip from '@/components/common/FormLabelTip.vue'
+import {
+  createAgent,
+  deleteAgent,
+  fetchAgent,
+  fetchAgentPublishInfo,
+  fetchAgents,
+  publishAgent,
+  rotateAgentApiKey,
+  unpublishAgent,
+  updateAgent,
+  type AgentItem,
+  type AgentPublishInfo,
+  type AgentSaveRequest,
+} from '@/api/agent'
+import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
+
+const AGENT_FIELD_TIPS = {
+  agentName: 'Agent 的显示名称，会出现在列表、调试对话和对外 API 的标识中。',
+  agentType:
+    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool / Workflow 用于工具调用与工作流编排（后续扩展）。',
+  description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
+  modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
+  knowledgeBaseIds: 'RAG Agent 进行向量检索的知识库，支持多选。每次提问会从中召回与问题最相关的文档分块作为参考。',
+  retrievalTopK:
+    '每次提问最多召回的文档分块数量。数值越大上下文越丰富，但可能引入无关内容；一般建议 3–10。',
+  retrievalScoreThreshold:
+    '向量相似度下限（0–1），低于该分数的分块会被过滤。留空表示不做阈值过滤，仅按 Top-K 取结果。',
+  systemPrompt:
+    '系统级指令，用于定义 Agent 的角色、语气、回答规范与边界。每次对话都会传给模型，优先级高于用户消息。',
+  welcomeMessage: '用户打开对话时首条展示的消息，调试面板与对外 API 均可使用。留空时由系统生成默认问候语。',
+  temperature:
+    '控制回复的随机性与创造性。越低越稳定、严谨；越高越发散、有创意，但也更容易偏离事实或产生幻觉。',
+  maxTokens: '单次回复允许生成的最大 Token 数，影响回答长度、响应时间与调用成本。',
+} as const
 
 const loading = ref(false)
 const saving = ref(false)
 const modelsLoading = ref(false)
+const knowledgeBasesLoading = ref(false)
 const chatModels = ref<ModelConfigItem[]>([])
+const knowledgeBases = ref<KnowledgeBaseItem[]>([])
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
 const agentType = ref<string>()
@@ -142,8 +354,27 @@ const pageSize = ref(10)
 const total = ref(0)
 const drawerOpen = ref(false)
 const debugOnlyOpen = ref(false)
+const debugWideLayout = ref(false)
 const editingId = ref<number | null>(null)
 const debugAgentId = ref<number | null>(null)
+const publishModalOpen = ref(false)
+const publishAgentId = ref<number | null>(null)
+const publishInfo = ref<AgentPublishInfo | null>(null)
+const publishLoading = ref(false)
+const revealedApiKey = ref('')
+
+const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin
+
+const debugDrawerWidth = computed(() => (debugWideLayout.value ? 1080 : 480))
+
+const curlExample = computed(() => {
+  if (!publishInfo.value) return ''
+  const key = revealedApiKey.value || 'YOUR_API_KEY'
+  return `curl -X POST "${apiBaseUrl}${publishInfo.value.chatEndpoint}" ^
+  -H "Authorization: Bearer ${key}" ^
+  -H "Content-Type: application/json" ^
+  -d "{\\"message\\":\\"你好\\",\\"conversationId\\":\\"conv-001\\"}"`
+})
 
 const form = reactive<AgentSaveRequest>({
   agentName: '',
@@ -155,7 +386,10 @@ const form = reactive<AgentSaveRequest>({
   maxTokens: 2048,
   memoryType: 'window',
   memoryWindow: 10,
+  retrievalTopK: 5,
+  retrievalScoreThreshold: undefined,
   modelConfigId: undefined,
+  knowledgeBaseIds: [],
 })
 
 const chatModelOptions = computed(() =>
@@ -167,13 +401,41 @@ const chatModelOptions = computed(() =>
     })),
 )
 
+const knowledgeBaseOptions = computed(() =>
+  knowledgeBases.value.map((item) => ({
+    value: item.id,
+    label: `${item.kbName}（${item.chunkCount} 分块）`,
+  })),
+)
+
+function statusLabel(status: number) {
+  if (status === 1) return '已发布'
+  if (status === 2) return '已下线'
+  return '草稿'
+}
+
+function statusColor(status: number) {
+  if (status === 1) return 'success'
+  if (status === 2) return 'warning'
+  return 'default'
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success('已复制')
+  } catch {
+    message.error('复制失败')
+  }
+}
+
 const columns = [
   { title: '名称', dataIndex: 'agentName', key: 'agentName' },
   { title: '类型', key: 'agentType' },
   { title: '状态', key: 'status' },
   { title: '版本', dataIndex: 'version', key: 'version' },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
-  { title: '操作', key: 'action', width: 220 },
+  { title: '操作', key: 'action', width: 280 },
 ]
 
 const pagination = reactive({
@@ -219,8 +481,21 @@ function resetForm() {
     maxTokens: 2048,
     memoryType: 'window',
     memoryWindow: 10,
+    retrievalTopK: 5,
+    retrievalScoreThreshold: undefined,
     modelConfigId: undefined,
+    knowledgeBaseIds: [],
   })
+}
+
+async function loadKnowledgeBases() {
+  knowledgeBasesLoading.value = true
+  try {
+    const res = await fetchKnowledgeBases({ page: 1, pageSize: 100 })
+    knowledgeBases.value = res.data.data.list
+  } finally {
+    knowledgeBasesLoading.value = false
+  }
 }
 
 async function loadChatModels() {
@@ -236,11 +511,13 @@ async function loadChatModels() {
 function openCreate() {
   resetForm()
   loadChatModels()
+  loadKnowledgeBases()
   drawerOpen.value = true
 }
 
 async function openEdit(id: number) {
   loadChatModels()
+  loadKnowledgeBases()
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
@@ -249,13 +526,92 @@ async function openEdit(id: number) {
 }
 
 function openDebug(id: number) {
+  debugWideLayout.value = false
   debugAgentId.value = id
   debugOnlyOpen.value = true
+}
+
+function onDebugDrawerClose() {
+  debugAgentId.value = null
+  debugWideLayout.value = false
+}
+
+async function openPublish(id: number) {
+  publishAgentId.value = id
+  publishModalOpen.value = true
+  revealedApiKey.value = ''
+  publishLoading.value = true
+  try {
+    const res = await fetchAgentPublishInfo(id)
+    publishInfo.value = res.data.data
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载发布信息失败')
+    publishModalOpen.value = false
+  } finally {
+    publishLoading.value = false
+  }
+}
+
+function closePublishModal() {
+  publishAgentId.value = null
+  publishInfo.value = null
+  revealedApiKey.value = ''
+}
+
+async function onPublish() {
+  if (!publishAgentId.value) return
+  publishLoading.value = true
+  try {
+    const res = await publishAgent(publishAgentId.value)
+    publishInfo.value = res.data.data
+    revealedApiKey.value = res.data.data.apiKey || ''
+    message.success('发布成功，请立即复制 API Key')
+    loadData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '发布失败')
+  } finally {
+    publishLoading.value = false
+  }
+}
+
+async function onUnpublish() {
+  if (!publishAgentId.value) return
+  publishLoading.value = true
+  try {
+    const res = await unpublishAgent(publishAgentId.value)
+    publishInfo.value = res.data.data
+    revealedApiKey.value = ''
+    message.success('已下线')
+    loadData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '下线失败')
+  } finally {
+    publishLoading.value = false
+  }
+}
+
+async function onRotateKey() {
+  if (!publishAgentId.value) return
+  publishLoading.value = true
+  try {
+    const res = await rotateAgentApiKey(publishAgentId.value)
+    publishInfo.value = res.data.data
+    revealedApiKey.value = res.data.data.apiKey || ''
+    message.success('API Key 已轮换，旧 Key 已失效，请复制新 Key 并更新调用方')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '轮换失败')
+  } finally {
+    publishLoading.value = false
+  }
 }
 
 async function onSave() {
   if (!form.agentName) {
     message.warning('请输入 Agent 名称')
+    return
+  }
+  if (form.agentType === 'rag' && (!form.knowledgeBaseIds || form.knowledgeBaseIds.length === 0)) {
+    message.warning('RAG Agent 请至少关联一个知识库')
     return
   }
   saving.value = true
@@ -326,5 +682,90 @@ onMounted(loadData)
 
 .debug-side {
   min-height: 100%;
+}
+
+.publish-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.key-alert {
+  margin-top: 4px;
+}
+
+.key-prefix {
+  margin-right: 8px;
+}
+
+.api-key-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 8px;
+  word-break: break-all;
+}
+
+.endpoint-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.endpoint-tip {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.endpoint-tip code {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.section-label {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.endpoint-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.endpoint-item > code {
+  flex: 1;
+  min-width: 0;
+}
+
+.curl-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.endpoint-item code,
+.curl-example {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.publish-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
 }
 </style>

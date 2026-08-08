@@ -60,6 +60,56 @@
       </div>
     </div>
 
+    <div class="page-card retrieval-section">
+      <div class="section-title">检索测试</div>
+      <p class="section-desc">输入问题测试向量检索效果，查看召回的分块内容与相似度分数</p>
+      <div class="retrieval-form">
+        <a-textarea
+          v-model:value="retrievalQuery"
+          :rows="3"
+          placeholder="输入测试问题，例如：产品的退货政策是什么？"
+          :disabled="retrieving"
+        />
+        <div class="retrieval-controls">
+          <div class="retrieval-topk">
+            <span>Top-K</span>
+            <a-input-number v-model:value="retrievalTopK" :min="1" :max="20" :disabled="retrieving" />
+          </div>
+          <div class="retrieval-topk">
+            <span>相似度阈值</span>
+            <a-input-number
+              v-model:value="retrievalScoreThreshold"
+              :min="0"
+              :max="1"
+              :step="0.05"
+              :disabled="retrieving"
+              placeholder="默认"
+            />
+          </div>
+          <a-button type="primary" :loading="retrieving" :disabled="!retrievalQuery.trim()" @click="onRetrieve">
+            开始检索
+          </a-button>
+        </div>
+      </div>
+
+      <div v-if="retrievalResult" class="retrieval-result">
+        <div class="retrieval-meta">
+          耗时 {{ retrievalResult.latencyMs }}ms，召回 {{ retrievalResult.chunks.length }} 条
+        </div>
+        <a-empty v-if="retrievalResult.chunks.length === 0" description="未检索到相关内容，请确认文档已处理完成" />
+        <div v-else class="chunk-list">
+          <div v-for="(chunk, index) in retrievalResult.chunks" :key="index" class="chunk-card">
+            <div class="chunk-head">
+              <span class="chunk-rank">#{{ index + 1 }}</span>
+              <span class="chunk-doc">{{ chunk.docName || '未知文档' }}</span>
+              <a-tag v-if="chunk.score != null" color="blue">相似度 {{ formatScore(chunk.score) }}</a-tag>
+            </div>
+            <div class="chunk-text">{{ chunk.text }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="page-card documents-section">
       <div class="section-head">
         <div class="section-title">文档列表</div>
@@ -78,6 +128,8 @@
         :loading="loading"
         row-key="id"
         :pagination="pagination"
+        :row-class-name="rowClassName"
+        :custom-row="customRow"
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
@@ -160,6 +212,25 @@
             </a-form-item>
           </a-col>
         </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="检索 Top-K">
+              <a-input-number v-model:value="editForm.retrievalTopK" :min="1" :max="20" style="width: 100%" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="相似度阈值">
+              <a-input-number
+                v-model:value="editForm.retrievalScoreThreshold"
+                :min="0"
+                :max="1"
+                :step="0.05"
+                style="width: 100%"
+                placeholder="留空不限制"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
         <a-button type="primary" block :loading="saving" @click="onSaveEdit">保存修改</a-button>
       </a-form>
     </a-drawer>
@@ -167,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import type { UploadProps } from 'ant-design-vue'
@@ -179,11 +250,13 @@ import {
   fetchDocuments,
   fetchKnowledgeBase,
   reprocessDocument,
+  retrieveKnowledge,
   updateKnowledgeBase,
   uploadDocument,
   type DocumentItem,
   type KnowledgeBaseItem,
   type KnowledgeBaseSaveRequest,
+  type RetrievalTestResult,
 } from '@/api/knowledge'
 import { fetchEmbeddingOptions } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
@@ -205,6 +278,14 @@ const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const embeddingModels = ref<Array<{ label: string; value: string }>>([])
+const retrievalQuery = ref('')
+const retrievalTopK = ref(5)
+const retrievalScoreThreshold = ref<number | undefined>(undefined)
+const retrieving = ref(false)
+const retrievalResult = ref<RetrievalTestResult | null>(null)
+const highlightedDocId = ref<number | null>(null)
+
+const HIGHLIGHT_DURATION_MS = 10_000
 
 const editForm = reactive<KnowledgeBaseSaveRequest>({
   kbName: '',
@@ -213,6 +294,8 @@ const editForm = reactive<KnowledgeBaseSaveRequest>({
   chunkStrategy: 'fixed',
   chunkSize: 512,
   chunkOverlap: 50,
+  retrievalTopK: 5,
+  retrievalScoreThreshold: undefined,
   visibility: 'private',
 })
 
@@ -238,6 +321,83 @@ const hasProcessingDocuments = computed(() =>
   documents.value.some((item) => item.processStatus === 0 || item.processStatus === 1),
 )
 let pollTimer: number | undefined
+let highlightTimer: number | undefined
+
+function customRow(record: DocumentItem) {
+  return {
+    id: `doc-row-${record.id}`,
+  }
+}
+
+function rowClassName(record: DocumentItem) {
+  return record.id === highlightedDocId.value ? 'doc-row-highlight' : ''
+}
+
+function clearHighlightTimer() {
+  if (highlightTimer) {
+    window.clearTimeout(highlightTimer)
+    highlightTimer = undefined
+  }
+}
+
+function clearHighlightQuery() {
+  if (!route.query.highlightDoc) return
+  const { highlightDoc: _highlightDoc, ...rest } = route.query
+  router.replace({ query: rest })
+}
+
+async function scrollToHighlightedDocument(documentId: number) {
+  await nextTick()
+  document.getElementById(`doc-row-${documentId}`)?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  })
+}
+
+function highlightDocument(documentId: number) {
+  clearHighlightTimer()
+  highlightedDocId.value = documentId
+  clearHighlightQuery()
+  scrollToHighlightedDocument(documentId)
+  highlightTimer = window.setTimeout(() => {
+    highlightedDocId.value = null
+    highlightTimer = undefined
+  }, HIGHLIGHT_DURATION_MS)
+}
+
+async function ensureDocumentVisible(documentId: number) {
+  const current = documents.value.find((item) => item.id === documentId)
+  if (current) return true
+
+  keyword.value = ''
+  const probe = await fetchDocuments(kbId.value, { page: 1, pageSize: 1 })
+  const totalCount = probe.data.data.total
+  if (totalCount === 0) return false
+
+  const fetchSize = Math.min(totalCount, 200)
+  const res = await fetchDocuments(kbId.value, { page: 1, pageSize: fetchSize })
+  const index = res.data.data.list.findIndex((item) => item.id === documentId)
+  if (index < 0) return false
+
+  page.value = Math.floor(index / pageSize.value) + 1
+  await loadDocuments()
+  return documents.value.some((item) => item.id === documentId)
+}
+
+async function applyHighlightFromQuery() {
+  const raw = route.query.highlightDoc
+  if (!raw) return
+  const documentId = Number(raw)
+  if (Number.isNaN(documentId)) return
+
+  const visible = await ensureDocumentVisible(documentId)
+  if (!visible) {
+    message.warning('未找到对应文档，可能已被删除')
+    clearHighlightQuery()
+    return
+  }
+  highlightDocument(documentId)
+}
 
 function statusColor(status: number) {
   switch (status) {
@@ -252,9 +412,32 @@ function statusColor(status: number) {
   }
 }
 
+function formatScore(score: number) {
+  return score.toFixed(3)
+}
+
+async function onRetrieve() {
+  if (!retrievalQuery.value.trim()) return
+  retrieving.value = true
+  try {
+    const res = await retrieveKnowledge(kbId.value, {
+      query: retrievalQuery.value.trim(),
+      topK: retrievalTopK.value,
+      scoreThreshold: retrievalScoreThreshold.value,
+    })
+    retrievalResult.value = res.data.data
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '检索失败')
+  } finally {
+    retrieving.value = false
+  }
+}
+
 async function loadDetail() {
   const res = await fetchKnowledgeBase(kbId.value)
   detail.value = res.data.data
+  retrievalTopK.value = detail.value?.retrievalTopK ?? 5
+  retrievalScoreThreshold.value = detail.value?.retrievalScoreThreshold
 }
 
 async function loadDocuments() {
@@ -320,6 +503,8 @@ function openEdit() {
   editForm.chunkStrategy = detail.value.chunkStrategy
   editForm.chunkSize = detail.value.chunkSize
   editForm.chunkOverlap = detail.value.chunkOverlap
+  editForm.retrievalTopK = detail.value.retrievalTopK ?? 5
+  editForm.retrievalScoreThreshold = detail.value.retrievalScoreThreshold
   editForm.visibility = detail.value.visibility
   drawerOpen.value = true
 }
@@ -403,18 +588,31 @@ watch(
   async (id) => {
     if (!id) return
     page.value = 1
+    clearHighlightTimer()
+    highlightedDocId.value = null
     await reloadAll()
+    await applyHighlightFromQuery()
+  },
+)
+
+watch(
+  () => route.query.highlightDoc,
+  async (docId, prev) => {
+    if (!docId || docId === prev) return
+    await applyHighlightFromQuery()
   },
 )
 
 onMounted(async () => {
   await loadEmbeddingModels()
   await reloadAll()
+  await applyHighlightFromQuery()
   startPolling()
 })
 
 onUnmounted(() => {
   stopPolling()
+  clearHighlightTimer()
 })
 </script>
 
@@ -480,6 +678,7 @@ onUnmounted(() => {
 }
 
 .upload-section,
+.retrieval-section,
 .documents-section {
   padding: 20px;
 }
@@ -520,6 +719,95 @@ onUnmounted(() => {
 
 .doc-name-cell span {
   word-break: break-all;
+}
+
+.retrieval-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.retrieval-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.retrieval-topk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.retrieval-result {
+  margin-top: 20px;
+}
+
+.retrieval-meta {
+  margin-bottom: 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.chunk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chunk-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+}
+
+.chunk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.chunk-rank {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.chunk-doc {
+  color: #334155;
+  font-size: 13px;
+}
+
+.chunk-text {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:deep(.doc-row-highlight > td) {
+  background-color: #fff7e6 !important;
+  box-shadow: inset 3px 0 0 #faad14;
+  animation: doc-row-highlight-fade 10s ease-out forwards;
+}
+
+@keyframes doc-row-highlight-fade {
+  0% {
+    background-color: #ffe58f !important;
+  }
+  70% {
+    background-color: #fff7e6 !important;
+  }
+  100% {
+    background-color: transparent !important;
+    box-shadow: none;
+  }
 }
 
 @media (max-width: 960px) {
