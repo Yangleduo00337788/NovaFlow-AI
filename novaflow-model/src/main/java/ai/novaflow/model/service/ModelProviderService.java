@@ -53,6 +53,12 @@ public class ModelProviderService {
                 .toList();
     }
 
+    public List<ModelProviderVO> listProviderPresets() {
+        return ModelProviderPreset.all().stream()
+                .map(preset -> toProviderVO(preset, null, requireTenantId()))
+                .toList();
+    }
+
     public ModelProviderVO detail(Long id) {
         ModelProviderEntity entity = getProviderOrThrow(id);
         ModelProviderPreset preset = ModelProviderPreset.of(entity.getProviderCode())
@@ -74,21 +80,22 @@ public class ModelProviderService {
         );
 
         if (existing == null) {
-            if (!StringUtils.hasText(request.getApiKey())) {
-                throw new BusinessException("首次配置请填写 API Key");
-            }
+            validateSaveRequest(preset, request);
+            String apiKey = resolveSaveApiKey(preset, request.getApiKey());
             ModelProviderEntity created = new ModelProviderEntity();
             created.setTenantId(tenantId);
             created.setProviderCode(preset.getCode());
             created.setProviderName(preset.getName());
             created.setBaseUrl(resolveBaseUrl(request.getBaseUrl(), preset.getDefaultBaseUrl()));
-            created.setApiKeyEncrypted(cryptoService.encrypt(request.getApiKey().trim()));
+            if (StringUtils.hasText(apiKey)) {
+                created.setApiKeyEncrypted(cryptoService.encrypt(apiKey));
+            }
             created.setIsEnabled(Boolean.FALSE.equals(request.getEnabled()) ? 0 : 1);
             created.setIsDeleted(0);
             created.setCreatedAt(LocalDateTime.now());
             created.setUpdatedAt(LocalDateTime.now());
             modelProviderMapper.insert(created);
-            modelSyncService.syncFromUpstream(created, request.getApiKey().trim());
+            modelSyncService.syncFromUpstream(created, apiKey);
             return toProviderVO(preset, created, tenantId);
         }
 
@@ -134,7 +141,9 @@ public class ModelProviderService {
                 entity.getBaseUrl()
         );
         String modelName = request != null ? request.getModelName() : null;
-        return modelConnectivityService.test(baseUrl, apiKey, modelName);
+        ModelProviderPreset preset = ModelProviderPreset.of(entity.getProviderCode()).orElse(null);
+        boolean requiresApiKey = preset == null || preset.isRequiresApiKey();
+        return modelConnectivityService.test(baseUrl, apiKey, modelName, requiresApiKey);
     }
 
     public ModelSyncResultVO syncModels(Long id) {
@@ -183,6 +192,13 @@ public class ModelProviderService {
         if (StringUtils.hasText(overrideKey) && !cryptoService.isMaskedValue(overrideKey)) {
             return overrideKey.trim();
         }
+        if (!StringUtils.hasText(entity.getApiKeyEncrypted())) {
+            ModelProviderPreset preset = ModelProviderPreset.of(entity.getProviderCode()).orElse(null);
+            if (preset != null && !preset.isRequiresApiKey()) {
+                return "ollama";
+            }
+            return "";
+        }
         return cryptoService.decrypt(entity.getApiKeyEncrypted());
     }
 
@@ -198,7 +214,11 @@ public class ModelProviderService {
         if (entity != null) {
             id = entity.getId();
             baseUrl = StringUtils.hasText(entity.getBaseUrl()) ? entity.getBaseUrl() : preset.getDefaultBaseUrl();
-            apiKeyMasked = cryptoService.maskSecret(cryptoService.decrypt(entity.getApiKeyEncrypted()));
+            if (StringUtils.hasText(entity.getApiKeyEncrypted())) {
+                apiKeyMasked = cryptoService.maskSecret(cryptoService.decrypt(entity.getApiKeyEncrypted()));
+            } else if (!preset.isRequiresApiKey()) {
+                apiKeyMasked = "无需配置";
+            }
             enabled = entity.getIsEnabled() != null && entity.getIsEnabled() == 1;
             updatedAt = entity.getUpdatedAt();
             modelCount = (int) modelConfigMapper.selectCountByQuery(
@@ -220,8 +240,30 @@ public class ModelProviderService {
                 .configured(configured)
                 .enabled(enabled)
                 .modelCount(modelCount)
+                .region(preset.getRegion().name().toLowerCase())
+                .apiStyle(preset.getApiStyle().name().toLowerCase())
+                .requiresApiKey(preset.isRequiresApiKey())
                 .updatedAt(updatedAt)
                 .build();
+    }
+
+    private void validateSaveRequest(ModelProviderPreset preset, ModelProviderSaveRequest request) {
+        if ("custom".equals(preset.getCode()) && !StringUtils.hasText(request.getBaseUrl())) {
+            throw new BusinessException("自定义提供商请填写 Base URL");
+        }
+        if (preset.isRequiresApiKey() && !StringUtils.hasText(request.getApiKey())) {
+            throw new BusinessException("首次配置请填写 API Key");
+        }
+    }
+
+    private String resolveSaveApiKey(ModelProviderPreset preset, String apiKey) {
+        if (StringUtils.hasText(apiKey)) {
+            return apiKey.trim();
+        }
+        if (!preset.isRequiresApiKey()) {
+            return "";
+        }
+        return null;
     }
 
     private String resolveBaseUrl(String requestBaseUrl, String fallback) {

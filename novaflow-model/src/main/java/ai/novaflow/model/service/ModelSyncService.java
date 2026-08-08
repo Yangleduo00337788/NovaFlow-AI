@@ -1,7 +1,12 @@
 package ai.novaflow.model.service;
 
+import ai.novaflow.model.domain.EmbeddingModelCatalog;
 import ai.novaflow.model.domain.ModelPriceCatalog;
+import ai.novaflow.model.domain.ModelProviderPreset;
+import ai.novaflow.model.domain.ProviderApiStyle;
+import ai.novaflow.model.domain.ProviderModelCatalog;
 import ai.novaflow.model.domain.UpstreamModelDescriptor;
+import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.vo.ModelSyncResultVO;
 import ai.novaflow.model.entity.ModelConfigEntity;
 import ai.novaflow.model.entity.ModelProviderEntity;
@@ -28,7 +33,8 @@ public class ModelSyncService {
 
     @Transactional
     public ModelSyncResultVO syncFromUpstream(ModelProviderEntity provider, String apiKey) {
-        List<UpstreamModelDescriptor> upstreamModels = modelUpstreamService.listModels(provider.getBaseUrl(), apiKey);
+        ModelProviderPreset preset = ModelProviderPreset.of(provider.getProviderCode()).orElse(null);
+        List<UpstreamModelDescriptor> upstreamModels = resolveUpstreamModels(provider, apiKey, preset);
         List<ModelConfigEntity> existingModels = modelConfigMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", provider.getTenantId())
@@ -72,6 +78,8 @@ public class ModelSyncService {
         }
 
         ensureDefaultChatModel(provider.getTenantId(), provider.getId());
+        int catalogAdded = ensureCatalogEmbeddingModels(provider);
+        added += catalogAdded;
 
         return ModelSyncResultVO.builder()
                 .added(added)
@@ -81,6 +89,71 @@ public class ModelSyncService {
                 .message(String.format("已同步 %d 个上游模型（新增 %d，更新 %d，停用 %d）",
                         upstreamModels.size(), added, updated, disabled))
                 .build();
+    }
+
+    private List<UpstreamModelDescriptor> resolveUpstreamModels(
+            ModelProviderEntity provider,
+            String apiKey,
+            ModelProviderPreset preset) {
+        if (preset != null && preset.getApiStyle() == ProviderApiStyle.CATALOG_ONLY) {
+            List<UpstreamModelDescriptor> catalogModels = ProviderModelCatalog.list(provider.getProviderCode());
+            if (!catalogModels.isEmpty()) {
+                return catalogModels;
+            }
+        }
+        boolean requiresApiKey = preset == null || preset.isRequiresApiKey();
+        try {
+            return modelUpstreamService.listModels(provider.getBaseUrl(), apiKey, requiresApiKey);
+        } catch (BusinessException ex) {
+            List<UpstreamModelDescriptor> catalogModels = ProviderModelCatalog.list(provider.getProviderCode());
+            if (!catalogModels.isEmpty()) {
+                return catalogModels;
+            }
+            throw ex;
+        }
+    }
+
+    public int ensureCatalogEmbeddingModels(ModelProviderEntity provider) {
+        int added = 0;
+        for (EmbeddingModelCatalog.EmbeddingPreset preset : EmbeddingModelCatalog.forProvider(provider.getProviderCode())) {
+            ModelConfigEntity existing = modelConfigMapper.selectOneByQuery(
+                    QueryWrapper.create()
+                            .eq("tenant_id", provider.getTenantId())
+                            .eq("provider_id", provider.getId())
+                            .eq("model_name", preset.modelName())
+                            .eq("is_deleted", 0)
+            );
+            if (existing == null) {
+                modelConfigMapper.insert(buildCatalogEmbeddingConfig(provider, preset));
+                added++;
+                continue;
+            }
+            boolean changed = false;
+            if (!"embedding".equals(existing.getModelType())) {
+                existing.setModelType("embedding");
+                changed = true;
+            }
+            if (existing.getIsEnabled() == null || existing.getIsEnabled() == 0) {
+                existing.setIsEnabled(1);
+                changed = true;
+            }
+            if (changed) {
+                existing.setUpdatedAt(LocalDateTime.now());
+                modelConfigMapper.update(existing);
+            }
+        }
+        return added;
+    }
+
+    private ModelConfigEntity buildCatalogEmbeddingConfig(
+            ModelProviderEntity provider,
+            EmbeddingModelCatalog.EmbeddingPreset preset) {
+        UpstreamModelDescriptor upstream = UpstreamModelDescriptor.builder()
+                .modelName(preset.modelName())
+                .modelType("embedding")
+                .displayName(preset.displayName())
+                .build();
+        return buildNewConfig(provider, upstream);
     }
 
     private ModelConfigEntity buildNewConfig(ModelProviderEntity provider, UpstreamModelDescriptor upstream) {
@@ -131,12 +204,19 @@ public class ModelSyncService {
                         changed = true;
                     }
                     if (config.getOutputPrice() == null) {
-                        config.setOutputPrice(price.outputPer1k());
+                        config.setOutputPrice(resolveOutputPrice(config.getModelType(), price));
                         changed = true;
                     }
                     return changed;
                 })
                 .orElse(false);
+    }
+
+    private BigDecimal resolveOutputPrice(String modelType, ModelPriceCatalog.ModelPrice price) {
+        if ("embedding".equals(modelType) || "rerank".equals(modelType)) {
+            return BigDecimal.ZERO;
+        }
+        return price.outputPer1k();
     }
 
     private int defaultContextWindow(String modelType) {

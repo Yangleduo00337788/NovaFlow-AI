@@ -4,6 +4,7 @@ import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.model.domain.dto.ModelConfigSaveRequest;
 import ai.novaflow.model.domain.dto.ModelConnectivityTestRequest;
 import ai.novaflow.model.domain.dto.ModelProviderSaveRequest;
+import ai.novaflow.model.domain.vo.EmbeddingOptionVO;
 import ai.novaflow.model.domain.vo.ModelConfigVO;
 import ai.novaflow.model.domain.vo.ModelConnectivityTestVO;
 import ai.novaflow.model.domain.vo.ModelOverviewVO;
@@ -78,6 +79,11 @@ public class ModelController {
     @PostMapping("/providers/{id}/sync")
     public ApiResult<ModelSyncResultVO> syncProviderModels(@PathVariable Long id) {
         return ApiResult.ok(modelProviderService.syncModels(id));
+    }
+
+    @GetMapping("/embedding-options")
+    public ApiResult<List<EmbeddingOptionVO>> listEmbeddingOptions() {
+        return ApiResult.ok(modelConfigService.listEmbeddingOptions());
     }
 
     @GetMapping("/configs")

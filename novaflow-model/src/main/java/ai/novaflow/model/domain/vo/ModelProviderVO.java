@@ -19,5 +19,8 @@ public class ModelProviderVO {
     private Boolean configured;
     private Boolean enabled;
     private Integer modelCount;
+    private String region;
+    private String apiStyle;
+    private Boolean requiresApiKey;
     private LocalDateTime updatedAt;
 }

@@ -14,9 +14,9 @@ public class ModelConnectivityService {
 
     private final ModelUpstreamService modelUpstreamService;
 
-    public ModelConnectivityTestVO test(String baseUrl, String apiKey, String modelName) {
+    public ModelConnectivityTestVO test(String baseUrl, String apiKey, String modelName, boolean requiresApiKey) {
         long start = System.currentTimeMillis();
-        List<UpstreamModelDescriptor> models = modelUpstreamService.listModels(baseUrl, apiKey);
+        List<UpstreamModelDescriptor> models = modelUpstreamService.listModels(baseUrl, apiKey, requiresApiKey);
         String resolvedModel = StringUtils.hasText(modelName)
                 ? modelName
                 : models.stream().findFirst().map(UpstreamModelDescriptor::getModelName).orElse(null);

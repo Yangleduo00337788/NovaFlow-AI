@@ -30,7 +30,11 @@ public class ModelUpstreamService {
             .build();
 
     public List<UpstreamModelDescriptor> listModels(String baseUrl, String apiKey) {
-        if (!StringUtils.hasText(apiKey)) {
+        return listModels(baseUrl, apiKey, true);
+    }
+
+    public List<UpstreamModelDescriptor> listModels(String baseUrl, String apiKey, boolean requiresApiKey) {
+        if (requiresApiKey && !StringUtils.hasText(apiKey)) {
             throw new BusinessException("请先配置 API Key");
         }
         if (!StringUtils.hasText(baseUrl)) {
@@ -40,13 +44,7 @@ public class ModelUpstreamService {
         String normalizedBaseUrl = normalizeBaseUrl(baseUrl);
         try {
             HttpResponse<String> response = httpClient.send(
-                    HttpRequest.newBuilder()
-                            .uri(URI.create(normalizedBaseUrl + "/models"))
-                            .timeout(TIMEOUT)
-                            .header("Authorization", "Bearer " + apiKey)
-                            .header("Content-Type", "application/json")
-                            .GET()
-                            .build(),
+                    buildListModelsRequest(normalizedBaseUrl, apiKey),
                     HttpResponse.BodyHandlers.ofString()
             );
 
@@ -134,6 +132,18 @@ public class ModelUpstreamService {
             }
         }
         return builder.toString();
+    }
+
+    private HttpRequest buildListModelsRequest(String normalizedBaseUrl, String apiKey) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(normalizedBaseUrl + "/models"))
+                .timeout(TIMEOUT)
+                .header("Content-Type", "application/json")
+                .GET();
+        if (StringUtils.hasText(apiKey)) {
+            builder.header("Authorization", "Bearer " + apiKey);
+        }
+        return builder.build();
     }
 
     private String normalizeBaseUrl(String baseUrl) {

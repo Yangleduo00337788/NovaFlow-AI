@@ -40,6 +40,27 @@ public class ModelResolutionService {
         return config;
     }
 
+    public ResolvedModelConfig resolveEmbeddingModel(String modelName, Long tenantId) {
+        if (!StringUtils.hasText(modelName)) {
+            throw new BusinessException("Embedding 模型未配置");
+        }
+        ModelConfigEntity config = modelConfigMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", tenantId)
+                        .eq("model_name", modelName.trim())
+                        .eq("model_type", "embedding")
+                        .eq("is_enabled", 1)
+                        .eq("is_deleted", 0)
+                        .orderBy("is_default", false)
+                        .limit(1)
+        );
+        if (config == null) {
+            throw new BusinessException("未找到可用的 Embedding 模型: " + modelName
+                    + "，请先在模型中心同步并启用");
+        }
+        return toResolvedConfig(config);
+    }
+
     private ResolvedModelConfig toResolvedConfig(ModelConfigEntity config) {
         if (config.getIsEnabled() == null || config.getIsEnabled() != 1) {
             throw new BusinessException("模型已停用: " + config.getModelName());
@@ -53,7 +74,7 @@ public class ModelResolutionService {
                 .orElseThrow(() -> new BusinessException("不支持的模型提供商: " + provider.getProviderCode()));
 
         String apiKey = modelProviderService.resolveApiKey(provider, null);
-        if (!StringUtils.hasText(apiKey)) {
+        if (preset.isRequiresApiKey() && !StringUtils.hasText(apiKey)) {
             throw new BusinessException("模型提供商 API Key 未配置");
         }
 
