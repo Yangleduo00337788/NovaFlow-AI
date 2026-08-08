@@ -6,7 +6,7 @@
           调试对话
           <FieldHelpIcon text="实时测试当前 Agent 配置效果。修改左侧配置并保存后，新的对话将使用最新设置；已存在的会话上下文需清空后才会重置。" />
         </div>
-        <div class="subtitle">{{ debugMode ? '实时预览 Agent 回复（调试模式）' : '已接入模型引擎，流式返回真实 AI 回复' }}</div>
+        <div class="subtitle">{{ debugSubtitle }}</div>
       </div>
       <a-space v-if="showLayoutToggle" size="small">
         <a-tooltip title="查看并切换历史调试会话" placement="top">
@@ -116,8 +116,35 @@
               </div>
             </div>
           </div>
-          <div v-if="msg.content" class="assistant-content">
-            {{ msg.content }}<span v-if="msg.streaming" class="cursor">|</span>
+          <WebSearchStatusBar
+            v-if="shouldShowWebSearchBar(msg)"
+            :items="resolveWebSearchItems(msg)"
+            :query="getPreviousUserQuery(msg)"
+            :loading="Boolean(msg.streaming && !resolveWebSearchItems(msg).length)"
+          />
+          <div v-if="msg.toolCalls?.length" class="tool-call-list">
+            <template v-for="(tool, toolIndex) in msg.toolCalls" :key="toolIndex">
+              <SearchToolResult
+                v-if="isSearchToolName(tool.name)"
+                :name="tool.name"
+                :args="tool.args"
+                :result="tool.result"
+              />
+              <div v-else class="tool-call-item">
+                <div class="tool-call-item__head">
+                  <span>{{ tool.result ? '已完成' : '调用中' }} · {{ tool.name }}</span>
+                </div>
+                <pre v-if="tool.args" class="tool-call-item__body">{{ tool.args }}</pre>
+                <pre v-if="tool.result" class="tool-call-item__result">{{ tool.result }}</pre>
+              </div>
+            </template>
+          </div>
+          <div v-if="msg.content" class="assistant-content-wrap">
+            <div
+              class="assistant-content markdown-body"
+              v-html="renderAssistantContent(msg.content, msg)"
+            />
+            <span v-if="msg.streaming" class="cursor">|</span>
           </div>
           <div v-if="msg.sources?.length" class="source-list">
             <div class="source-title">
@@ -157,7 +184,7 @@
             </div>
             <span class="thinking-label">正在思考......</span>
           </div>
-          <div v-else-if="msg.content && (msg.streaming || hasReplyMeta(msg))" class="assistant-reply-head">
+          <div v-else-if="msg.content && (msg.streaming || hasReplyMeta(msg)) && !shouldHideReplyHead(msg)" class="assistant-reply-head">
             <div
               class="tech-loader tech-loader--xs"
               :class="{ 'tech-loader--paused': !msg.streaming }"
@@ -181,8 +208,35 @@
               {{ msg.streaming ? '正在回答......' : '已完成' }}
             </span>
           </div>
-          <div v-if="msg.content" class="assistant-content">
-            {{ msg.content }}<span v-if="msg.streaming" class="cursor">|</span>
+          <WebSearchStatusBar
+            v-if="shouldShowWebSearchBar(msg)"
+            :items="resolveWebSearchItems(msg)"
+            :query="getPreviousUserQuery(msg)"
+            :loading="Boolean(msg.streaming && !resolveWebSearchItems(msg).length)"
+          />
+          <div v-if="msg.toolCalls?.length" class="tool-call-list">
+            <template v-for="(tool, toolIndex) in msg.toolCalls" :key="toolIndex">
+              <SearchToolResult
+                v-if="isSearchToolName(tool.name)"
+                :name="tool.name"
+                :args="tool.args"
+                :result="tool.result"
+              />
+              <div v-else class="tool-call-item">
+                <div class="tool-call-item__head">
+                  <span>{{ tool.result ? '已完成' : '调用中' }} · {{ tool.name }}</span>
+                </div>
+                <pre v-if="tool.args" class="tool-call-item__body">{{ tool.args }}</pre>
+                <pre v-if="tool.result" class="tool-call-item__result">{{ tool.result }}</pre>
+              </div>
+            </template>
+          </div>
+          <div v-if="msg.content" class="assistant-content-wrap">
+            <div
+              class="assistant-content markdown-body"
+              v-html="renderAssistantContent(msg.content, msg)"
+            />
+            <span v-if="msg.streaming" class="cursor">|</span>
           </div>
           <div v-if="msg.sources?.length" class="source-list">
             <div class="source-title">
@@ -241,6 +295,14 @@
         class="input-box"
         :class="{ 'input-box--focused': inputFocused, 'input-box--disabled': loading }"
       >
+        <div
+          v-if="attachment"
+          class="attachment-chip"
+        >
+          <PaperClipOutlined />
+          <span>{{ attachment.fileName }}</span>
+          <button type="button" class="attachment-chip__remove" @click="attachment = null">×</button>
+        </div>
         <a-textarea
           :value="input"
           :auto-size="{ minRows: 1, maxRows: 6 }"
@@ -266,25 +328,38 @@
               <BulbOutlined />
               深度思考
             </button>
-            <button
+            <a-tooltip
               v-if="showWebSearchToggle"
-              type="button"
-              class="capability-btn"
-              :class="{ active: webSearchEnabled }"
-              :disabled="loading"
-              @click="webSearchEnabled = !webSearchEnabled"
+              title="仅通义千问、Kimi、智谱、百度等支持联网的模型可用。"
+              placement="top"
             >
-              <GlobalOutlined />
-              全网搜索
-            </button>
+              <button
+                type="button"
+                class="capability-btn"
+                :class="{ active: webSearchEnabled }"
+                :disabled="loading"
+                @click="webSearchEnabled = !webSearchEnabled"
+              >
+                <GlobalOutlined />
+                全网搜索
+              </button>
+            </a-tooltip>
           </div>
           <div class="input-toolbar__actions">
+            <input
+              ref="fileInputRef"
+              type="file"
+              class="hidden-file-input"
+              accept=".txt,.md,.json,.csv,.log"
+              @change="onAttachmentSelected"
+            />
             <button
               type="button"
               class="input-icon-btn"
-              title="附件（即将支持）"
-              disabled
+              title="上传文本附件"
+              :disabled="loading"
               aria-label="附件"
+              @click="onPickAttachment"
             >
               <PaperClipOutlined />
             </button>
@@ -326,16 +401,36 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { ArrowUpOutlined, BulbOutlined, ColumnWidthOutlined, DownOutlined, GlobalOutlined, HistoryOutlined, LinkOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
 import FieldHelpIcon from '@/components/common/FieldHelpIcon.vue'
+import SearchToolResult from '@/components/agent/SearchToolResult.vue'
+import WebSearchStatusBar from '@/components/agent/WebSearchStatusBar.vue'
 import {
   clearAgentDebugConversation,
   fetchAgentDebugWelcome,
   fetchDebugConversationMessages,
   fetchDebugConversations,
   streamAgentDebugChat,
+  uploadDebugAttachment,
   type ConversationItem,
+  type DebugAttachment,
   type RetrievalSourceItem,
+  type WebSearchSourceItem,
 } from '@/api/agent'
 import { formatDateTime } from '@/utils/datetime'
+import { renderMarkdown } from '@/utils/markdown'
+import { injectSearchCitations } from '@/utils/searchCitations'
+import {
+  extractSearchItemsFromContent,
+  isSearchToolName,
+  parseSearchToolResult,
+  toSearchResultItems,
+  type SearchResultItem,
+} from '@/utils/searchToolResult'
+
+interface ToolCallRecord {
+  name: string
+  args?: string
+  result?: string
+}
 
 interface ChatMessage {
   id: number
@@ -343,6 +438,7 @@ interface ChatMessage {
   content: string
   thinkingContent?: string
   deepThinkingUsed?: boolean
+  deepThinkingRequested?: boolean
   thinkingExpanded?: boolean
   thinkingStartedAt?: number
   thinkingFinishedAt?: number
@@ -350,6 +446,9 @@ interface ChatMessage {
   meta?: string
   streaming?: boolean
   sources?: RetrievalSourceItem[]
+  toolCalls?: ToolCallRecord[]
+  webSearchUsed?: boolean
+  webSearchSources?: WebSearchSourceItem[]
 }
 
 interface DebugSession {
@@ -399,10 +498,18 @@ const historyOpen = ref(false)
 const historyLoading = ref(false)
 const historyList = ref<ConversationItem[]>([])
 const modelCapabilities = ref<ModelCapabilities | null>(null)
+const activeModelLabel = ref('')
 const deepThinkingEnabled = ref(false)
 const webSearchEnabled = ref(false)
+const attachment = ref<DebugAttachment | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const showDeepThinkingToggle = computed(() => Boolean(modelCapabilities.value?.supportsDeepThinking))
 const showWebSearchToggle = computed(() => Boolean(modelCapabilities.value?.supportsWebSearch))
+const debugSubtitle = computed(() => {
+  const modelPart = activeModelLabel.value ? `当前模型：${activeModelLabel.value} · ` : ''
+  const modePart = debugMode.value ? '实时预览 Agent 回复（调试模式）' : '已接入模型引擎，流式返回真实 AI 回复'
+  return `${modelPart}${modePart}`
+})
 let seq = 1
 let abortController: AbortController | null = null
 let tokenBuffer = ''
@@ -419,6 +526,99 @@ function storageKey(agentId: number) {
 
 function onInputChange(value: string) {
   input.value = value
+}
+
+function formatModelLabel(modelName?: string, providerName?: string) {
+  if (!modelName?.trim()) {
+    return ''
+  }
+  return providerName?.trim() ? `${providerName.trim()} · ${modelName.trim()}` : modelName.trim()
+}
+
+function formatReplyMeta(tokens: number, latency: number, modelName?: string) {
+  const parts: string[] = []
+  if (modelName?.trim()) {
+    parts.push(modelName.trim())
+  }
+  parts.push(`${tokens} tokens`, `${latency}ms`)
+  return parts.join(' · ')
+}
+
+function hasSearchToolCalls(msg: ChatMessage) {
+  return msg.toolCalls?.some((tool) => isSearchToolName(tool.name)) ?? false
+}
+
+function shouldHideReplyHead(msg: ChatMessage) {
+  return hasSearchToolCalls(msg) || shouldShowWebSearchBar(msg)
+}
+
+function shouldShowWebSearchBar(msg: ChatMessage) {
+  if (!msg.webSearchUsed || hasSearchToolCalls(msg)) {
+    return false
+  }
+  const items = resolveWebSearchItems(msg)
+  return Boolean(msg.streaming) || items.length > 0
+}
+
+function syncCapabilityToggles() {
+  if (!showDeepThinkingToggle.value) {
+    deepThinkingEnabled.value = false
+  }
+  if (!showWebSearchToggle.value) {
+    webSearchEnabled.value = false
+  }
+}
+
+function getPreviousUserQuery(msg: ChatMessage) {
+  const index = messages.value.findIndex((item) => item.id === msg.id)
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const candidate = messages.value[cursor]
+    if (candidate.role === 'user') {
+      return candidate.content.replace(/\n\n\[附件:.*$/, '').trim()
+    }
+  }
+  return ''
+}
+
+function resolveWebSearchItems(msg: ChatMessage): SearchResultItem[] {
+  if (msg.webSearchSources?.length) {
+    return toSearchResultItems(msg.webSearchSources)
+  }
+  const toolSources = collectSearchSources(msg.toolCalls)
+  if (toolSources.length) {
+    return toolSources
+  }
+  if (msg.webSearchUsed && msg.content) {
+    return extractSearchItemsFromContent(msg.content)
+  }
+  return []
+}
+
+function collectSearchSources(toolCalls?: ToolCallRecord[]): SearchResultItem[] {
+  if (!toolCalls?.length) {
+    return []
+  }
+  const sources: SearchResultItem[] = []
+  for (const tool of toolCalls) {
+    if (!isSearchToolName(tool.name) || !tool.result) {
+      continue
+    }
+    sources.push(...parseSearchToolResult(tool.result).items)
+  }
+  return sources
+}
+
+function renderAssistantContent(content: string, msg: ChatMessage) {
+  const html = renderMarkdown(content)
+  return injectSearchCitations(html, resolveWebSearchItems(msg))
+}
+
+function updateWebSearchSources(assistantMessageId: number, sources: WebSearchSourceItem[]) {
+  if (!sources.length) {
+    return
+  }
+  patchMessage(assistantMessageId, { webSearchSources: sources })
+  scrollToBottom()
 }
 
 function patchMessage(id: number, patch: Partial<ChatMessage>) {
@@ -671,7 +871,9 @@ function startTypewriter(assistantMessageId: number) {
 
 function appendThinkingToken(token: string, assistantMessageId: number) {
   const target = messages.value.find((item) => item.id === assistantMessageId)
-  if (!target) return
+  if (!target?.deepThinkingRequested) {
+    return
+  }
   patchMessage(assistantMessageId, {
     deepThinkingUsed: true,
     thinkingStartedAt: target.thinkingStartedAt || Date.now(),
@@ -720,12 +922,8 @@ async function loadWelcome() {
     })
     debugMode.value = data.debugMode
     modelCapabilities.value = data.modelCapabilities || null
-    if (!showDeepThinkingToggle.value) {
-      deepThinkingEnabled.value = false
-    }
-    if (!showWebSearchToggle.value) {
-      webSearchEnabled.value = false
-    }
+    activeModelLabel.value = formatModelLabel(data.modelName, data.providerName)
+    syncCapabilityToggles()
     saveSession()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载欢迎语失败')
@@ -740,6 +938,7 @@ async function initPanel() {
   clearTypewriter()
   input.value = ''
   modelCapabilities.value = null
+  activeModelLabel.value = ''
   deepThinkingEnabled.value = false
   webSearchEnabled.value = false
   const restored = restoreSession(props.agentId)
@@ -751,6 +950,8 @@ async function initPanel() {
     fetchAgentDebugWelcome(props.agentId)
       .then((res) => {
         modelCapabilities.value = res.data.data.modelCapabilities || null
+        activeModelLabel.value = formatModelLabel(res.data.data.modelName, res.data.data.providerName)
+        syncCapabilityToggles()
       })
       .catch(() => {})
   }
@@ -772,14 +973,55 @@ async function resetChat() {
   await loadWelcome()
 }
 
+function appendToolCall(assistantMessageId: number, toolName: string, toolArgs: string) {
+  const target = messages.value.find((item) => item.id === assistantMessageId)
+  if (!target) return
+  const toolCalls = [...(target.toolCalls || []), { name: toolName, args: toolArgs }]
+  patchMessage(assistantMessageId, { toolCalls })
+  scrollToBottom()
+}
+
+function completeToolCall(assistantMessageId: number, toolName: string, toolResult: string) {
+  const target = messages.value.find((item) => item.id === assistantMessageId)
+  if (!target?.toolCalls?.length) return
+  const toolCalls = target.toolCalls.map((tool) =>
+    tool.name === toolName && !tool.result ? { ...tool, result: toolResult } : tool,
+  )
+  patchMessage(assistantMessageId, { toolCalls })
+  scrollToBottom()
+}
+
+function onPickAttachment() {
+  fileInputRef.value?.click()
+}
+
+async function onAttachmentSelected(event: Event) {
+  const inputEl = event.target as HTMLInputElement
+  const file = inputEl.files?.[0]
+  if (!file || !props.agentId) return
+  try {
+    attachment.value = await uploadDebugAttachment(props.agentId, file)
+    message.success(`已添加附件：${attachment.value.fileName}`)
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '附件上传失败')
+  } finally {
+    inputEl.value = ''
+  }
+}
+
 async function onSend() {
   const text = input.value.trim()
   if (!text || !props.agentId || loading.value) return
 
   input.value = ''
+  const currentAttachment = attachment.value
+  attachment.value = null
   await nextTick()
 
-  messages.value.push({ id: seq++, role: 'user', content: text })
+  const displayText = currentAttachment
+    ? `${text}\n\n[附件: ${currentAttachment.fileName}]`
+    : text
+  messages.value.push({ id: seq++, role: 'user', content: displayText })
   saveSession()
   loading.value = true
   scrollToBottom()
@@ -792,9 +1034,12 @@ async function onSend() {
     content: '',
     streaming: true,
     deepThinkingUsed: deepThinkingEnabled.value,
+    deepThinkingRequested: deepThinkingEnabled.value,
     thinkingExpanded: true,
     thinkingStartedAt: deepThinkingEnabled.value ? Date.now() : undefined,
     thinkingComplete: false,
+    webSearchUsed: webSearchEnabled.value && showWebSearchToggle.value,
+    webSearchSources: [],
   })
 
   abortController?.abort()
@@ -813,16 +1058,29 @@ async function onSend() {
         onThinkingToken: (token) => {
           appendThinkingToken(token, assistantMessageId)
         },
+        onToolCall: (toolName, toolArgs) => {
+          appendToolCall(assistantMessageId, toolName, toolArgs)
+        },
+        onToolResult: (toolName, toolResult) => {
+          completeToolCall(assistantMessageId, toolName, toolResult)
+        },
+        onWebSearch: (sources) => {
+          updateWebSearchSources(assistantMessageId, sources)
+        },
         onDone: async (data) => {
           flushTypewriter(assistantMessageId)
           const target = messages.value.find((item) => item.id === assistantMessageId)
           if (target) {
+            const webSearchSources = data.webSearchSources?.length
+              ? data.webSearchSources
+              : target.webSearchSources
             patchMessage(assistantMessageId, {
               content: data.reply || target.content,
               thinkingContent: data.thinking || target.thinkingContent,
               streaming: false,
-              meta: `${data.tokensUsed} tokens · ${data.latencyMs}ms`,
+              meta: formatReplyMeta(data.tokensUsed || 0, data.latencyMs || 0, data.modelName),
               sources: data.sources,
+              webSearchSources,
             })
             markThinkingComplete(messages.value.find((item) => item.id === assistantMessageId))
           }
@@ -840,6 +1098,8 @@ async function onSend() {
       {
         enableDeepThinking: deepThinkingEnabled.value,
         enableWebSearch: webSearchEnabled.value,
+        attachmentName: currentAttachment?.fileName,
+        attachmentContext: currentAttachment?.content,
       },
     )
   } catch (e) {
@@ -955,12 +1215,88 @@ onUnmounted(() => {
   border-radius: 12px;
 }
 
+.assistant-content-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 .assistant-content {
   padding: 4px 0;
-  white-space: pre-wrap;
   line-height: 1.65;
   font-size: 14px;
   color: #1e293b;
+}
+
+.assistant-content.markdown-body :deep(p) {
+  margin: 0 0 0.75em;
+}
+
+.assistant-content.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.assistant-content.markdown-body :deep(ul),
+.assistant-content.markdown-body :deep(ol) {
+  margin: 0 0 0.75em;
+  padding-left: 1.25em;
+}
+
+.assistant-content.markdown-body :deep(li) {
+  margin: 0.25em 0;
+}
+
+.assistant-content.markdown-body :deep(strong) {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.assistant-content.markdown-body :deep(a) {
+  color: #1677ff;
+  text-decoration: none;
+}
+
+.assistant-content.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.assistant-content.markdown-body :deep(h1),
+.assistant-content.markdown-body :deep(h2),
+.assistant-content.markdown-body :deep(h3) {
+  margin: 0.5em 0 0.35em;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.assistant-content.markdown-body :deep(code) {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: #f1f5f9;
+  font-size: 0.92em;
+}
+
+.assistant-content.markdown-body :deep(.search-citation) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  margin: 0 1px;
+  padding: 0 2px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: super;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.assistant-content.markdown-body :deep(a.search-citation:hover) {
+  background: #e2e8f0;
+  color: #64748b;
+  text-decoration: none;
 }
 
 .assistant-loading {
@@ -1391,12 +1727,77 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   border-radius: 8px;
-  color: #94a3b8;
+  color: #64748b;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
+  cursor: pointer;
+}
+
+.input-icon-btn:disabled {
+  color: #94a3b8;
   cursor: not-allowed;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+}
+
+.attachment-chip__remove {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tool-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tool-call-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.tool-call-item__head {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1677ff;
+  margin-bottom: 4px;
+}
+
+.tool-call-item__body,
+.tool-call-item__result {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.tool-call-item__result {
+  margin-top: 4px;
+  color: #334155;
 }
 
 .send-btn {

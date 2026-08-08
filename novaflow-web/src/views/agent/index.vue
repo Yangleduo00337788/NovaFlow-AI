@@ -148,6 +148,73 @@
                 </a-form-item>
               </a-col>
             </a-row>
+            <a-row v-if="form.agentType === 'rag'" :gutter="16">
+              <a-col :span="8">
+                <a-form-item>
+                  <template #label>
+                    <FormLabelTip label="启用 Rerank" :tip="AGENT_FIELD_TIPS.rerankEnabled" />
+                  </template>
+                  <a-switch v-model:checked="form.rerankEnabled" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="16">
+                <a-form-item v-if="form.rerankEnabled" label="Rerank 模型">
+                  <a-select
+                    v-model:value="form.rerankModel"
+                    allow-clear
+                    placeholder="选择 Rerank 模型"
+                    :loading="rerankModelsLoading"
+                    :options="rerankModelOptions"
+                  />
+                </a-form-item>
+              </a-col>
+            </a-row>
+            <a-alert
+              v-if="form.agentType === 'rag' && form.rerankEnabled && !rerankModelsLoading && rerankModelOptions.length === 0"
+              type="warning"
+              show-icon
+              message="未找到可用的 Rerank 模型"
+              description="请先到「模型中心」同步提供商，并启用 rerank 类型模型（如 Jina Reranker、BGE-Reranker）。"
+              class="rerank-hint"
+            />
+            <a-alert
+              v-else-if="form.agentType === 'rag' && form.rerankEnabled && !form.rerankModel"
+              type="info"
+              show-icon
+              message="请选择 Rerank 模型"
+              description="开启后会在向量召回结果上进行重排序，通常能提升 RAG 回答相关性。保存前需选定模型。"
+              class="rerank-hint"
+            />
+            <template v-if="form.agentType === 'tool'">
+              <a-form-item>
+                <template #label>
+                  <FormLabelTip label="工具配置" tip="配置自定义 HTTP 接口，URL 中可使用 {{param}} 占位符。" />
+                </template>
+                <div class="tool-list">
+                  <div v-for="(tool, index) in form.tools" :key="index" class="tool-item">
+                    <a-row :gutter="8">
+                      <a-col :span="6">
+                        <a-input v-model:value="tool.name" placeholder="工具名，如 get_weather" />
+                      </a-col>
+                      <a-col :span="4">
+                        <a-select v-model:value="tool.method" :options="httpMethodOptions" />
+                      </a-col>
+                      <a-col :span="14">
+                        <a-input v-model:value="tool.url" placeholder="https://api.example.com?q={{city}}" />
+                      </a-col>
+                    </a-row>
+                    <a-textarea
+                      v-model:value="tool.description"
+                      :rows="2"
+                      placeholder="工具描述，帮助模型判断何时调用"
+                      style="margin-top: 8px"
+                    />
+                    <a-button type="link" danger style="padding-left: 0" @click="removeTool(index)">删除工具</a-button>
+                  </div>
+                  <a-button type="dashed" block @click="addHttpTool">添加 HTTP 工具</a-button>
+                </div>
+              </a-form-item>
+            </template>
             <a-form-item>
               <template #label>
                 <FormLabelTip label="System Prompt" :tip="AGENT_FIELD_TIPS.systemPrompt" />
@@ -326,6 +393,7 @@ import {
   type AgentItem,
   type AgentPublishInfo,
   type AgentSaveRequest,
+  type AgentToolDefinition,
 } from '@/api/agent'
 import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
@@ -342,8 +410,11 @@ const AGENT_FIELD_TIPS = {
     '每次提问最多召回的文档分块数量。数值越大上下文越丰富，但可能引入无关内容；一般建议 3–10。',
   retrievalScoreThreshold:
     '向量相似度下限（0–1），低于该分数的分块会被过滤。留空表示不做阈值过滤，仅按 Top-K 取结果。',
+  rerankEnabled:
+    '开启后使用 Rerank 模型对向量召回的候选文档重新打分排序，可提升 RAG 回答质量。需先在模型中心配置 rerank 模型。',
+  rerankModel: '选择已启用的 Rerank 模型，例如 Jina Reranker。',
   systemPrompt:
-    '系统级指令，用于定义 Agent 的角色、语气、回答规范与边界。每次对话都会传给模型，优先级高于用户消息。',
+    '系统级指令，用于定义 Agent 的角色、语气、回答规范与边界。留空则不向模型发送 System Prompt；填写后才会作为系统消息传给模型。',
   welcomeMessage: '用户打开对话时首条展示的消息，调试面板与对外 API 均可使用。留空时由系统生成默认问候语。',
   temperature:
     '控制回复的随机性与创造性。越低越稳定、严谨；越高越发散、有创意，但也更容易偏离事实或产生幻觉。',
@@ -353,8 +424,10 @@ const AGENT_FIELD_TIPS = {
 const loading = ref(false)
 const saving = ref(false)
 const modelsLoading = ref(false)
+const rerankModelsLoading = ref(false)
 const knowledgeBasesLoading = ref(false)
 const chatModels = ref<ModelConfigItem[]>([])
+const rerankModels = ref<ModelConfigItem[]>([])
 const knowledgeBases = ref<KnowledgeBaseItem[]>([])
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
@@ -405,9 +478,26 @@ const form = reactive<AgentSaveRequest>({
   memoryWindow: 10,
   retrievalTopK: 5,
   retrievalScoreThreshold: undefined,
+  rerankEnabled: false,
+  rerankModel: undefined,
   modelConfigId: undefined,
   knowledgeBaseIds: [],
+  tools: [] as AgentToolDefinition[],
 })
+
+const httpMethodOptions = [
+  { value: 'GET', label: 'GET' },
+  { value: 'POST', label: 'POST' },
+]
+
+const rerankModelOptions = computed(() =>
+  rerankModels.value
+    .filter((item) => item.enabled)
+    .map((item) => ({
+      value: item.modelName,
+      label: `${item.displayName} (${item.providerName})`,
+    })),
+)
 
 const chatModelOptions = computed(() =>
   chatModels.value
@@ -500,9 +590,28 @@ function resetForm() {
     memoryWindow: 10,
     retrievalTopK: 5,
     retrievalScoreThreshold: undefined,
+    rerankEnabled: false,
+    rerankModel: undefined,
     modelConfigId: undefined,
     knowledgeBaseIds: [],
+    tools: [],
   })
+}
+
+function addHttpTool() {
+  if (!form.tools) {
+    form.tools = []
+  }
+  form.tools.push({
+    name: '',
+    description: '',
+    method: 'GET',
+    url: '',
+  })
+}
+
+function removeTool(index: number) {
+  form.tools?.splice(index, 1)
 }
 
 async function loadKnowledgeBases() {
@@ -512,6 +621,16 @@ async function loadKnowledgeBases() {
     knowledgeBases.value = res.data.data.list
   } finally {
     knowledgeBasesLoading.value = false
+  }
+}
+
+async function loadRerankModels() {
+  rerankModelsLoading.value = true
+  try {
+    const res = await fetchModelConfigs({ modelType: 'rerank' })
+    rerankModels.value = res.data.data
+  } finally {
+    rerankModelsLoading.value = false
   }
 }
 
@@ -528,17 +647,31 @@ async function loadChatModels() {
 function openCreate() {
   resetForm()
   loadChatModels()
+  loadRerankModels()
   loadKnowledgeBases()
   drawerOpen.value = true
 }
 
 async function openEdit(id: number) {
   loadChatModels()
+  loadRerankModels()
   loadKnowledgeBases()
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
-  Object.assign(form, data)
+  Object.assign(form, {
+    ...data,
+    tools: (data.tools || [])
+      .filter((tool) => tool.toolType !== 'baidu_search')
+      .map((tool) => ({
+        method: tool.method || 'GET',
+        name: tool.name,
+        description: tool.description,
+        url: tool.url,
+        headers: tool.headers,
+        inputSchema: tool.inputSchema,
+      })),
+  })
   drawerOpen.value = true
 }
 
@@ -632,6 +765,31 @@ async function onSave() {
     message.warning('RAG Agent 请至少关联一个知识库')
     return
   }
+  if (form.agentType === 'rag' && form.rerankEnabled) {
+    if (!rerankModelOptions.value.length) {
+      message.warning('未找到可用的 Rerank 模型，请先在模型中心配置并启用')
+      return
+    }
+    if (!form.rerankModel) {
+      message.warning('已启用 Rerank，请选择 Rerank 模型')
+      return
+    }
+  }
+  if (form.agentType === 'tool') {
+    const validTools = (form.tools || []).filter((tool) => tool.name?.trim() && tool.url?.trim())
+    if (validTools.length === 0) {
+      message.warning('Tool Agent 请至少配置一个 HTTP 工具')
+      return
+    }
+    form.tools = validTools.map((tool) => ({
+      method: tool.method || 'GET',
+      name: tool.name.trim(),
+      description: tool.description,
+      url: tool.url?.trim(),
+      headers: tool.headers,
+      inputSchema: tool.inputSchema,
+    }))
+  }
   saving.value = true
   try {
     if (editingId.value) {
@@ -712,6 +870,23 @@ onMounted(loadData)
 .debug-only-drawer :deep(.ant-drawer-body) {
   flex: 1;
   min-height: 0;
+}
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-item {
+  padding: 12px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.rerank-hint {
+  margin-bottom: 12px;
 }
 
 .publish-modal {

@@ -20,9 +20,24 @@ export interface AgentItem {
   memoryWindow?: number
   retrievalTopK?: number
   retrievalScoreThreshold?: number
+  rerankEnabled?: boolean
+  rerankModel?: string
+  rerankCandidateK?: number
   knowledgeBaseIds?: number[]
+  tools?: AgentToolDefinition[]
   createdAt?: string
   updatedAt?: string
+}
+
+export interface AgentToolDefinition {
+  name: string
+  description?: string
+  method?: string
+  url?: string
+  headers?: Record<string, string>
+  inputSchema?: Record<string, unknown>
+  /** @deprecated 已移除百度搜索工具，加载旧数据时用于过滤 */
+  toolType?: string
 }
 
 export interface AgentPage {
@@ -47,7 +62,11 @@ export interface AgentSaveRequest {
   memoryWindow?: number
   retrievalTopK?: number
   retrievalScoreThreshold?: number
+  rerankEnabled?: boolean
+  rerankModel?: string
+  rerankCandidateK?: number
   knowledgeBaseIds?: number[]
+  tools?: AgentToolDefinition[]
 }
 
 export function fetchAgents(params: { page?: number; pageSize?: number; keyword?: string; agentType?: string }) {
@@ -110,7 +129,10 @@ export interface AgentDebugChatResponse {
   debugMode: boolean
   thinking?: string
   sources?: RetrievalSourceItem[]
+  webSearchSources?: WebSearchSourceItem[]
   modelCapabilities?: ModelCapabilities
+  modelName?: string
+  providerName?: string
 }
 
 export interface RetrievalSourceItem {
@@ -134,17 +156,54 @@ export function debugAgentChat(id: number, message: string, conversationId?: str
   })
 }
 
+export interface WebSearchSourceItem {
+  index?: number
+  title: string
+  url?: string
+  snippet?: string
+}
+
 export interface AgentDebugStreamEvent {
-  type: 'token' | 'thinking_token' | 'done' | 'error'
+  type: 'token' | 'thinking_token' | 'tool_call' | 'tool_result' | 'web_search' | 'done' | 'error'
   content?: string
   reply?: string
   thinking?: string
+  toolName?: string
+  toolArgs?: string
+  toolResult?: string
   agentName?: string
   tokensUsed?: number
   latencyMs?: number
   debugMode?: boolean
   message?: string
   sources?: RetrievalSourceItem[]
+  webSearchSources?: WebSearchSourceItem[]
+  modelName?: string
+}
+
+export interface DebugAttachment {
+  fileName: string
+  content: string
+  contentLength?: number
+}
+
+export async function uploadDebugAttachment(agentId: number, file: File) {
+  const auth = useAuthStore()
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await fetch(`/api/v1/agents/${agentId}/debug/attachments`, {
+    method: 'POST',
+    headers: {
+      ...(auth.token ? { Authorization: auth.token } : {}),
+    },
+    body: formData,
+  })
+  if (!response.ok) {
+    const result = (await response.json()) as ApiResult<unknown>
+    throw new Error(result.message || '附件上传失败')
+  }
+  const result = (await response.json()) as ApiResult<DebugAttachment>
+  return result.data
 }
 
 export function clearAgentDebugConversation(id: number, conversationId: string) {
@@ -201,6 +260,9 @@ export async function streamAgentDebugChat(
   handlers: {
     onToken: (token: string) => void
     onThinkingToken?: (token: string) => void
+    onToolCall?: (toolName: string, toolArgs: string) => void
+    onToolResult?: (toolName: string, toolResult: string) => void
+    onWebSearch?: (sources: WebSearchSourceItem[]) => void
     onDone: (data: AgentDebugChatResponse) => void
     onError: (error: Error) => void
   },
@@ -208,6 +270,8 @@ export async function streamAgentDebugChat(
   options?: {
     enableDeepThinking?: boolean
     enableWebSearch?: boolean
+    attachmentName?: string
+    attachmentContext?: string
   },
 ) {
   const auth = useAuthStore()
@@ -222,6 +286,8 @@ export async function streamAgentDebugChat(
       conversationId,
       enableDeepThinking: options?.enableDeepThinking,
       enableWebSearch: options?.enableWebSearch,
+      attachmentName: options?.attachmentName,
+      attachmentContext: options?.attachmentContext,
     }),
     signal,
   })
@@ -267,6 +333,12 @@ export async function streamAgentDebugChat(
       const event = JSON.parse(payload) as AgentDebugStreamEvent
       if (event.type === 'thinking_token' && event.content) {
         handlers.onThinkingToken?.(event.content)
+      } else if (event.type === 'tool_call' && event.toolName) {
+        handlers.onToolCall?.(event.toolName, event.toolArgs || '{}')
+      } else if (event.type === 'tool_result' && event.toolName) {
+        handlers.onToolResult?.(event.toolName, event.toolResult || '')
+      } else if (event.type === 'web_search' && event.webSearchSources) {
+        handlers.onWebSearch?.(event.webSearchSources)
       } else if (event.type === 'token' && event.content) {
         handlers.onToken(event.content)
       } else if (event.type === 'done') {
@@ -278,6 +350,8 @@ export async function streamAgentDebugChat(
           debugMode: event.debugMode ?? false,
           thinking: event.thinking,
           sources: event.sources,
+          webSearchSources: event.webSearchSources,
+          modelName: event.modelName,
         })
       } else if (event.type === 'error') {
         throw new Error(event.message || '流式对话失败')
