@@ -117,6 +117,9 @@ export interface RetrievalTestRequest {
   query: string
   topK?: number
   scoreThreshold?: number
+  rerankEnabled?: boolean
+  rerankModel?: string
+  rerankCandidateK?: number
 }
 
 export function retrieveKnowledge(knowledgeBaseId: number, data: RetrievalTestRequest) {

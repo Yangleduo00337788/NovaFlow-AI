@@ -86,10 +86,40 @@
               placeholder="默认"
             />
           </div>
+          <div class="retrieval-topk">
+            <span>Rerank</span>
+            <a-switch v-model:checked="retrievalRerankEnabled" :disabled="retrieving" />
+          </div>
+          <div v-if="retrievalRerankEnabled" class="retrieval-topk retrieval-topk--wide">
+            <span>Rerank 模型</span>
+            <a-select
+              v-model:value="retrievalRerankModel"
+              allow-clear
+              placeholder="选择模型"
+              :disabled="retrieving"
+              :options="rerankModelOptions"
+              style="min-width: 220px"
+            />
+          </div>
           <a-button type="primary" :loading="retrieving" :disabled="!retrievalQuery.trim()" @click="onRetrieve">
             开始检索
           </a-button>
         </div>
+        <a-alert
+          v-if="retrievalRerankEnabled && !rerankModelOptions.length"
+          type="warning"
+          show-icon
+          message="未找到可用的 Rerank 模型"
+          description="请先在模型中心同步并启用 rerank 类型模型。"
+          class="retrieval-hint"
+        />
+        <a-alert
+          v-else-if="retrievalRerankEnabled && !retrievalRerankModel"
+          type="info"
+          show-icon
+          message="请选择 Rerank 模型后再检索"
+          class="retrieval-hint"
+        />
       </div>
 
       <div v-if="retrievalResult" class="retrieval-result">
@@ -258,7 +288,7 @@ import {
   type KnowledgeBaseSaveRequest,
   type RetrievalTestResult,
 } from '@/api/knowledge'
-import { fetchEmbeddingOptions } from '@/api/model'
+import { fetchEmbeddingOptions, fetchModelConfigs } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
 import { formatFileSize } from '@/utils/filesize'
 
@@ -281,6 +311,9 @@ const embeddingModels = ref<Array<{ label: string; value: string }>>([])
 const retrievalQuery = ref('')
 const retrievalTopK = ref(5)
 const retrievalScoreThreshold = ref<number | undefined>(undefined)
+const retrievalRerankEnabled = ref(false)
+const retrievalRerankModel = ref<string | undefined>(undefined)
+const rerankModelOptions = ref<Array<{ label: string; value: string }>>([])
 const retrieving = ref(false)
 const retrievalResult = ref<RetrievalTestResult | null>(null)
 const highlightedDocId = ref<number | null>(null)
@@ -418,12 +451,24 @@ function formatScore(score: number) {
 
 async function onRetrieve() {
   if (!retrievalQuery.value.trim()) return
+  if (retrievalRerankEnabled.value) {
+    if (!rerankModelOptions.value.length) {
+      message.warning('未找到可用的 Rerank 模型，请先在模型中心配置并启用')
+      return
+    }
+    if (!retrievalRerankModel.value) {
+      message.warning('已开启 Rerank，请选择 Rerank 模型')
+      return
+    }
+  }
   retrieving.value = true
   try {
     const res = await retrieveKnowledge(kbId.value, {
       query: retrievalQuery.value.trim(),
       topK: retrievalTopK.value,
       scoreThreshold: retrievalScoreThreshold.value,
+      rerankEnabled: retrievalRerankEnabled.value,
+      rerankModel: retrievalRerankModel.value,
     })
     retrievalResult.value = res.data.data
   } catch (e) {
@@ -454,6 +499,20 @@ async function loadDocuments() {
     message.error(e instanceof Error ? e.message : '加载文档失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function loadRerankModels() {
+  try {
+    const res = await fetchModelConfigs({ modelType: 'rerank' })
+    rerankModelOptions.value = (res.data.data || [])
+      .filter((item) => item.enabled)
+      .map((item) => ({
+        label: `${item.displayName} (${item.providerName})`,
+        value: item.modelName,
+      }))
+  } catch {
+    rerankModelOptions.value = []
   }
 }
 
@@ -605,6 +664,7 @@ watch(
 
 onMounted(async () => {
   await loadEmbeddingModels()
+  await loadRerankModels()
   await reloadAll()
   await applyHighlightFromQuery()
   startPolling()
@@ -702,6 +762,10 @@ onUnmounted(() => {
   margin-top: 12px;
   color: #64748b;
   font-size: 13px;
+}
+
+.retrieval-hint {
+  margin-top: 12px;
 }
 
 .section-head {
