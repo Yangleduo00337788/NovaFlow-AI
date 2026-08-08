@@ -4,7 +4,9 @@ import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.dto.AgentSaveRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.agent.domain.vo.AgentPublishVO;
 import ai.novaflow.agent.service.AgentDebugService;
+import ai.novaflow.agent.service.AgentPublishService;
 import ai.novaflow.agent.service.AgentService;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -29,6 +31,7 @@ public class AgentController {
 
     private final AgentService agentService;
     private final AgentDebugService agentDebugService;
+    private final AgentPublishService agentPublishService;
 
     @GetMapping
     public ApiResult<PageResult<AgentVO>> page(
@@ -58,6 +61,26 @@ public class AgentController {
     public ApiResult<Void> delete(@PathVariable Long id) {
         agentService.delete(id);
         return ApiResult.ok();
+    }
+
+    @GetMapping("/{id}/publish")
+    public ApiResult<AgentPublishVO> publishInfo(@PathVariable Long id) {
+        return ApiResult.ok(agentPublishService.getPublishInfo(id));
+    }
+
+    @PostMapping("/{id}/publish")
+    public ApiResult<AgentPublishVO> publish(@PathVariable Long id) {
+        return ApiResult.ok(agentPublishService.publish(id));
+    }
+
+    @PostMapping("/{id}/unpublish")
+    public ApiResult<AgentPublishVO> unpublish(@PathVariable Long id) {
+        return ApiResult.ok(agentPublishService.unpublish(id));
+    }
+
+    @PostMapping("/{id}/rotate-api-key")
+    public ApiResult<AgentPublishVO> rotateApiKey(@PathVariable Long id) {
+        return ApiResult.ok(agentPublishService.rotateApiKey(id));
     }
 
     @GetMapping("/{id}/debug/welcome")

@@ -3,6 +3,8 @@ package ai.novaflow.agent.domain.vo;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class AgentDebugChatVO {
@@ -12,4 +14,5 @@ public class AgentDebugChatVO {
     private Integer tokensUsed;
     private Long latencyMs;
     private Boolean debugMode;
+    private List<RetrievalSourceVO> sources;
 }

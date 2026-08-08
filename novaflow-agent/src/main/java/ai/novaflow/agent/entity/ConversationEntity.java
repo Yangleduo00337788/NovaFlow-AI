@@ -5,25 +5,21 @@ import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@Table("agent_config")
-public class AgentConfigEntity {
+@Table("conversation")
+public class ConversationEntity {
 
     @Id(keyType = KeyType.Auto)
     private Long id;
     private Long tenantId;
     private Long agentId;
-    private String systemPrompt;
-    private String welcomeMessage;
-    private Long modelConfigId;
-    private BigDecimal temperature;
-    private Integer maxTokens;
-    private String memoryType;
-    private Integer memoryWindow;
-    private String retrievalConfig;
+    private String conversationKey;
+    private String channel;
+    private Long userId;
+    private Integer messageCount;
+    private LocalDateTime lastMessageAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

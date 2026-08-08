@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class AgentSaveRequest {
@@ -21,4 +22,7 @@ public class AgentSaveRequest {
     private Integer maxTokens = 2048;
     private String memoryType = "window";
     private Integer memoryWindow = 10;
+    private Integer retrievalTopK = 5;
+    private Float retrievalScoreThreshold;
+    private List<Long> knowledgeBaseIds;
 }

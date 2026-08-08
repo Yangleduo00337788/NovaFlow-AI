@@ -4,12 +4,18 @@ import ai.novaflow.agent.domain.dto.AgentSaveRequest;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.entity.AgentConfigEntity;
 import ai.novaflow.agent.entity.AgentEntity;
+import ai.novaflow.agent.entity.AgentKnowledgeEntity;
 import ai.novaflow.agent.mapper.AgentConfigMapper;
+import ai.novaflow.agent.mapper.AgentKnowledgeMapper;
 import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.RetrievalConfigUtils;
+import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +32,9 @@ public class AgentService {
 
     private final AgentMapper agentMapper;
     private final AgentConfigMapper agentConfigMapper;
+    private final AgentKnowledgeMapper agentKnowledgeMapper;
+    private final RecentAccessService recentAccessService;
+    private final ObjectMapper objectMapper;
 
     public PageResult<AgentVO> page(int page, int pageSize, String keyword, String agentType) {
         Long tenantId = requireTenantId();
@@ -50,6 +59,7 @@ public class AgentService {
         AgentConfigEntity config = agentConfigMapper.selectOneByQuery(
                 QueryWrapper.create().eq("agent_id", id).limit(1)
         );
+        recordRecentAccess(agent);
         return toDetailVO(agent, config);
     }
 
@@ -76,6 +86,7 @@ public class AgentService {
 
         AgentConfigEntity config = buildConfig(agent.getId(), tenantId, request);
         agentConfigMapper.insert(config);
+        saveKnowledgeBindings(agent.getId(), tenantId, request.getKnowledgeBaseIds());
 
         return toDetailVO(agent, config);
     }
@@ -101,6 +112,7 @@ public class AgentService {
             config.setUpdatedAt(LocalDateTime.now());
             agentConfigMapper.update(config);
         }
+        saveKnowledgeBindings(id, agent.getTenantId(), request.getKnowledgeBaseIds());
         return toDetailVO(agent, config);
     }
 
@@ -110,6 +122,47 @@ public class AgentService {
         agent.setIsDeleted(1);
         agent.setUpdatedAt(LocalDateTime.now());
         agentMapper.update(agent);
+    }
+
+    public List<Long> listKnowledgeBaseIds(Long agentId) {
+        return agentKnowledgeMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", requireTenantId())
+        ).stream().map(AgentKnowledgeEntity::getKnowledgeBaseId).toList();
+    }
+
+    private void saveKnowledgeBindings(Long agentId, Long tenantId, List<Long> knowledgeBaseIds) {
+        agentKnowledgeMapper.deleteByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+        );
+        if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
+            return;
+        }
+        List<Long> uniqueIds = knowledgeBaseIds.stream().distinct().toList();
+        LocalDateTime now = LocalDateTime.now();
+        for (Long knowledgeBaseId : uniqueIds) {
+            AgentKnowledgeEntity binding = new AgentKnowledgeEntity();
+            binding.setAgentId(agentId);
+            binding.setTenantId(tenantId);
+            binding.setKnowledgeBaseId(knowledgeBaseId);
+            binding.setCreatedAt(now);
+            agentKnowledgeMapper.insert(binding);
+        }
+    }
+
+    private List<Long> loadKnowledgeBaseIds(Long agentId, Long tenantId) {
+        return agentKnowledgeMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+        ).stream().map(AgentKnowledgeEntity::getKnowledgeBaseId).toList();
+    }
+
+    public AgentEntity getAgentEntityOrThrow(Long id) {
+        return getAgentOrThrow(id);
     }
 
     private AgentEntity getAgentOrThrow(Long id) {
@@ -151,6 +204,27 @@ public class AgentService {
         config.setMaxTokens(request.getMaxTokens());
         config.setMemoryType(request.getMemoryType());
         config.setMemoryWindow(request.getMemoryWindow());
+        config.setRetrievalConfig(RetrievalConfigUtils.serialize(objectMapper, toRetrievalConfig(request)));
+    }
+
+    private RetrievalConfig toRetrievalConfig(AgentSaveRequest request) {
+        return RetrievalConfig.builder()
+                .topK(request.getRetrievalTopK())
+                .scoreThreshold(request.getRetrievalScoreThreshold())
+                .build();
+    }
+
+    private void recordRecentAccess(AgentEntity agent) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        recentAccessService.record(
+                agent.getTenantId(),
+                StpUtil.getLoginIdAsLong(),
+                "agent",
+                agent.getId(),
+                agent.getAgentName()
+        );
     }
 
     private AgentVO toSimpleVO(AgentEntity agent) {
@@ -163,6 +237,7 @@ public class AgentService {
                 .agentType(agent.getAgentType())
                 .status(agent.getStatus())
                 .version(agent.getVersion())
+                .publishedAt(agent.getPublishedAt())
                 .createdAt(agent.getCreatedAt())
                 .updatedAt(agent.getUpdatedAt())
                 .build();
@@ -178,7 +253,11 @@ public class AgentService {
             vo.setMaxTokens(config.getMaxTokens());
             vo.setMemoryType(config.getMemoryType());
             vo.setMemoryWindow(config.getMemoryWindow());
+            RetrievalConfig retrievalConfig = RetrievalConfigUtils.parse(objectMapper, config.getRetrievalConfig());
+            vo.setRetrievalTopK(retrievalConfig.getTopK());
+            vo.setRetrievalScoreThreshold(retrievalConfig.getScoreThreshold());
         }
+        vo.setKnowledgeBaseIds(loadKnowledgeBaseIds(agent.getId(), agent.getTenantId()));
         return vo;
     }
 }

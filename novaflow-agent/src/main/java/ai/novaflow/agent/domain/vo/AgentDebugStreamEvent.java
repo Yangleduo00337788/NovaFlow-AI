@@ -3,6 +3,8 @@ package ai.novaflow.agent.domain.vo;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class AgentDebugStreamEvent {
@@ -15,4 +17,5 @@ public class AgentDebugStreamEvent {
     private Long latencyMs;
     private Boolean debugMode;
     private String message;
+    private List<RetrievalSourceVO> sources;
 }

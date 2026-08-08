@@ -24,6 +24,14 @@
             <artifactId>novaflow-ai-engine</artifactId>
         </dependency>
         <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-ai-rag</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-user</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.mybatis-flex</groupId>
             <artifactId>mybatis-flex-spring-boot3-starter</artifactId>
         </dependency>

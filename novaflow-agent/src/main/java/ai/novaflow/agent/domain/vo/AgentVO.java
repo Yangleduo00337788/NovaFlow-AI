@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -18,6 +19,7 @@ public class AgentVO {
     private String agentType;
     private Integer status;
     private Integer version;
+    private LocalDateTime publishedAt;
     private String systemPrompt;
     private String welcomeMessage;
     private Long modelConfigId;
@@ -25,6 +27,9 @@ public class AgentVO {
     private Integer maxTokens;
     private String memoryType;
     private Integer memoryWindow;
+    private Integer retrievalTopK;
+    private Float retrievalScoreThreshold;
+    private List<Long> knowledgeBaseIds;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
