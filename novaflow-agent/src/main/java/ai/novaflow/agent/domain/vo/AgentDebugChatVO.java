@@ -16,4 +16,6 @@ public class AgentDebugChatVO {
     private Boolean debugMode;
     private List<RetrievalSourceVO> sources;
     private ModelCapabilitiesVO modelCapabilities;
+    private String modelName;
+    private String providerName;
 }

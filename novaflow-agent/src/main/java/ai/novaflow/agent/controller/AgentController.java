@@ -7,6 +7,8 @@ import ai.novaflow.agent.domain.vo.AgentPublishVO;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.domain.vo.ConversationMessageVO;
 import ai.novaflow.agent.domain.vo.ConversationVO;
+import ai.novaflow.agent.domain.vo.DebugAttachmentVO;
+import ai.novaflow.agent.service.AgentDebugAttachmentService;
 import ai.novaflow.agent.service.AgentDebugService;
 import ai.novaflow.agent.service.AgentPublishService;
 import ai.novaflow.agent.service.AgentService;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -37,6 +40,7 @@ public class AgentController {
 
     private final AgentService agentService;
     private final AgentDebugService agentDebugService;
+    private final AgentDebugAttachmentService agentDebugAttachmentService;
     private final AgentPublishService agentPublishService;
     private final ConversationService conversationService;
 
@@ -100,6 +104,14 @@ public class AgentController {
             @PathVariable Long id,
             @Valid @RequestBody AgentDebugChatRequest request) {
         return ApiResult.ok(agentDebugService.chat(id, request));
+    }
+
+    @PostMapping("/{id}/debug/attachments")
+    public ApiResult<DebugAttachmentVO> uploadDebugAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        agentService.getAgentEntityOrThrow(id);
+        return ApiResult.ok(agentDebugAttachmentService.parse(file));
     }
 
     @PostMapping(value = "/{id}/debug/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

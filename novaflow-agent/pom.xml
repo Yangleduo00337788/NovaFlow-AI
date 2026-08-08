@@ -29,6 +29,10 @@
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-tool</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
             <artifactId>novaflow-user</artifactId>
         </dependency>
         <dependency>

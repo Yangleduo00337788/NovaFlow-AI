@@ -12,6 +12,7 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.agent.util.AgentExtraConfigUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
 import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
@@ -55,11 +56,21 @@ public class AgentService {
     }
 
     public AgentVO detail(Long id) {
+        return detail(id, true);
+    }
+
+    public AgentVO detailWithoutAccessRecord(Long id) {
+        return detail(id, false);
+    }
+
+    private AgentVO detail(Long id, boolean recordAccess) {
         AgentEntity agent = getAgentOrThrow(id);
         AgentConfigEntity config = agentConfigMapper.selectOneByQuery(
                 QueryWrapper.create().eq("agent_id", id).limit(1)
         );
-        recordRecentAccess(agent);
+        if (recordAccess) {
+            recordRecentAccess(agent);
+        }
         return toDetailVO(agent, config);
     }
 
@@ -197,7 +208,9 @@ public class AgentService {
     }
 
     private void applyConfig(AgentConfigEntity config, AgentSaveRequest request) {
-        config.setSystemPrompt(request.getSystemPrompt());
+        config.setSystemPrompt(StringUtils.hasText(request.getSystemPrompt())
+                ? request.getSystemPrompt().trim()
+                : null);
         config.setWelcomeMessage(request.getWelcomeMessage());
         config.setModelConfigId(request.getModelConfigId());
         config.setTemperature(request.getTemperature());
@@ -205,12 +218,16 @@ public class AgentService {
         config.setMemoryType(request.getMemoryType());
         config.setMemoryWindow(request.getMemoryWindow());
         config.setRetrievalConfig(RetrievalConfigUtils.serialize(objectMapper, toRetrievalConfig(request)));
+        config.setExtraConfig(AgentExtraConfigUtils.serializeTools(objectMapper, request.getTools()));
     }
 
     private RetrievalConfig toRetrievalConfig(AgentSaveRequest request) {
         return RetrievalConfig.builder()
                 .topK(request.getRetrievalTopK())
                 .scoreThreshold(request.getRetrievalScoreThreshold())
+                .rerankEnabled(request.getRerankEnabled())
+                .rerankModel(request.getRerankModel())
+                .rerankCandidateK(request.getRerankCandidateK())
                 .build();
     }
 
@@ -256,6 +273,10 @@ public class AgentService {
             RetrievalConfig retrievalConfig = RetrievalConfigUtils.parse(objectMapper, config.getRetrievalConfig());
             vo.setRetrievalTopK(retrievalConfig.getTopK());
             vo.setRetrievalScoreThreshold(retrievalConfig.getScoreThreshold());
+            vo.setRerankEnabled(retrievalConfig.getRerankEnabled());
+            vo.setRerankModel(retrievalConfig.getRerankModel());
+            vo.setRerankCandidateK(retrievalConfig.getRerankCandidateK());
+            vo.setTools(AgentExtraConfigUtils.parseTools(objectMapper, config.getExtraConfig()));
         }
         vo.setKnowledgeBaseIds(loadKnowledgeBaseIds(agent.getId(), agent.getTenantId()));
         return vo;

@@ -1,5 +1,6 @@
 package ai.novaflow.agent.domain.dto;
 
+import ai.novaflow.tool.domain.HttpToolDefinition;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -24,5 +25,9 @@ public class AgentSaveRequest {
     private Integer memoryWindow = 10;
     private Integer retrievalTopK = 5;
     private Float retrievalScoreThreshold;
+    private Boolean rerankEnabled;
+    private String rerankModel;
+    private Integer rerankCandidateK;
     private List<Long> knowledgeBaseIds;
+    private List<HttpToolDefinition> tools;
 }

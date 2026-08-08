@@ -17,6 +17,11 @@ public class AgentDebugStreamEvent {
     private Integer tokensUsed;
     private Long latencyMs;
     private Boolean debugMode;
+    private String toolName;
+    private String toolArgs;
+    private String toolResult;
     private String message;
     private List<RetrievalSourceVO> sources;
+    private List<WebSearchSourceVO> webSearchSources;
+    private String modelName;
 }

@@ -5,15 +5,20 @@ import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.domain.vo.RetrievalSourceVO;
+import ai.novaflow.agent.domain.vo.WebSearchSourceVO;
 import ai.novaflow.aiengine.agent.ChatAgentExecutor;
 import ai.novaflow.aiengine.agent.ChatExecuteRequest;
 import ai.novaflow.aiengine.agent.ChatExecuteResult;
+import ai.novaflow.aiengine.agent.WebSearchSource;
 import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.model.domain.ModelExtraParametersBuilder;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.domain.dto.ModelUsageRecordRequest;
 import ai.novaflow.model.service.ModelResolutionService;
 import ai.novaflow.model.service.ModelUsageService;
+import ai.novaflow.agent.util.AgentExtraConfigUtils;
+import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.rag.domain.RetrievedChunk;
 import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,11 +45,13 @@ public class AgentChatService {
     private final ObjectMapper objectMapper;
 
     public boolean supportsRealExecution(AgentVO agent) {
-        return "chat".equals(agent.getAgentType()) || "rag".equals(agent.getAgentType());
+        return "chat".equals(agent.getAgentType())
+                || "rag".equals(agent.getAgentType())
+                || "tool".equals(agent.getAgentType());
     }
 
     public AgentDebugChatVO chat(AgentVO agent, AgentDebugChatRequest request, Long tenantId, Long userId, String conversationPrefix) {
-        String message = request.getMessage().trim();
+        String message = buildUserMessage(request);
         ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
         ExecutionPlan plan = buildExecutionPlan(context, message);
         ChatExecuteResult result = chatAgentExecutor.execute(plan.executeRequest());
@@ -60,9 +67,14 @@ public class AgentChatService {
             Long userId,
             String conversationPrefix,
             SseEmitter emitter) {
-        String message = request.getMessage().trim();
+        String message = buildUserMessage(request);
         ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
         ExecutionPlan plan = buildExecutionPlan(context, message);
+
+        if ("tool".equals(agent.getAgentType())) {
+            streamToolChat(agent, context, message, plan, conversationPrefix, emitter);
+            return;
+        }
 
         chatAgentExecutor.executeStream(plan.executeRequest(), new ai.novaflow.aiengine.agent.ChatStreamListener() {
             @Override
@@ -82,6 +94,14 @@ public class AgentChatService {
             }
 
             @Override
+            public void onWebSearchSources(List<WebSearchSource> sources) {
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("web_search")
+                        .webSearchSources(toWebSearchSourceVOs(sources))
+                        .build());
+            }
+
+            @Override
             public void onComplete(ChatExecuteResult result) {
                 recordUsage(context, result, "chat");
                 persistConversation(context, message, result, plan.sources(), conversationPrefix);
@@ -94,6 +114,8 @@ public class AgentChatService {
                         .latencyMs(result.getLatencyMs())
                         .debugMode(false)
                         .sources(plan.sources())
+                        .webSearchSources(toWebSearchSourceVOs(result.getWebSearchSources()))
+                        .modelName(result.getModelName())
                         .build());
                 emitter.complete();
             }
@@ -115,7 +137,89 @@ public class AgentChatService {
         if ("rag".equals(context.agent().getAgentType())) {
             return buildRagExecutionPlan(context, userMessage);
         }
-        return new ExecutionPlan(context.toExecuteRequest(userMessage, context.agent().getSystemPrompt()), List.of());
+        if ("tool".equals(context.agent().getAgentType())) {
+            return buildToolExecutionPlan(context, userMessage);
+        }
+        return new ExecutionPlan(
+                context.toExecuteRequest(userMessage, resolveUserSystemPrompt(context.agent())),
+                List.of());
+    }
+
+    private String resolveUserSystemPrompt(AgentVO agent) {
+        if (!StringUtils.hasText(agent.getSystemPrompt())) {
+            return null;
+        }
+        return agent.getSystemPrompt().trim();
+    }
+
+    private ExecutionPlan buildToolExecutionPlan(ChatContext context, String userMessage) {
+        List<HttpToolDefinition> tools = context.agent().getTools() != null ? context.agent().getTools() : List.of();
+        if (tools.isEmpty()) {
+            throw new BusinessException("Tool Agent 未配置 HTTP 工具，请先添加至少一个工具");
+        }
+        ChatExecuteRequest request = context.toExecuteRequest(
+                userMessage,
+                resolveUserSystemPrompt(context.agent()));
+        request.setTools(tools);
+        return new ExecutionPlan(request, List.of());
+    }
+
+    private void streamToolChat(
+            AgentVO agent,
+            ChatContext context,
+            String message,
+            ExecutionPlan plan,
+            String conversationPrefix,
+            SseEmitter emitter) {
+        chatAgentExecutor.executeToolStream(plan.executeRequest(), new ai.novaflow.aiengine.agent.ChatStreamListener() {
+            @Override
+            public void onToolCall(String toolName, String arguments) {
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("tool_call")
+                        .toolName(toolName)
+                        .toolArgs(arguments)
+                        .build());
+            }
+
+            @Override
+            public void onToolResult(String toolName, String result) {
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("tool_result")
+                        .toolName(toolName)
+                        .toolResult(result)
+                        .build());
+            }
+
+            @Override
+            public void onToken(String token) {
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("token")
+                        .content(token)
+                        .build());
+            }
+
+            @Override
+            public void onComplete(ChatExecuteResult result) {
+                recordUsage(context, result, "chat");
+                persistConversation(context, message, result, plan.sources(), conversationPrefix);
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("done")
+                        .reply(result.getReply())
+                        .agentName(agent.getAgentName())
+                        .tokensUsed(result.getTokensUsed())
+                        .latencyMs(result.getLatencyMs())
+                        .debugMode(false)
+                        .sources(plan.sources())
+                        .modelName(result.getModelName())
+                        .build());
+                emitter.complete();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                completeWithError(emitter, error);
+            }
+        });
     }
 
     private ExecutionPlan buildRagExecutionPlan(ChatContext context, String userMessage) {
@@ -129,22 +233,23 @@ public class AgentChatService {
                 context.tenantId(),
                 userMessage,
                 resolveRetrievalTopK(context.agent()),
-                resolveRetrievalScoreThreshold(context.agent()));
+                resolveRetrievalScoreThreshold(context.agent()),
+                resolveRetrievalConfig(context.agent()));
         String contextBlock = knowledgeRetrievalService.buildContextPrompt(chunks);
-        String systemPrompt = buildRagSystemPrompt(context.agent().getSystemPrompt(), contextBlock);
+        String systemPrompt = resolveUserSystemPrompt(context.agent());
+        String finalUserMessage = augmentUserMessageWithRagContext(userMessage, contextBlock);
         List<RetrievalSourceVO> sources = chunks.stream().map(this::toSourceVO).toList();
-        return new ExecutionPlan(context.toExecuteRequest(userMessage, systemPrompt), sources);
+        return new ExecutionPlan(context.toExecuteRequest(finalUserMessage, systemPrompt), sources);
     }
 
-    private String buildRagSystemPrompt(String userPrompt, String contextBlock) {
-        String basePrompt = StringUtils.hasText(userPrompt)
-                ? userPrompt
-                : "你是一个基于企业知识库回答问题的助手。";
+    private String augmentUserMessageWithRagContext(String userMessage, String contextBlock) {
         if (!StringUtils.hasText(contextBlock)) {
-            return basePrompt + "\n\n当前未检索到相关参考资料，请如实告知用户。";
+            return userMessage;
         }
-        return basePrompt + "\n\n请根据以下参考资料回答用户问题。若参考资料中没有相关信息，请如实说明。\n\n参考资料：\n"
-                + contextBlock;
+        return "【参考资料】\n"
+                + contextBlock.trim()
+                + "\n\n【用户问题】\n"
+                + userMessage;
     }
 
     private int resolveRetrievalTopK(AgentVO agent) {
@@ -156,6 +261,30 @@ public class AgentChatService {
 
     private Float resolveRetrievalScoreThreshold(AgentVO agent) {
         return agent.getRetrievalScoreThreshold();
+    }
+
+    private RetrievalConfig resolveRetrievalConfig(AgentVO agent) {
+        return RetrievalConfig.builder()
+                .topK(agent.getRetrievalTopK())
+                .scoreThreshold(agent.getRetrievalScoreThreshold())
+                .rerankEnabled(agent.getRerankEnabled())
+                .rerankModel(agent.getRerankModel())
+                .rerankCandidateK(agent.getRerankCandidateK())
+                .build();
+    }
+
+    private String buildUserMessage(AgentDebugChatRequest request) {
+        String base = request.getMessage().trim();
+        if (!StringUtils.hasText(request.getAttachmentContext())) {
+            return base;
+        }
+        String attachmentName = StringUtils.hasText(request.getAttachmentName())
+                ? request.getAttachmentName()
+                : "附件";
+        return "【附件：" + attachmentName + "】\n"
+                + request.getAttachmentContext().trim()
+                + "\n\n【用户问题】\n"
+                + base;
     }
 
     private void persistConversation(
@@ -195,6 +324,20 @@ public class AgentChatService {
                 .build();
     }
 
+    private List<WebSearchSourceVO> toWebSearchSourceVOs(List<WebSearchSource> sources) {
+        if (sources == null || sources.isEmpty()) {
+            return List.of();
+        }
+        return sources.stream()
+                .map(source -> WebSearchSourceVO.builder()
+                        .index(source.getIndex())
+                        .title(source.getTitle())
+                        .url(source.getUrl())
+                        .snippet(source.getSnippet())
+                        .build())
+                .toList();
+    }
+
     private ChatContext buildChatContext(
             AgentVO agent,
             AgentDebugChatRequest request,
@@ -209,6 +352,11 @@ public class AgentChatService {
         );
         modelConfig.setEnableDeepThinking(Boolean.TRUE.equals(request.getEnableDeepThinking()));
         modelConfig.setEnableWebSearch(Boolean.TRUE.equals(request.getEnableWebSearch()));
+        if (Boolean.TRUE.equals(request.getEnableWebSearch())
+                && !ModelExtraParametersBuilder.canApplyWebSearch(
+                modelConfig.getProviderCode(), modelConfig.getModelName())) {
+            throw new BusinessException("当前模型不支持全网搜索，请使用通义千问、Kimi、智谱或百度等支持联网的模型");
+        }
         String prefix = StringUtils.hasText(conversationPrefix) ? conversationPrefix : "chat";
         String conversationId = StringUtils.hasText(request.getConversationId())
                 ? request.getConversationId()

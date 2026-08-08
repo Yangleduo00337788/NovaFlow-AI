@@ -36,7 +36,7 @@ public class AgentDebugService {
     private final ObjectMapper objectMapper;
 
     public AgentDebugChatVO chat(Long agentId, AgentDebugChatRequest request) {
-        AgentVO agent = agentService.detail(agentId);
+        AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
         String message = request.getMessage().trim();
 
         if (!agentChatService.supportsRealExecution(agent)) {
@@ -61,7 +61,7 @@ public class AgentDebugService {
     }
 
     public SseEmitter streamChat(Long agentId, AgentDebugChatRequest request) {
-        AgentVO agent = agentService.detail(agentId);
+        AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
         String message = request.getMessage().trim();
         Long userId = StpUtil.getLoginIdAsLong();
         Long tenantId = requireTenantId();
@@ -91,12 +91,14 @@ public class AgentDebugService {
     }
 
     public AgentDebugChatVO welcome(Long agentId) {
-        AgentVO agent = agentService.detail(agentId);
+        AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
         String welcome = StringUtils.hasText(agent.getWelcomeMessage())
                 ? agent.getWelcomeMessage()
                 : "您好，我是 " + agent.getAgentName() + "，有什么可以帮您？";
 
         ModelCapabilitiesVO capabilities = null;
+        String modelName = null;
+        String providerName = null;
         if (agentChatService.supportsRealExecution(agent)) {
             try {
                 ResolvedModelConfig modelConfig = modelResolutionService.resolve(
@@ -105,6 +107,8 @@ public class AgentDebugService {
                         agent.getTemperature(),
                         agent.getMaxTokens()
                 );
+                modelName = modelConfig.getModelName();
+                providerName = modelConfig.getProviderName();
                 capabilities = ModelCapabilitiesVO.builder()
                         .supportsDeepThinking(ModelCapabilityResolver.supportsDeepThinking(
                                 modelConfig.getProviderCode(), modelConfig.getModelName()))
@@ -126,6 +130,8 @@ public class AgentDebugService {
                 .latencyMs(0L)
                 .debugMode(!agentChatService.supportsRealExecution(agent))
                 .modelCapabilities(capabilities)
+                .modelName(modelName)
+                .providerName(providerName)
                 .build();
     }
 

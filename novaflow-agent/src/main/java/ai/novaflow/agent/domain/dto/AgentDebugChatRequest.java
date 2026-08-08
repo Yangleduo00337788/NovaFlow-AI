@@ -11,4 +11,6 @@ public class AgentDebugChatRequest {
     private String conversationId;
     private Boolean enableDeepThinking;
     private Boolean enableWebSearch;
+    private String attachmentName;
+    private String attachmentContext;
 }

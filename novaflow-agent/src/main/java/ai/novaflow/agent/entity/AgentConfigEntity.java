@@ -24,6 +24,7 @@ public class AgentConfigEntity {
     private String memoryType;
     private Integer memoryWindow;
     private String retrievalConfig;
+    private String extraConfig;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

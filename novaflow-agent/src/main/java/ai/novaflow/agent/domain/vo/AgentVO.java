@@ -1,5 +1,6 @@
 package ai.novaflow.agent.domain.vo;
 
+import ai.novaflow.tool.domain.HttpToolDefinition;
 import lombok.Builder;
 import lombok.Data;
 
@@ -29,7 +30,11 @@ public class AgentVO {
     private Integer memoryWindow;
     private Integer retrievalTopK;
     private Float retrievalScoreThreshold;
+    private Boolean rerankEnabled;
+    private String rerankModel;
+    private Integer rerankCandidateK;
     private List<Long> knowledgeBaseIds;
+    private List<HttpToolDefinition> tools;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
