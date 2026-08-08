@@ -31,7 +31,8 @@ const router = createRouter({
       children: [
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/dashboard/index.vue'), meta: { title: '工作台' } },
         { path: 'agent', name: 'agent', component: () => import('@/views/agent/index.vue'), meta: { title: 'Agent Studio' } },
-        { path: 'workflow', name: 'workflow', component: () => import('@/views/placeholder/index.vue'), meta: { title: '工作流 Studio' } },
+        { path: 'workflow', name: 'workflow', component: () => import('@/views/workflow/index.vue'), meta: { title: '工作流 Studio' } },
+        { path: 'workflow/:id', name: 'workflow-editor', component: () => import('@/views/workflow/editor.vue'), meta: { title: '工作流编辑' } },
         { path: 'knowledge', name: 'knowledge', component: () => import('@/views/knowledge/index.vue'), meta: { title: '知识库 Hub' } },
         { path: 'knowledge/:id', name: 'knowledge-detail', component: () => import('@/views/knowledge/detail.vue'), meta: { title: '知识库详情' } },
         { path: 'model', name: 'model', component: () => import('@/views/model/index.vue'), meta: { title: '模型中心' } },
