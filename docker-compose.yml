@@ -1,4 +1,10 @@
+# NovaFlow 本地开发基础设施
+# 启动：docker compose up -d
+# 最小环境（仅登录/Agent/模型中心）：docker compose up -d mysql redis
+# 知识库 RAG：需额外启动 minio qdrant
+
 services:
+  # MySQL 8：业务数据库（账号 root/root，库名 novaflow）
   mysql:
     image: mysql:8.0
     container_name: novaflow-mysql
@@ -12,6 +18,7 @@ services:
       - ./data/mysql:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
+  # Redis 7：登录态持久化（密码 redis123，与 application.yml 一致）
   redis:
     image: redis:7-alpine
     container_name: novaflow-redis
@@ -21,12 +28,14 @@ services:
       - ./data/redis:/data
     command: redis-server --requirepass redis123
 
+  # MinIO：知识库文档对象存储
+  # API http://localhost:9000  控制台 http://localhost:9001  账号 minioadmin / minioadmin123
   minio:
     image: minio/minio:latest
     container_name: novaflow-minio
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -34,10 +43,13 @@ services:
       - ./data/minio:/data
     command: server /data --console-address ":9001"
 
+  # Qdrant：向量数据库
+  # Dashboard http://localhost:6333/dashboard  后端 gRPC 连接 6334（本地无鉴权）
   qdrant:
     image: qdrant/qdrant:latest
     container_name: novaflow-qdrant
     ports:
-      - "6333:6333"
+      - "6333:6333"   # REST / Web UI
+      - "6334:6334"   # gRPC（Java 客户端使用）
     volumes:
       - ./data/qdrant:/qdrant/storage

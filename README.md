@@ -29,6 +29,21 @@ NovaFlow-AI/
 docker compose up -d
 ```
 
+本地服务连接信息：
+
+| 服务 | 控制台 / 地址 | 账号 | 密码 / Key |
+|------|---------------|------|------------|
+| **MySQL** | `localhost:3306` | `root` | `root` |
+| **Redis** | `localhost:6379` | — | `redis123` |
+| **MinIO** | API `localhost:9000`，控制台 [http://localhost:9001](http://localhost:9001) | `minioadmin` | `minioadmin123` |
+| **Qdrant** | 控制台 [http://localhost:6333/dashboard](http://localhost:6333/dashboard) | — | —（本地默认无鉴权） |
+
+> **Qdrant 说明**：后端通过 **gRPC `localhost:6334`** 连接（见 `application.yml` 的 `novaflow.qdrant`），6333 仅为 REST / Dashboard。本地 Docker 未启用 API Key，两列填「—」即可；生产环境可在 Qdrant 侧设置 `QDRANT__SERVICE__API_KEY` 后，用环境变量 `QDRANT_API_KEY` 传入后端（可选）。
+
+知识库 RAG 功能需同时启动 **MinIO + Qdrant**，并在模型中心配置 Embedding 模型。
+
+> **图片型 PDF**（如 PPT 导出为每页一张图）当前暂不支持 OCR，请上传 **PPTX 源文件**或**可搜索文字的 PDF**。
+
 ### 2. 启动后端
 
 ```bash
