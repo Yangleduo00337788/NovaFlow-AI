@@ -20,6 +20,10 @@
             <artifactId>novaflow-model</artifactId>
         </dependency>
         <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-tool</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-json</artifactId>
         </dependency>

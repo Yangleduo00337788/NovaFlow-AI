@@ -1,9 +1,16 @@
 package ai.novaflow.aiengine.agent;
 
 import ai.novaflow.aiengine.llm.LlmAdapterFactory;
+import ai.novaflow.aiengine.llm.OpenAiCompatibleChatClient;
 import ai.novaflow.aiengine.llm.OpenAiCompatibleStreamClient;
 import ai.novaflow.model.domain.ModelExtraParametersBuilder;
 import ai.novaflow.model.domain.ResolvedModelConfig;
+import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.tool.executor.HttpToolExecutor;
+import ai.novaflow.tool.schema.ToolSchemaBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -30,6 +37,12 @@ public class ChatAgentExecutor {
     private final LlmAdapterFactory llmAdapterFactory;
     private final ChatMemoryStore chatMemoryStore;
     private final OpenAiCompatibleStreamClient openAiCompatibleStreamClient;
+    private final OpenAiCompatibleChatClient openAiCompatibleChatClient;
+    private final HttpToolExecutor httpToolExecutor;
+    private final ToolSchemaBuilder toolSchemaBuilder;
+    private final ObjectMapper objectMapper;
+
+    private static final int MAX_TOOL_ROUNDS = 5;
 
     public ChatExecuteResult execute(ChatExecuteRequest request) {
         ChatLanguageModel chatModel = llmAdapterFactory.createChatModel(request.getModelConfig());
@@ -82,6 +95,119 @@ public class ChatAgentExecutor {
         });
     }
 
+    public void executeToolStream(ChatExecuteRequest request, ChatStreamListener listener) {
+        List<HttpToolDefinition> tools = request.getTools() != null ? request.getTools() : List.of();
+        if (tools.isEmpty()) {
+            executeStream(request, listener);
+            return;
+        }
+
+        long start = System.currentTimeMillis();
+        MessageWindowChatMemory memory = buildMemory(request);
+        ArrayNode messages = buildOpenAiMessageNodes(request, memory);
+        ArrayNode toolSpecs = toolSchemaBuilder.toOpenAiTools(tools);
+        OpenAiCompatibleStreamClient.TokenUsageSummary usageSummary = new OpenAiCompatibleStreamClient.TokenUsageSummary();
+
+        try {
+            for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
+                OpenAiCompatibleChatClient.ChatCompletionResponse response =
+                        openAiCompatibleChatClient.chat(request.getModelConfig(), messages, toolSpecs);
+                if (response.getUsage() != null) {
+                    usageSummary.updateFrom(response.getUsage());
+                }
+
+                if (response.getToolCalls() == null || response.getToolCalls().isEmpty()) {
+                    String reply = response.getContent() != null ? response.getContent() : "";
+                    streamTextTokens(reply, listener);
+                    memory.add(UserMessage.from(request.getUserMessage()));
+                    memory.add(AiMessage.from(reply));
+                    listener.onComplete(ChatExecuteResult.builder()
+                            .reply(reply)
+                            .tokensUsed(usageSummary.totalTokens())
+                            .inputTokens(usageSummary.inputTokens())
+                            .outputTokens(usageSummary.outputTokens())
+                            .latencyMs(System.currentTimeMillis() - start)
+                            .modelName(request.getModelConfig().getModelName())
+                            .build());
+                    return;
+                }
+
+                ObjectNode assistantMessage = messages.addObject();
+                assistantMessage.put("role", "assistant");
+                assistantMessage.put("content", response.getContent() != null ? response.getContent() : "");
+                ArrayNode toolCallsNode = assistantMessage.putArray("tool_calls");
+                for (OpenAiCompatibleChatClient.ToolCallItem toolCall : response.getToolCalls()) {
+                    ObjectNode toolCallNode = toolCallsNode.addObject();
+                    toolCallNode.put("id", toolCall.getId());
+                    toolCallNode.put("type", "function");
+                    ObjectNode function = toolCallNode.putObject("function");
+                    function.put("name", toolCall.getName());
+                    function.put("arguments", toolCall.getArguments());
+
+                    HttpToolDefinition definition = findTool(tools, toolCall.getName());
+                    listener.onToolCall(toolCall.getName(), toolCall.getArguments());
+                    String result = httpToolExecutor.execute(
+                            definition,
+                            toolSchemaBuilder.parseArguments(toolCall.getArguments()));
+                    listener.onToolResult(toolCall.getName(), result);
+
+                    ObjectNode toolMessage = messages.addObject();
+                    toolMessage.put("role", "tool");
+                    toolMessage.put("tool_call_id", toolCall.getId());
+                    toolMessage.put("content", result);
+                }
+            }
+            listener.onError(new IllegalStateException("工具调用轮次超过上限"));
+        } catch (Exception error) {
+            listener.onError(error);
+        }
+    }
+
+    private void streamTextTokens(String text, ChatStreamListener listener) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        int chunkSize = text.length() > 48 ? 2 : 1;
+        for (int i = 0; i < text.length(); i += chunkSize) {
+            listener.onToken(text.substring(i, Math.min(text.length(), i + chunkSize)));
+        }
+    }
+
+    private HttpToolDefinition findTool(List<HttpToolDefinition> tools, String name) {
+        return tools.stream()
+                .filter(tool -> tool.getName() != null && tool.getName().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("未找到工具: " + name));
+    }
+
+    private ArrayNode buildOpenAiMessageNodes(ChatExecuteRequest request, MessageWindowChatMemory memory) {
+        ArrayNode messages = objectMapper.createArrayNode();
+        if (StringUtils.hasText(request.getSystemPrompt())) {
+            ObjectNode system = messages.addObject();
+            system.put("role", "system");
+            system.put("content", request.getSystemPrompt());
+        }
+        for (ChatMessage message : memory.messages()) {
+            if (message instanceof SystemMessage systemMessage) {
+                ObjectNode node = messages.addObject();
+                node.put("role", "system");
+                node.put("content", systemMessage.text());
+            } else if (message instanceof UserMessage userMessage) {
+                ObjectNode node = messages.addObject();
+                node.put("role", "user");
+                node.put("content", userMessage.singleText());
+            } else if (message instanceof AiMessage aiMessage) {
+                ObjectNode node = messages.addObject();
+                node.put("role", "assistant");
+                node.put("content", aiMessage.text());
+            }
+        }
+        ObjectNode user = messages.addObject();
+        user.put("role", "user");
+        user.put("content", request.getUserMessage());
+        return messages;
+    }
+
     private void executeStreamWithExtraParameters(ChatExecuteRequest request, ChatStreamListener listener) {
         MessageWindowChatMemory memory = buildMemory(request);
         List<Map<String, String>> messages = buildOpenAiMessages(request, memory);
@@ -90,23 +216,32 @@ public class ChatAgentExecutor {
         StringBuilder thinkingBuilder = new StringBuilder();
         final OpenAiCompatibleStreamClient.TokenUsageSummary usageSummary =
                 new OpenAiCompatibleStreamClient.TokenUsageSummary();
+        final List<WebSearchSource> webSearchSources = new ArrayList<>();
+        final boolean forwardThinking = Boolean.TRUE.equals(request.getModelConfig().getEnableDeepThinking());
 
         try {
             openAiCompatibleStreamClient.streamChat(
                     request.getModelConfig(),
                     messages,
                     token -> {
-                        thinkingBuilder.append(token);
-                        listener.onThinkingToken(token);
+                        if (forwardThinking) {
+                            thinkingBuilder.append(token);
+                            listener.onThinkingToken(token);
+                        }
                     },
                     token -> {
                         replyBuilder.append(token);
                         listener.onToken(token);
                     },
-                    usage -> usageSummary.updateFrom(usage));
+                    usage -> usageSummary.updateFrom(usage),
+                    sources -> {
+                        webSearchSources.clear();
+                        webSearchSources.addAll(sources);
+                        listener.onWebSearchSources(sources);
+                    });
 
             String reply = replyBuilder.toString();
-            String thinking = thinkingBuilder.toString();
+            String thinking = forwardThinking ? thinkingBuilder.toString() : "";
             memory.add(UserMessage.from(request.getUserMessage()));
             memory.add(AiMessage.from(reply));
 
@@ -118,6 +253,7 @@ public class ChatAgentExecutor {
                     .outputTokens(usageSummary.outputTokens())
                     .latencyMs(System.currentTimeMillis() - start)
                     .modelName(request.getModelConfig().getModelName())
+                    .webSearchSources(webSearchSources.isEmpty() ? null : new ArrayList<>(webSearchSources))
                     .build();
             listener.onComplete(result);
         } catch (Exception error) {

@@ -3,6 +3,8 @@ package ai.novaflow.aiengine.agent;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class ChatExecuteResult {
@@ -14,4 +16,5 @@ public class ChatExecuteResult {
     private Integer outputTokens;
     private Long latencyMs;
     private String modelName;
+    private List<WebSearchSource> webSearchSources;
 }

@@ -1,5 +1,6 @@
 package ai.novaflow.aiengine.llm;
 
+import ai.novaflow.aiengine.agent.WebSearchSource;
 import ai.novaflow.model.domain.ModelExtraParametersBuilder;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,6 +20,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -39,6 +41,17 @@ public class OpenAiCompatibleStreamClient {
             Consumer<String> onThinkingToken,
             Consumer<String> onContentToken,
             Consumer<TokenUsageSummary> onUsage) throws Exception {
+        streamChat(config, messages, onThinkingToken, onContentToken, onUsage, sources -> {
+        });
+    }
+
+    public void streamChat(
+            ResolvedModelConfig config,
+            List<Map<String, String>> messages,
+            Consumer<String> onThinkingToken,
+            Consumer<String> onContentToken,
+            Consumer<TokenUsageSummary> onUsage,
+            Consumer<List<WebSearchSource>> onWebSearchSources) throws Exception {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", config.getModelName());
         body.put("stream", true);
@@ -81,6 +94,7 @@ public class OpenAiCompatibleStreamClient {
         }
 
         TokenUsageSummary usage = new TokenUsageSummary();
+        Map<String, WebSearchSource> searchSources = new LinkedHashMap<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -92,6 +106,7 @@ public class OpenAiCompatibleStreamClient {
                     continue;
                 }
                 JsonNode root = objectMapper.readTree(payload);
+                WebSearchInfoParser.parseAndEmit(root, searchSources, onWebSearchSources);
                 JsonNode choices = root.path("choices");
                 if (!choices.isArray() || choices.isEmpty()) {
                     continue;

@@ -13,4 +13,5 @@ public class ChatExecuteRequest {
     private String userMessage;
     private String conversationId;
     private Integer memoryWindow;
+    private java.util.List<ai.novaflow.tool.domain.HttpToolDefinition> tools;
 }
