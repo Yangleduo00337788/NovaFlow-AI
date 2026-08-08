@@ -31,5 +31,6 @@ public class AgentSaveRequest {
     private Boolean hybridEnabled;
     private Float hybridAlpha;
     private List<Long> knowledgeBaseIds;
+    private List<Long> toolIds;
     private List<HttpToolDefinition> tools;
 }

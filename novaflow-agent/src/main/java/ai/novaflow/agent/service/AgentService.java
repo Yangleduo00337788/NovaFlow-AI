@@ -5,15 +5,19 @@ import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.entity.AgentConfigEntity;
 import ai.novaflow.agent.entity.AgentEntity;
 import ai.novaflow.agent.entity.AgentKnowledgeEntity;
+import ai.novaflow.agent.entity.AgentToolEntity;
 import ai.novaflow.agent.mapper.AgentConfigMapper;
 import ai.novaflow.agent.mapper.AgentKnowledgeMapper;
 import ai.novaflow.agent.mapper.AgentMapper;
+import ai.novaflow.agent.mapper.AgentToolMapper;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.agent.util.AgentExtraConfigUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
+import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +41,8 @@ public class AgentService {
     private final AgentMapper agentMapper;
     private final AgentConfigMapper agentConfigMapper;
     private final AgentKnowledgeMapper agentKnowledgeMapper;
+    private final AgentToolMapper agentToolMapper;
+    private final ToolDefinitionService toolDefinitionService;
     private final RecentAccessService recentAccessService;
     private final ObjectMapper objectMapper;
 
@@ -98,6 +107,7 @@ public class AgentService {
         AgentConfigEntity config = buildConfig(agent.getId(), tenantId, request);
         agentConfigMapper.insert(config);
         saveKnowledgeBindings(agent.getId(), tenantId, request.getKnowledgeBaseIds());
+        saveToolBindings(agent.getId(), tenantId, request.getToolIds());
 
         return toDetailVO(agent, config);
     }
@@ -124,6 +134,7 @@ public class AgentService {
             agentConfigMapper.update(config);
         }
         saveKnowledgeBindings(id, agent.getTenantId(), request.getKnowledgeBaseIds());
+        saveToolBindings(id, agent.getTenantId(), request.getToolIds());
         return toDetailVO(agent, config);
     }
 
@@ -141,6 +152,65 @@ public class AgentService {
                         .eq("agent_id", agentId)
                         .eq("tenant_id", requireTenantId())
         ).stream().map(AgentKnowledgeEntity::getKnowledgeBaseId).toList();
+    }
+
+    private void saveToolBindings(Long agentId, Long tenantId, List<Long> toolIds) {
+        agentToolMapper.deleteByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+        );
+        if (toolIds == null || toolIds.isEmpty()) {
+            return;
+        }
+        List<Long> uniqueIds = toolIds.stream().distinct().toList();
+        LocalDateTime now = LocalDateTime.now();
+        int sortOrder = 0;
+        for (Long toolId : uniqueIds) {
+            toolDefinitionService.getToolOrThrow(toolId);
+            AgentToolEntity binding = new AgentToolEntity();
+            binding.setAgentId(agentId);
+            binding.setTenantId(tenantId);
+            binding.setToolId(toolId);
+            binding.setSortOrder(sortOrder++);
+            binding.setCreatedAt(now);
+            agentToolMapper.insert(binding);
+        }
+    }
+
+    private List<Long> loadToolIds(Long agentId, Long tenantId) {
+        return agentToolMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+                        .orderBy("sort_order", true)
+        ).stream().map(AgentToolEntity::getToolId).toList();
+    }
+
+    private List<HttpToolDefinition> resolveAgentTools(Long agentId, Long tenantId, String extraConfig) {
+        List<HttpToolDefinition> marketplaceTools = toolDefinitionService.resolveTools(
+                tenantId,
+                loadToolIds(agentId, tenantId)
+        );
+        List<HttpToolDefinition> inlineTools = AgentExtraConfigUtils.parseTools(objectMapper, extraConfig);
+        if (marketplaceTools.isEmpty()) {
+            return inlineTools;
+        }
+        if (inlineTools.isEmpty()) {
+            return marketplaceTools;
+        }
+        Map<String, HttpToolDefinition> merged = new LinkedHashMap<>();
+        for (HttpToolDefinition tool : marketplaceTools) {
+            if (tool.getName() != null) {
+                merged.put(tool.getName(), tool);
+            }
+        }
+        for (HttpToolDefinition tool : inlineTools) {
+            if (tool.getName() != null && !merged.containsKey(tool.getName())) {
+                merged.put(tool.getName(), tool);
+            }
+        }
+        return new ArrayList<>(merged.values());
     }
 
     private void saveKnowledgeBindings(Long agentId, Long tenantId, List<Long> knowledgeBaseIds) {
@@ -284,9 +354,12 @@ public class AgentService {
             vo.setRerankCandidateK(retrievalConfig.getRerankCandidateK());
             vo.setHybridEnabled(retrievalConfig.getHybridEnabled());
             vo.setHybridAlpha(retrievalConfig.getHybridAlpha());
-            vo.setTools(AgentExtraConfigUtils.parseTools(objectMapper, config.getExtraConfig()));
+            vo.setTools(resolveAgentTools(agent.getId(), agent.getTenantId(), config.getExtraConfig()));
+        } else {
+            vo.setTools(resolveAgentTools(agent.getId(), agent.getTenantId(), null));
         }
         vo.setKnowledgeBaseIds(loadKnowledgeBaseIds(agent.getId(), agent.getTenantId()));
+        vo.setToolIds(loadToolIds(agent.getId(), agent.getTenantId()));
         return vo;
     }
 }

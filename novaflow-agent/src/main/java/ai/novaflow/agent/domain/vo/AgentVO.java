@@ -36,6 +36,7 @@ public class AgentVO {
     private Boolean hybridEnabled;
     private Float hybridAlpha;
     private List<Long> knowledgeBaseIds;
+    private List<Long> toolIds;
     private List<HttpToolDefinition> tools;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

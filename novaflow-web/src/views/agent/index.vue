@@ -209,9 +209,20 @@
             <template v-if="form.agentType === 'tool'">
               <a-form-item>
                 <template #label>
-                  <FormLabelTip label="工具配置" tip="配置自定义 HTTP 接口，URL / Header / Body 中可使用 {{param}} 占位符。" />
+                  <FormLabelTip label="关联工具" :tip="AGENT_FIELD_TIPS.toolIds" />
                 </template>
-                <HttpToolConfigList v-model:tools="toolFormItems" />
+                <a-select
+                  v-model:value="form.toolIds"
+                  mode="multiple"
+                  allow-clear
+                  placeholder="从工具市场选择 HTTP 工具"
+                  :loading="toolsLoading"
+                  :options="toolOptions"
+                />
+                <div class="tool-market-hint">
+                  还没有工具？
+                  <router-link to="/tool" target="_blank">前往工具市场注册</router-link>
+                </div>
               </a-form-item>
             </template>
             <a-form-item>
@@ -383,7 +394,6 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
-import HttpToolConfigList from '@/components/agent/HttpToolConfigList.vue'
 import FormLabelTip from '@/components/common/FormLabelTip.vue'
 import {
   createAgent,
@@ -399,9 +409,9 @@ import {
   type AgentPublishInfo,
   type AgentSaveRequest,
 } from '@/api/agent'
-import { serializeToolFormItems, toToolFormItems, type ToolFormItem } from '@/utils/toolForm'
 import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
+import { fetchToolOptions, type ToolDefinition } from '@/api/tool'
 import { formatDateTime } from '@/utils/datetime'
 
 const AGENT_FIELD_TIPS = {
@@ -411,6 +421,7 @@ const AGENT_FIELD_TIPS = {
   description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
   modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
   knowledgeBaseIds: 'RAG Agent 进行向量检索的知识库，支持多选。每次提问会从中召回与问题最相关的文档分块作为参考。',
+  toolIds: '从工具市场选择已注册的 HTTP 工具，支持多选。Tool Agent 将根据用户问题自动决定调用哪些工具。',
   retrievalTopK:
     '每次提问最多召回的文档分块数量。数值越大上下文越丰富，但可能引入无关内容；一般建议 3–10。',
   retrievalScoreThreshold:
@@ -435,6 +446,8 @@ const knowledgeBasesLoading = ref(false)
 const chatModels = ref<ModelConfigItem[]>([])
 const rerankModels = ref<ModelConfigItem[]>([])
 const knowledgeBases = ref<KnowledgeBaseItem[]>([])
+const marketplaceTools = ref<ToolDefinition[]>([])
+const toolsLoading = ref(false)
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
 const agentType = ref<string>()
@@ -479,8 +492,6 @@ const embedExample = computed(() => {
   return `<iframe src="${origin}${publishInfo.value.embedPath}?apiKey=${key}" width="400" height="640" style="border:0;border-radius:12px;" allow="clipboard-write"></iframe>`
 })
 
-const toolFormItems = ref<ToolFormItem[]>([])
-
 const form = reactive<AgentSaveRequest>({
   agentName: '',
   agentType: 'chat',
@@ -499,6 +510,7 @@ const form = reactive<AgentSaveRequest>({
   hybridAlpha: 0.7,
   modelConfigId: undefined,
   knowledgeBaseIds: [],
+  toolIds: [],
 })
 
 const rerankModelOptions = computed(() =>
@@ -523,6 +535,13 @@ const knowledgeBaseOptions = computed(() =>
   knowledgeBases.value.map((item) => ({
     value: item.id,
     label: `${item.kbName}（${item.chunkCount} 分块）`,
+  })),
+)
+
+const toolOptions = computed(() =>
+  marketplaceTools.value.map((item) => ({
+    value: item.id,
+    label: `${item.displayName}（${item.toolName}）`,
   })),
 )
 
@@ -607,8 +626,18 @@ function resetForm() {
     hybridAlpha: 0.7,
     modelConfigId: undefined,
     knowledgeBaseIds: [],
+    toolIds: [],
   })
-  toolFormItems.value = []
+}
+
+async function loadMarketplaceTools() {
+  toolsLoading.value = true
+  try {
+    const res = await fetchToolOptions()
+    marketplaceTools.value = res.data.data
+  } finally {
+    toolsLoading.value = false
+  }
 }
 
 async function loadKnowledgeBases() {
@@ -646,6 +675,7 @@ function openCreate() {
   loadChatModels()
   loadRerankModels()
   loadKnowledgeBases()
+  loadMarketplaceTools()
   drawerOpen.value = true
 }
 
@@ -653,14 +683,15 @@ async function openEdit(id: number) {
   loadChatModels()
   loadRerankModels()
   loadKnowledgeBases()
+  loadMarketplaceTools()
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
   Object.assign(form, {
     ...data,
     hybridAlpha: data.hybridAlpha ?? 0.7,
+    toolIds: data.toolIds || [],
   })
-  toolFormItems.value = toToolFormItems(data.tools)
   drawerOpen.value = true
 }
 
@@ -764,18 +795,9 @@ async function onSave() {
       return
     }
   }
-  if (form.agentType === 'tool') {
-    try {
-      const serializedTools = serializeToolFormItems(toolFormItems.value)
-      if (serializedTools.length === 0) {
-        message.warning('Tool Agent 请至少配置一个 HTTP 工具')
-        return
-      }
-      form.tools = serializedTools
-    } catch {
-      message.error('工具参数 Schema JSON 格式不正确')
-      return
-    }
+  if (form.agentType === 'tool' && (!form.toolIds || form.toolIds.length === 0)) {
+    message.warning('Tool Agent 请至少选择一个工具市场的 HTTP 工具')
+    return
   }
   saving.value = true
   try {
@@ -874,6 +896,16 @@ onMounted(loadData)
 
 .rerank-hint {
   margin-bottom: 12px;
+}
+
+.tool-market-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tool-market-hint a {
+  color: var(--primary);
 }
 
 .publish-modal {

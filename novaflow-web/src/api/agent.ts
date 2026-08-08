@@ -26,6 +26,7 @@ export interface AgentItem {
   hybridEnabled?: boolean
   hybridAlpha?: number
   knowledgeBaseIds?: number[]
+  toolIds?: number[]
   tools?: AgentToolDefinition[]
   createdAt?: string
   updatedAt?: string
@@ -71,6 +72,7 @@ export interface AgentSaveRequest {
   hybridEnabled?: boolean
   hybridAlpha?: number
   knowledgeBaseIds?: number[]
+  toolIds?: number[]
   tools?: AgentToolDefinition[]
 }
 
