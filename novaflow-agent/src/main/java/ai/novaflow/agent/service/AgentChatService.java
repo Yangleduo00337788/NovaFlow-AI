@@ -43,6 +43,7 @@ public class AgentChatService {
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
+    private final AgentService agentService;
 
     public boolean supportsRealExecution(AgentVO agent) {
         return "chat".equals(agent.getAgentType())
@@ -141,15 +142,12 @@ public class AgentChatService {
             return buildToolExecutionPlan(context, userMessage);
         }
         return new ExecutionPlan(
-                context.toExecuteRequest(userMessage, resolveUserSystemPrompt(context.agent())),
+                context.toExecuteRequest(userMessage, resolveUserSystemPrompt(context.agent(), context.tenantId())),
                 List.of());
     }
 
-    private String resolveUserSystemPrompt(AgentVO agent) {
-        if (!StringUtils.hasText(agent.getSystemPrompt())) {
-            return null;
-        }
-        return agent.getSystemPrompt().trim();
+    private String resolveUserSystemPrompt(AgentVO agent, Long tenantId) {
+        return agentService.resolveRuntimeSystemPrompt(agent, tenantId);
     }
 
     private ExecutionPlan buildToolExecutionPlan(ChatContext context, String userMessage) {
@@ -159,7 +157,7 @@ public class AgentChatService {
         }
         ChatExecuteRequest request = context.toExecuteRequest(
                 userMessage,
-                resolveUserSystemPrompt(context.agent()));
+                resolveUserSystemPrompt(context.agent(), context.tenantId()));
         request.setTools(tools);
         return new ExecutionPlan(request, List.of());
     }
@@ -236,7 +234,7 @@ public class AgentChatService {
                 resolveRetrievalScoreThreshold(context.agent()),
                 resolveRetrievalConfig(context.agent()));
         String contextBlock = knowledgeRetrievalService.buildContextPrompt(chunks);
-        String systemPrompt = resolveUserSystemPrompt(context.agent());
+        String systemPrompt = resolveUserSystemPrompt(context.agent(), context.tenantId());
         String finalUserMessage = augmentUserMessageWithRagContext(userMessage, contextBlock);
         List<RetrievalSourceVO> sources = chunks.stream().map(this::toSourceVO).toList();
         return new ExecutionPlan(context.toExecuteRequest(finalUserMessage, systemPrompt), sources);

@@ -17,6 +17,9 @@ public class AgentConfigEntity {
     private Long tenantId;
     private Long agentId;
     private String systemPrompt;
+    private Long promptTemplateId;
+    private Long promptTemplateVersionId;
+    private String promptRefMode;
     private String welcomeMessage;
     private Long modelConfigId;
     private BigDecimal temperature;

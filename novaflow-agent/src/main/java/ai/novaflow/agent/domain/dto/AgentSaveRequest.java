@@ -17,6 +17,9 @@ public class AgentSaveRequest {
     private String agentType = "chat";
     private Long applicationId;
     private String systemPrompt;
+    private Long promptTemplateId;
+    private Long promptTemplateVersionId;
+    private String promptRefMode;
     private String welcomeMessage;
     private Long modelConfigId;
     private BigDecimal temperature = new BigDecimal("0.70");

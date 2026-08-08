@@ -16,8 +16,9 @@ import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.agent.util.AgentExtraConfigUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
-import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.prompt.service.PromptTemplateService;
 import ai.novaflow.tool.service.ToolDefinitionService;
+import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +44,7 @@ public class AgentService {
     private final AgentKnowledgeMapper agentKnowledgeMapper;
     private final AgentToolMapper agentToolMapper;
     private final ToolDefinitionService toolDefinitionService;
+    private final PromptTemplateService promptTemplateService;
     private final RecentAccessService recentAccessService;
     private final ObjectMapper objectMapper;
 
@@ -278,9 +280,7 @@ public class AgentService {
     }
 
     private void applyConfig(AgentConfigEntity config, AgentSaveRequest request) {
-        config.setSystemPrompt(StringUtils.hasText(request.getSystemPrompt())
-                ? request.getSystemPrompt().trim()
-                : null);
+        applyPromptConfig(config, request);
         config.setWelcomeMessage(request.getWelcomeMessage());
         config.setModelConfigId(request.getModelConfigId());
         config.setTemperature(request.getTemperature());
@@ -289,6 +289,101 @@ public class AgentService {
         config.setMemoryWindow(request.getMemoryWindow());
         config.setRetrievalConfig(RetrievalConfigUtils.serialize(objectMapper, toRetrievalConfig(request)));
         config.setExtraConfig(AgentExtraConfigUtils.serializeTools(objectMapper, request.getTools()));
+    }
+
+    private void applyPromptConfig(AgentConfigEntity config, AgentSaveRequest request) {
+        String refMode = StringUtils.hasText(request.getPromptRefMode()) ? request.getPromptRefMode().trim() : null;
+        Long templateId = request.getPromptTemplateId();
+
+        if (templateId == null) {
+            config.setPromptTemplateId(null);
+            config.setPromptTemplateVersionId(null);
+            config.setPromptRefMode(null);
+            config.setSystemPrompt(StringUtils.hasText(request.getSystemPrompt())
+                    ? request.getSystemPrompt().trim()
+                    : null);
+            return;
+        }
+
+        String templateContent = promptTemplateService.resolveContent(
+                config.getTenantId(),
+                templateId,
+                request.getPromptTemplateVersionId()
+        );
+        promptTemplateService.incrementUsageCount(templateId);
+
+        config.setPromptTemplateId(templateId);
+        config.setPromptRefMode(refMode);
+
+        if ("reference".equals(refMode)) {
+            config.setPromptTemplateVersionId(null);
+            config.setSystemPrompt(null);
+            return;
+        }
+
+        config.setPromptTemplateVersionId(request.getPromptTemplateVersionId());
+        if (StringUtils.hasText(request.getSystemPrompt())) {
+            config.setSystemPrompt(request.getSystemPrompt().trim());
+        } else {
+            config.setSystemPrompt(templateContent);
+        }
+        if (!StringUtils.hasText(refMode)) {
+            config.setPromptRefMode("copy");
+        }
+    }
+
+    private String resolveSystemPrompt(AgentConfigEntity config) {
+        if (config == null) {
+            return null;
+        }
+        if ("reference".equals(config.getPromptRefMode()) && config.getPromptTemplateId() != null) {
+            String content = promptTemplateService.resolveRenderedContent(
+                    config.getTenantId(),
+                    config.getPromptTemplateId(),
+                    null
+            );
+            return StringUtils.hasText(content) ? content.trim() : null;
+        }
+        if (StringUtils.hasText(config.getSystemPrompt())) {
+            String raw = config.getSystemPrompt().trim();
+            if (config.getPromptTemplateId() != null) {
+                return promptTemplateService.renderWithTemplateDefaults(
+                        config.getTenantId(),
+                        config.getPromptTemplateId(),
+                        config.getPromptTemplateVersionId(),
+                        raw
+                );
+            }
+            return raw;
+        }
+        return null;
+    }
+
+    public String resolveRuntimeSystemPrompt(AgentVO agent, Long tenantId) {
+        if (agent == null || tenantId == null) {
+            return null;
+        }
+        if ("reference".equals(agent.getPromptRefMode()) && agent.getPromptTemplateId() != null) {
+            String content = promptTemplateService.resolveRenderedContent(
+                    tenantId,
+                    agent.getPromptTemplateId(),
+                    null
+            );
+            return StringUtils.hasText(content) ? content.trim() : null;
+        }
+        if (StringUtils.hasText(agent.getSystemPrompt())) {
+            String raw = agent.getSystemPrompt().trim();
+            if (agent.getPromptTemplateId() != null) {
+                return promptTemplateService.renderWithTemplateDefaults(
+                        tenantId,
+                        agent.getPromptTemplateId(),
+                        agent.getPromptTemplateVersionId(),
+                        raw
+                );
+            }
+            return raw;
+        }
+        return null;
     }
 
     private RetrievalConfig toRetrievalConfig(AgentSaveRequest request) {
@@ -339,7 +434,16 @@ public class AgentService {
     private AgentVO toDetailVO(AgentEntity agent, AgentConfigEntity config) {
         AgentVO vo = toSimpleVO(agent);
         if (config != null) {
-            vo.setSystemPrompt(config.getSystemPrompt());
+            vo.setSystemPrompt(resolveSystemPrompt(config));
+            vo.setPromptTemplateId(config.getPromptTemplateId());
+            vo.setPromptTemplateVersionId(config.getPromptTemplateVersionId());
+            vo.setPromptRefMode(config.getPromptRefMode());
+            if (config.getPromptTemplateId() != null) {
+                vo.setPromptTemplateCurrentVersion(promptTemplateService.getCurrentVersion(
+                        config.getTenantId(),
+                        config.getPromptTemplateId()
+                ));
+            }
             vo.setWelcomeMessage(config.getWelcomeMessage());
             vo.setModelConfigId(config.getModelConfigId());
             vo.setTemperature(config.getTemperature());

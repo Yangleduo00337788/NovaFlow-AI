@@ -22,6 +22,10 @@ public class AgentVO {
     private Integer version;
     private LocalDateTime publishedAt;
     private String systemPrompt;
+    private Long promptTemplateId;
+    private Long promptTemplateVersionId;
+    private String promptRefMode;
+    private Integer promptTemplateCurrentVersion;
     private String welcomeMessage;
     private Long modelConfigId;
     private BigDecimal temperature;

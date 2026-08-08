@@ -227,9 +227,44 @@
             </template>
             <a-form-item>
               <template #label>
+                <FormLabelTip label="Prompt 模板" :tip="AGENT_FIELD_TIPS.promptTemplateId" />
+              </template>
+              <a-space direction="vertical" style="width: 100%">
+                <a-select
+                  v-model:value="form.promptTemplateId"
+                  allow-clear
+                  placeholder="从模板库选择（可选）"
+                  :loading="promptsLoading"
+                  :options="promptOptions"
+                  @change="onPromptTemplateChange"
+                />
+                <a-radio-group
+                  v-if="form.promptTemplateId"
+                  v-model:value="form.promptRefMode"
+                  @change="onPromptRefModeChange"
+                >
+                  <a-radio value="reference">引用（跟随模板更新）</a-radio>
+                  <a-radio value="copy">复制到 Agent</a-radio>
+                </a-radio-group>
+                <div v-if="isPromptReferenceMode && form.promptTemplateCurrentVersion" class="tool-market-hint">
+                  运行时引用模板最新版本：v{{ form.promptTemplateCurrentVersion }}
+                </div>
+                <div class="tool-market-hint">
+                  还没有模板？
+                  <router-link to="/prompt" target="_blank">前往 Prompt 管理</router-link>
+                </div>
+              </a-space>
+            </a-form-item>
+            <a-form-item>
+              <template #label>
                 <FormLabelTip label="System Prompt" :tip="AGENT_FIELD_TIPS.systemPrompt" />
               </template>
-              <a-textarea v-model:value="form.systemPrompt" :rows="6" />
+              <a-textarea
+                v-model:value="form.systemPrompt"
+                :rows="6"
+                :readonly="isPromptReferenceMode"
+                :placeholder="isPromptReferenceMode ? '引用模式下内容由模板提供' : '输入 System Prompt'"
+              />
             </a-form-item>
             <a-form-item>
               <template #label>
@@ -412,6 +447,7 @@ import {
 import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { fetchToolOptions, type ToolDefinition } from '@/api/tool'
+import { fetchPromptOptions, type PromptTemplate } from '@/api/prompt'
 import { formatDateTime } from '@/utils/datetime'
 
 const AGENT_FIELD_TIPS = {
@@ -431,7 +467,8 @@ const AGENT_FIELD_TIPS = {
   rerankModel: '选择已启用的 Rerank 模型，例如 Jina Reranker。',
   hybridEnabled: '在向量召回结果上叠加关键词匹配重排，改善专有名词、编号等精确匹配场景。',
   systemPrompt:
-    '系统级指令，用于定义 Agent 的角色、语气、回答规范与边界。留空则不向模型发送 System Prompt；填写后才会作为系统消息传给模型。',
+    '系统级指令，用于定义 Agent 的角色、语气、回答规范与边界。可从 Prompt 模板库引用，或手动编写。',
+  promptTemplateId: '从 Prompt 模板库选择模板。引用模式会跟随模板更新；复制模式会将内容复制到当前 Agent。',
   welcomeMessage: '用户打开对话时首条展示的消息，调试面板与对外 API 均可使用。留空时由系统生成默认问候语。',
   temperature:
     '控制回复的随机性与创造性。越低越稳定、严谨；越高越发散、有创意，但也更容易偏离事实或产生幻觉。',
@@ -447,7 +484,9 @@ const chatModels = ref<ModelConfigItem[]>([])
 const rerankModels = ref<ModelConfigItem[]>([])
 const knowledgeBases = ref<KnowledgeBaseItem[]>([])
 const marketplaceTools = ref<ToolDefinition[]>([])
+const promptTemplates = ref<PromptTemplate[]>([])
 const toolsLoading = ref(false)
+const promptsLoading = ref(false)
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
 const agentType = ref<string>()
@@ -511,6 +550,9 @@ const form = reactive<AgentSaveRequest>({
   modelConfigId: undefined,
   knowledgeBaseIds: [],
   toolIds: [],
+  promptTemplateId: undefined,
+  promptRefMode: undefined,
+  promptTemplateCurrentVersion: undefined,
 })
 
 const rerankModelOptions = computed(() =>
@@ -544,6 +586,15 @@ const toolOptions = computed(() =>
     label: `${item.displayName}（${item.toolName}）`,
   })),
 )
+
+const promptOptions = computed(() =>
+  promptTemplates.value.map((item) => ({
+    value: item.id,
+    label: `${item.templateName}（v${item.currentVersion}）`,
+  })),
+)
+
+const isPromptReferenceMode = computed(() => form.promptRefMode === 'reference')
 
 function statusLabel(status: number) {
   if (status === 1) return '已发布'
@@ -627,7 +678,49 @@ function resetForm() {
     modelConfigId: undefined,
     knowledgeBaseIds: [],
     toolIds: [],
+    promptTemplateId: undefined,
+    promptRefMode: undefined,
+    promptTemplateCurrentVersion: undefined,
   })
+}
+
+async function loadPromptTemplates() {
+  promptsLoading.value = true
+  try {
+    const res = await fetchPromptOptions()
+    promptTemplates.value = res.data.data
+  } finally {
+    promptsLoading.value = false
+  }
+}
+
+function onPromptTemplateChange(value?: number) {
+  if (!value) {
+    form.promptRefMode = undefined
+    return
+  }
+  if (!form.promptRefMode) {
+    form.promptRefMode = 'copy'
+  }
+  applyPromptTemplateContent()
+}
+
+function onPromptRefModeChange() {
+  applyPromptTemplateContent()
+}
+
+function applyPromptTemplateContent() {
+  if (!form.promptTemplateId || form.promptRefMode === 'reference') {
+    if (form.promptRefMode === 'reference') {
+      const template = promptTemplates.value.find((item) => item.id === form.promptTemplateId)
+      form.systemPrompt = template?.content || ''
+    }
+    return
+  }
+  const template = promptTemplates.value.find((item) => item.id === form.promptTemplateId)
+  if (template) {
+    form.systemPrompt = template.content
+  }
 }
 
 async function loadMarketplaceTools() {
@@ -676,6 +769,7 @@ function openCreate() {
   loadRerankModels()
   loadKnowledgeBases()
   loadMarketplaceTools()
+  loadPromptTemplates()
   drawerOpen.value = true
 }
 
@@ -684,6 +778,7 @@ async function openEdit(id: number) {
   loadRerankModels()
   loadKnowledgeBases()
   loadMarketplaceTools()
+  loadPromptTemplates()
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
@@ -691,6 +786,8 @@ async function openEdit(id: number) {
     ...data,
     hybridAlpha: data.hybridAlpha ?? 0.7,
     toolIds: data.toolIds || [],
+    promptRefMode: data.promptRefMode || undefined,
+    promptTemplateCurrentVersion: data.promptTemplateCurrentVersion,
   })
   drawerOpen.value = true
 }

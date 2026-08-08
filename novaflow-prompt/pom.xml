@@ -15,5 +15,30 @@
             <groupId>ai.novaflow</groupId>
             <artifactId>novaflow-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-model</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-ai-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mybatis-flex</groupId>
+            <artifactId>mybatis-flex-spring-boot3-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 </project>

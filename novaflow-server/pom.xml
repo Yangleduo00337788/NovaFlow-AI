@@ -45,6 +45,10 @@
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-prompt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
             <artifactId>novaflow-ai-rag</artifactId>
         </dependency>
         <dependency>
