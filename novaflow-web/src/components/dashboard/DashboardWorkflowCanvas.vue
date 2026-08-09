@@ -23,20 +23,26 @@
         <div v-if="currentWorkflow.applicationName" class="workflow-meta">
           {{ currentWorkflow.applicationName }}
           <span v-if="currentWorkflow.updatedAt"> · 更新于 {{ currentWorkflow.updatedAt }}</span>
+          <span v-if="runtime.executionId"> · Trace {{ runtime.executionId }}</span>
         </div>
       </div>
-      <a-tag v-if="currentWorkflow.statusLabel" color="success" class="runtime-tag">
-        {{ currentWorkflow.statusLabel }}
+      <a-tag :color="runtimeTagColor" class="runtime-tag">
+        {{ runtime.statusLabel || currentWorkflow.statusLabel }}
       </a-tag>
     </div>
-    <WorkflowCanvasViewer :workflow-id="selectedId" compact class="canvas-body" />
+    <WorkflowCanvasViewer
+      :workflow-id="selectedId"
+      :node-status-map="nodeStatusMap"
+      compact
+      class="canvas-body"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons-vue'
-import { fetchPublishedWorkflows } from '@/api/dashboard'
+import { fetchPublishedWorkflows, fetchWorkflowRuntime } from '@/api/dashboard'
 import WorkflowCanvasViewer from '@/components/workflow/WorkflowCanvasViewer.vue'
 import type { PublishedWorkflow, WorkflowRuntime } from '@/types/dashboard'
 
@@ -46,6 +52,7 @@ const props = defineProps<{
 
 const workflows = ref<PublishedWorkflow[]>([])
 const selectedId = ref(props.runtime.workflowId)
+const runtime = ref<WorkflowRuntime>(props.runtime)
 
 const currentWorkflow = computed(() => {
   const matched = workflows.value.find((item) => item.workflowId === selectedId.value)
@@ -66,14 +73,41 @@ const currentIndex = computed(() => workflows.value.findIndex((item) => item.wor
 const canPrev = computed(() => currentIndex.value > 0)
 const canNext = computed(() => currentIndex.value >= 0 && currentIndex.value < workflows.value.length - 1)
 
+const nodeStatusMap = computed(() => {
+  const map: Record<string, { status: number; statusLabel: string }> = {}
+  const canvasNodes = runtime.value.canvas?.nodes || []
+  for (const node of canvasNodes) {
+    map[node.id] = { status: node.status, statusLabel: node.statusLabel }
+  }
+  for (const node of runtime.value.nodes || []) {
+    map[node.nodeId] = { status: node.status, statusLabel: node.statusLabel }
+  }
+  return map
+})
+
+const runtimeTagColor = computed(() => {
+  if (runtime.value.running) return 'processing'
+  if (runtime.value.status === 2 || runtime.value.status === 3) return 'error'
+  if (runtime.value.status === 1) return 'success'
+  return 'default'
+})
+
 watch(
-  () => props.runtime.workflowId,
-  (workflowId) => {
-    if (workflowId) {
-      selectedId.value = workflowId
+  () => props.runtime,
+  (value) => {
+    runtime.value = value
+    if (value.workflowId) {
+      selectedId.value = value.workflowId
     }
   },
+  { deep: true },
 )
+
+watch(selectedId, (workflowId) => {
+  if (workflowId) {
+    loadRuntime(workflowId)
+  }
+})
 
 async function loadWorkflows() {
   try {
@@ -89,6 +123,22 @@ async function loadWorkflows() {
   } catch {
     workflows.value = []
     selectedId.value = props.runtime.workflowId
+  }
+}
+
+async function loadRuntime(workflowId: number) {
+  try {
+    const res = await fetchWorkflowRuntime(workflowId)
+    runtime.value = res.data.data
+  } catch {
+    runtime.value = {
+      ...runtime.value,
+      workflowId,
+      workflowName: currentWorkflow.value.workflowName,
+      running: false,
+      nodes: [],
+      canvas: undefined,
+    }
   }
 }
 

@@ -38,15 +38,17 @@ import WorkflowNode from '@/components/workflow/WorkflowNode.vue'
 import WorkflowCanvasFitHelper from '@/components/workflow/WorkflowCanvasFitHelper.vue'
 import WorkflowCanvasZoomControls from '@/components/workflow/WorkflowCanvasZoomControls.vue'
 import { fetchWorkflow } from '@/api/workflow'
-import { detailToFlow, type WorkflowFlowEdge, type WorkflowFlowNode } from '@/utils/workflowCanvas'
+import { detailToFlow, mergeNodeRuntimeStatus, type WorkflowFlowEdge, type WorkflowFlowNode } from '@/utils/workflowCanvas'
 
 const props = withDefaults(
   defineProps<{
     workflowId: number
     compact?: boolean
+    nodeStatusMap?: Record<string, { status: number; statusLabel: string }>
   }>(),
   {
     compact: false,
+    nodeStatusMap: () => ({}),
   },
 )
 
@@ -71,7 +73,7 @@ async function loadCanvas() {
   try {
     const res = await fetchWorkflow(props.workflowId)
     const flow = detailToFlow(res.data.data)
-    nodes.value = flow.nodes
+    nodes.value = mergeNodeRuntimeStatus(flow.nodes, props.nodeStatusMap || {})
     edges.value = flow.edges
   } catch {
     nodes.value = []
@@ -96,6 +98,22 @@ watch(
     loadCanvas()
   },
   { immediate: true },
+)
+
+watch(
+  () => props.nodeStatusMap,
+  () => {
+    if (!nodes.value.length) return
+    const flow = { nodes: nodes.value, edges: edges.value }
+    nodes.value = mergeNodeRuntimeStatus(
+      flow.nodes.map((node) => ({
+        ...node,
+        data: { ...node.data, status: undefined, statusLabel: undefined },
+      })),
+      props.nodeStatusMap || {},
+    )
+  },
+  { deep: true },
 )
 </script>
 

@@ -1,5 +1,5 @@
 import request from './request'
-import type { ApiResult, DashboardOverview, PublishedWorkflow, RecentItem } from '@/types/dashboard'
+import type { ApiResult, DashboardOverview, PublishedWorkflow, RecentItem, WorkflowRuntime } from '@/types/dashboard'
 
 export function fetchDashboardOverview() {
   return request.get<ApiResult<DashboardOverview>>('/v1/dashboard/overview')
@@ -23,4 +23,8 @@ export function fetchDashboardFavorites(limit = 20) {
 
 export function fetchPublishedWorkflows(limit = 20) {
   return request.get<ApiResult<PublishedWorkflow[]>>('/v1/dashboard/published-workflows', { params: { limit } })
+}
+
+export function fetchWorkflowRuntime(workflowId: number) {
+  return request.get<ApiResult<WorkflowRuntime>>(`/v1/dashboard/workflows/${workflowId}/runtime`)
 }

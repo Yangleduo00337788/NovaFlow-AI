@@ -21,17 +21,20 @@ public class TokenUsageLogService {
 
     private final TokenUsageMapper tokenUsageMapper;
 
-    public PageResult<TokenUsageLogVO> page(int page, int pageSize, Long agentId, String keyword, Boolean success) {
+    public PageResult<TokenUsageLogVO> page(
+            int page, int pageSize, Long agentId, String keyword, Boolean success, String usageType) {
         Long tenantId = requireTenantId();
         int safePage = Math.max(page, 1);
         int safePageSize = Math.min(Math.max(pageSize, 1), 100);
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        String trimmedUsageType = StringUtils.hasText(usageType) ? usageType.trim() : null;
         Integer successFilter = resolveSuccessFilter(success);
         int offset = (safePage - 1) * safePageSize;
 
-        Long total = tokenUsageMapper.countLogs(tenantId, agentId, null, null, null, trimmedKeyword, successFilter);
+        Long total = tokenUsageMapper.countLogs(
+                tenantId, agentId, trimmedUsageType, null, null, trimmedKeyword, successFilter);
         List<TokenUsageLogVO> list = tokenUsageMapper.pageLogs(
-                        tenantId, agentId, null, null, null, trimmedKeyword, successFilter, offset, safePageSize)
+                        tenantId, agentId, trimmedUsageType, null, null, trimmedKeyword, successFilter, offset, safePageSize)
                 .stream()
                 .map(this::toVO)
                 .toList();
@@ -57,6 +60,8 @@ public class TokenUsageLogService {
                 .latencyMs(row.getLatencyMs())
                 .success(successful)
                 .statusLabel(successful ? "成功" : "失败")
+                .errorMessage(row.getErrorMessage())
+                .traceId(row.getTraceId())
                 .userId(row.getUserId())
                 .createdAt(row.getCreatedAt())
                 .build();

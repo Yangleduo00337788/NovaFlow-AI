@@ -1,3 +1,10 @@
+export interface ObservabilityOverview {
+  metrics: MonitorMetricCard[]
+  services: MonitorServiceHealth[]
+  failedTrend: MonitorTrendPoint[]
+  latencyTrend: MonitorTrendPoint[]
+}
+
 export interface MonitorOverview {
   metrics: MonitorMetricCard[]
   services: MonitorServiceHealth[]

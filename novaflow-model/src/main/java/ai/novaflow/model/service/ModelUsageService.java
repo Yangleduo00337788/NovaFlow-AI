@@ -66,6 +66,8 @@ public class ModelUsageService {
         entity.setCurrency(calculation.currency().getCode());
         entity.setLatencyMs(request.getLatencyMs() != null ? request.getLatencyMs().intValue() : null);
         entity.setSuccess(request.getSuccess() == null || Boolean.TRUE.equals(request.getSuccess()));
+        entity.setErrorMessage(truncate(request.getErrorMessage(), 512));
+        entity.setTraceId(StringUtils.hasText(request.getTraceId()) ? request.getTraceId().trim() : null);
         entity.setUsageDate(LocalDate.now());
         entity.setCreatedAt(LocalDateTime.now());
         tokenUsageMapper.insert(entity);
@@ -211,6 +213,14 @@ public class ModelUsageService {
 
     private int safeInt(Integer value) {
         return value != null ? value : 0;
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
     }
 
     private String formatAmount(BigDecimal cost) {

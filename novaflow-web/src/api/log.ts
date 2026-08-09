@@ -17,6 +17,8 @@ export interface TokenUsageLogItem {
   latencyMs?: number
   success?: boolean
   statusLabel?: string
+  errorMessage?: string
+  traceId?: string
   userId?: number
   createdAt: string
 }
@@ -34,6 +36,7 @@ export function fetchTokenUsageLogs(params?: {
   agentId?: number
   keyword?: string
   success?: boolean
+  usageType?: string
 }) {
   return request.get<ApiResult<TokenUsageLogPage>>('/v1/token-usage/logs', { params })
 }

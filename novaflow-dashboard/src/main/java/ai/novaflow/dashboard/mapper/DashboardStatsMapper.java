@@ -139,6 +139,33 @@ public interface DashboardStatsMapper {
     WorkflowRuntimeRow latestWorkflowExecution(Long tenantId);
 
     @Select("""
+            SELECT we.execution_id,
+                   we.workflow_id,
+                   we.status,
+                   w.workflow_name
+            FROM workflow_execution we
+            INNER JOIN workflow w ON we.workflow_id = w.id AND w.is_deleted = 0
+            WHERE we.tenant_id = #{tenantId}
+              AND we.workflow_id = #{workflowId}
+            ORDER BY we.started_at DESC
+            LIMIT 1
+            """)
+    WorkflowRuntimeRow latestExecutionForWorkflow(Long tenantId, Long workflowId);
+
+    @Select("""
+            SELECT w.id AS workflow_id,
+                   w.workflow_name,
+                   w.status,
+                   NULL AS execution_id
+            FROM workflow w
+            WHERE w.tenant_id = #{tenantId}
+              AND w.id = #{workflowId}
+              AND w.is_deleted = 0
+            LIMIT 1
+            """)
+    WorkflowRuntimeRow findWorkflow(Long tenantId, Long workflowId);
+
+    @Select("""
             SELECT node_id, node_name, node_type, sort_order, position_x, position_y
             FROM workflow_node
             WHERE workflow_id = #{workflowId}

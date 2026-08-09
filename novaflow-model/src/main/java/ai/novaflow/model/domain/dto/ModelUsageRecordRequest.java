@@ -18,4 +18,6 @@ public class ModelUsageRecordRequest {
     private Integer totalTokens;
     private Long latencyMs;
     private Boolean success;
+    private String errorMessage;
+    private String traceId;
 }

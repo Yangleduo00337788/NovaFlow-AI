@@ -425,22 +425,74 @@ public class DashboardService {
                 .toList();
     }
 
+    public DashboardOverviewVO.WorkflowRuntimeVO getWorkflowRuntime(Long workflowId) {
+        if (workflowId == null) {
+            throw new BusinessException("工作流 ID 不能为空");
+        }
+        Long tenantId = requireTenantId();
+        WorkflowRuntimeRow workflow = dashboardStatsMapper.findWorkflow(tenantId, workflowId);
+        if (workflow == null) {
+            throw new BusinessException("工作流不存在");
+        }
+        return buildWorkflowRuntimeForWorkflow(tenantId, workflowId);
+    }
+
     private DashboardOverviewVO.WorkflowRuntimeVO buildWorkflowRuntime(Long tenantId) {
         WorkflowRuntimeRow workflow = dashboardStatsMapper.latestPublishedWorkflow(tenantId);
         if (workflow == null || workflow.getWorkflowId() == null) {
             return null;
         }
-        List<WorkflowNodeRow> nodes = dashboardStatsMapper.workflowNodes(workflow.getWorkflowId());
-        int workflowStatus = workflow.getStatus() != null ? workflow.getStatus() : 1;
+        return buildWorkflowRuntimeForWorkflow(tenantId, workflow.getWorkflowId());
+    }
+
+    private DashboardOverviewVO.WorkflowRuntimeVO buildWorkflowRuntimeForWorkflow(Long tenantId, Long workflowId) {
+        WorkflowRuntimeRow workflow = dashboardStatsMapper.findWorkflow(tenantId, workflowId);
+        if (workflow == null) {
+            return null;
+        }
+        List<WorkflowNodeRow> nodes = dashboardStatsMapper.workflowNodes(workflowId);
+        WorkflowRuntimeRow execution = dashboardStatsMapper.latestExecutionForWorkflow(tenantId, workflowId);
+
+        Map<String, Integer> nodeStatusMap = new HashMap<>();
+        List<DashboardOverviewVO.WorkflowRuntimeNodeVO> runtimeNodes = new ArrayList<>();
+        boolean running = false;
+        int displayStatus = workflow.getStatus() != null ? workflow.getStatus() : 1;
+        String statusLabel = workflowStatusLabel(displayStatus);
+        String executionId = null;
+
+        if (execution != null && StringUtils.hasText(execution.getExecutionId())) {
+            executionId = execution.getExecutionId();
+            int execStatus = execution.getStatus() != null ? execution.getStatus() : 1;
+            running = execStatus == 0;
+            displayStatus = execStatus;
+            statusLabel = executionStatusLabel(execStatus);
+            for (WorkflowNodeLogRow log : dashboardStatsMapper.workflowNodeLogs(executionId)) {
+                int nodeStatus = log.getStatus() != null ? log.getStatus() : -1;
+                nodeStatusMap.put(log.getNodeId(), nodeStatus);
+                WorkflowNodeRow dbNode = nodes.stream()
+                        .filter(item -> log.getNodeId().equals(item.getNodeId()))
+                        .findFirst()
+                        .orElse(null);
+                runtimeNodes.add(DashboardOverviewVO.WorkflowRuntimeNodeVO.builder()
+                        .nodeId(log.getNodeId())
+                        .nodeName(dbNode != null ? dbNode.getNodeName() : log.getNodeId())
+                        .nodeType(dbNode != null ? dbNode.getNodeType() : "llm")
+                        .status(resolveNodeStatus(nodeStatus, running))
+                        .statusLabel(nodeStatusLabel(resolveNodeStatus(nodeStatus, running)))
+                        .build());
+            }
+        }
+
         return DashboardOverviewVO.WorkflowRuntimeVO.builder()
-                .workflowId(workflow.getWorkflowId())
+                .workflowId(workflowId)
                 .workflowName(workflow.getWorkflowName())
-                .status(workflowStatus)
-                .statusLabel(workflowStatusLabel(workflowStatus))
-                .running(false)
-                .path("/workflow/" + workflow.getWorkflowId())
-                .nodes(List.of())
-                .canvas(buildWorkflowCanvas(workflow.getWorkflowId(), nodes, Map.of(), false))
+                .executionId(executionId)
+                .status(displayStatus)
+                .statusLabel(statusLabel)
+                .running(running)
+                .path("/workflow/" + workflowId)
+                .nodes(runtimeNodes)
+                .canvas(buildWorkflowCanvas(workflowId, nodes, nodeStatusMap, running))
                 .build();
     }
 

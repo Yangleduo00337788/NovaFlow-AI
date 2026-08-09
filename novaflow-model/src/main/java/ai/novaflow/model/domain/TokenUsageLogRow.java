@@ -21,6 +21,8 @@ public class TokenUsageLogRow {
     private String currency;
     private Integer latencyMs;
     private Integer success;
+    private String errorMessage;
+    private String traceId;
     private Long userId;
     private LocalDateTime createdAt;
 }

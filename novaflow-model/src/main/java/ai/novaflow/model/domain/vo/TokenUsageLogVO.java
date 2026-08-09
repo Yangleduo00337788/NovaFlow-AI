@@ -25,6 +25,8 @@ public class TokenUsageLogVO {
     private Integer latencyMs;
     private Boolean success;
     private String statusLabel;
+    private String errorMessage;
+    private String traceId;
     private Long userId;
     private LocalDateTime createdAt;
 }

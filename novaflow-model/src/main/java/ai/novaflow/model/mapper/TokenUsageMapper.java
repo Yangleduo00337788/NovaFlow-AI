@@ -110,7 +110,8 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             <script>
             SELECT tu.id, tu.agent_id, a.agent_name, mc.model_name, mc.display_name,
                    tu.usage_type, tu.input_tokens, tu.output_tokens, tu.total_tokens,
-                   tu.cost, tu.currency, tu.latency_ms, tu.success, tu.user_id, tu.created_at
+                   tu.cost, tu.currency, tu.latency_ms, tu.success, tu.error_message, tu.trace_id,
+                   tu.user_id, tu.created_at
             FROM token_usage tu
             LEFT JOIN agent a ON tu.agent_id = a.id
             LEFT JOIN model_config mc ON tu.model_config_id = mc.id
@@ -144,7 +145,8 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             <script>
             SELECT tu.id, tu.agent_id, a.agent_name, mc.model_name, mc.display_name,
                    tu.usage_type, tu.input_tokens, tu.output_tokens, tu.total_tokens,
-                   tu.cost, tu.currency, tu.latency_ms, tu.success, tu.user_id, tu.created_at
+                   tu.cost, tu.currency, tu.latency_ms, tu.success, tu.error_message, tu.trace_id,
+                   tu.user_id, tu.created_at
             FROM token_usage tu
             LEFT JOIN agent a ON tu.agent_id = a.id
             LEFT JOIN model_config mc ON tu.model_config_id = mc.id

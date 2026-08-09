@@ -6,6 +6,7 @@ import ai.novaflow.dashboard.domain.dto.FavoriteToggleRequest;
 import ai.novaflow.dashboard.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,5 +48,10 @@ public class DashboardController {
     @PostMapping("/favorites/toggle")
     public ApiResult<Boolean> toggleFavorite(@RequestBody FavoriteToggleRequest request) {
         return ApiResult.ok(dashboardService.toggleFavorite(request));
+    }
+
+    @GetMapping("/workflows/{workflowId}/runtime")
+    public ApiResult<DashboardOverviewVO.WorkflowRuntimeVO> workflowRuntime(@PathVariable Long workflowId) {
+        return ApiResult.ok(dashboardService.getWorkflowRuntime(workflowId));
     }
 }

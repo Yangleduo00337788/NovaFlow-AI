@@ -68,7 +68,7 @@ public class AgentChatService {
             persistConversation(context, message, result, plan.sources(), conversationPrefix);
             return toChatVO(agent, result, plan.sources());
         } catch (RuntimeException ex) {
-            recordFailure(context, "chat");
+            recordFailure(context, "chat", ex.getMessage());
             throw ex;
         }
     }
@@ -139,7 +139,7 @@ public class AgentChatService {
 
             @Override
             public void onError(Throwable error) {
-                recordFailure(context, "chat");
+                recordFailure(context, "chat", error != null ? error.getMessage() : null);
                 completeWithError(emitter, error);
             }
         });
@@ -232,7 +232,7 @@ public class AgentChatService {
 
             @Override
             public void onError(Throwable error) {
-                recordFailure(context, "chat");
+                recordFailure(context, "chat", error != null ? error.getMessage() : null);
                 completeWithError(emitter, error);
             }
         });
@@ -395,10 +395,11 @@ public class AgentChatService {
                 .totalTokens(result.getTokensUsed())
                 .latencyMs(result.getLatencyMs())
                 .success(success)
+                .traceId(context.conversationId())
                 .build());
     }
 
-    private void recordFailure(ChatContext context, String usageType) {
+    private void recordFailure(ChatContext context, String usageType, String errorMessage) {
         modelUsageService.record(ModelUsageRecordRequest.builder()
                 .tenantId(context.tenantId())
                 .applicationId(context.agent().getApplicationId())
@@ -411,6 +412,8 @@ public class AgentChatService {
                 .totalTokens(0)
                 .latencyMs(0L)
                 .success(false)
+                .errorMessage(errorMessage)
+                .traceId(context.conversationId())
                 .build());
     }
 

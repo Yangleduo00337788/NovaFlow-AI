@@ -229,6 +229,8 @@ public class BillingService {
                 .latencyMs(row.getLatencyMs())
                 .success(successful)
                 .statusLabel(successful ? "成功" : "失败")
+                .errorMessage(row.getErrorMessage())
+                .traceId(row.getTraceId())
                 .userId(row.getUserId())
                 .createdAt(row.getCreatedAt())
                 .build();

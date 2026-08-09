@@ -28,6 +28,8 @@ public class TokenUsageEntity {
     private String currency;
     private Integer latencyMs;
     private Boolean success;
+    private String errorMessage;
+    private String traceId;
     private LocalDate usageDate;
     private LocalDateTime createdAt;
 }
