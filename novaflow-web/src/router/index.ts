@@ -46,7 +46,7 @@ const router = createRouter({
         { path: 'org', name: 'org', component: () => import('@/views/org/index.vue'), meta: { title: '组织管理' } },
         { path: 'permission', name: 'permission', component: () => import('@/views/permission/index.vue'), meta: { title: '权限管理' } },
         { path: 'settings', name: 'settings', component: () => import('@/views/placeholder/index.vue'), meta: { title: '系统设置' } },
-        { path: 'billing', name: 'billing', component: () => import('@/views/placeholder/index.vue'), meta: { title: '账单与用量' } },
+        { path: 'billing', name: 'billing', component: () => import('@/views/billing/index.vue'), meta: { title: '账单与用量' } },
       ],
     },
   ],

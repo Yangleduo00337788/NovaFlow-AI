@@ -57,6 +57,29 @@
           trail-color="rgba(255, 255, 255, 0.65)"
           class="plan-progress"
         />
+        <template v-if="planInfo.showTokenQuota">
+          <div class="usage-row token-row">
+            <div class="usage-text">
+              Token <strong class="usage-percent">{{ formatTokenCount(planInfo.usedTokens) }}</strong>
+              <template v-if="planInfo.monthlyTokenQuota">
+                / {{ formatTokenCount(planInfo.monthlyTokenQuota) }}
+              </template>
+            </div>
+            <span v-if="planInfo.tokenUsedPercent != null" class="usage-percent-side">
+              {{ planInfo.tokenUsedPercent }}%
+            </span>
+          </div>
+          <a-progress
+            v-if="planInfo.tokenUsedPercent != null"
+            :percent="planInfo.tokenUsedPercent"
+            size="small"
+            :show-info="false"
+            :status="planInfo.tokenUsedPercent >= 90 ? 'exception' : 'active'"
+            stroke-color="#6366f1"
+            trail-color="rgba(255, 255, 255, 0.65)"
+            class="plan-progress"
+          />
+        </template>
         <button type="button" class="upgrade-btn">
           <span>升级套餐</span>
           <RightOutlined class="upgrade-arrow" />
@@ -91,7 +114,19 @@ const planInfo = reactive({
   memberCount: 0,
   maxMembers: 100,
   usedPercent: 0,
+  monthlyTokenQuota: undefined as number | undefined,
+  usedTokens: 0,
+  tokenUsedPercent: undefined as number | undefined,
+  showTokenQuota: false,
 })
+
+function formatTokenCount(value?: number) {
+  if (value == null) return '0'
+  if (value >= 10_000) {
+    return `${(value / 10_000).toFixed(1)}万`
+  }
+  return value.toLocaleString()
+}
 
 async function loadPlanSummary() {
   try {
@@ -103,6 +138,10 @@ async function loadPlanSummary() {
     planInfo.memberCount = data.memberCount
     planInfo.maxMembers = data.maxMembers
     planInfo.usedPercent = data.usedPercent
+    planInfo.monthlyTokenQuota = data.monthlyTokenQuota
+    planInfo.usedTokens = data.usedTokens ?? 0
+    planInfo.tokenUsedPercent = data.tokenUsedPercent
+    planInfo.showTokenQuota = Boolean(data.monthlyTokenQuota || (data.usedTokens ?? 0) > 0)
   } catch {
     // 侧边栏套餐信息加载失败时保留默认值
   }
@@ -315,6 +354,10 @@ onMounted(() => {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
+}
+
+.token-row {
+  margin-top: 8px;
 }
 
 .usage-text {

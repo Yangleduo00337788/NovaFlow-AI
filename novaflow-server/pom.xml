@@ -61,6 +61,10 @@
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-billing</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
             <artifactId>novaflow-ai-rag</artifactId>
         </dependency>
         <dependency>

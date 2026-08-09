@@ -28,8 +28,9 @@ public class TokenUsageLogService {
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
         int offset = (safePage - 1) * safePageSize;
 
-        Long total = tokenUsageMapper.countLogs(tenantId, agentId, trimmedKeyword);
-        List<TokenUsageLogVO> list = tokenUsageMapper.pageLogs(tenantId, agentId, trimmedKeyword, offset, safePageSize)
+        Long total = tokenUsageMapper.countLogs(tenantId, agentId, null, null, null, trimmedKeyword);
+        List<TokenUsageLogVO> list = tokenUsageMapper.pageLogs(
+                        tenantId, agentId, null, null, null, trimmedKeyword, offset, safePageSize)
                 .stream()
                 .map(this::toVO)
                 .toList();

@@ -29,6 +29,9 @@ export interface TenantPlanSummary {
   memberCount: number
   maxMembers: number
   usedPercent: number
+  monthlyTokenQuota?: number
+  usedTokens?: number
+  tokenUsedPercent?: number
 }
 
 export interface WorkspaceItem {

@@ -1,4 +1,4 @@
-package ai.novaflow.user.domain.vo;
+package ai.novaflow.billing.domain.vo;
 
 import lombok.Builder;
 import lombok.Data;
@@ -7,15 +7,17 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class TenantPlanSummaryVO {
+public class BillingQuotaVO {
 
     private String planType;
     private String planTypeLabel;
     private LocalDateTime expireAt;
-    private Integer memberCount;
-    private Integer maxMembers;
-    private Integer usedPercent;
     private Long monthlyTokenQuota;
     private Long usedTokens;
     private Integer tokenUsedPercent;
+    private Integer memberCount;
+    private Integer maxMembers;
+    private Integer memberUsedPercent;
+    private Integer maxAgents;
+    private Integer maxKnowledge;
 }

@@ -21,6 +21,7 @@ import ai.novaflow.user.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.user.mapper.WorkspaceMapper;
 import ai.novaflow.user.mapper.ApplicationMapper;
+import ai.novaflow.model.mapper.TokenUsageMapper;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -30,7 +31,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +54,7 @@ public class OrganizationService {
     private final UserMapper userMapper;
     private final PermissionService permissionService;
     private final PasswordEncoder passwordEncoder;
+    private final TokenUsageMapper tokenUsageMapper;
 
     public TenantVO getTenant() {
         Long tenantId = requireTenantId();
@@ -65,6 +69,11 @@ public class OrganizationService {
         int memberCount = countActiveMembers(tenantId);
         int maxMembers = tenant.getMaxMembers() != null && tenant.getMaxMembers() > 0 ? tenant.getMaxMembers() : 100;
         int usedPercent = Math.min(100, (int) Math.round(memberCount * 100.0 / maxMembers));
+        YearMonth current = YearMonth.now();
+        LocalDate monthStart = current.atDay(1);
+        LocalDate monthEnd = current.atEndOfMonth();
+        long usedTokens = safeLong(tokenUsageMapper.sumTokensBetween(tenantId, monthStart, monthEnd));
+        long monthlyTokenQuota = tenant.getMonthlyTokenQuota() != null ? tenant.getMonthlyTokenQuota() : 0L;
         return TenantPlanSummaryVO.builder()
                 .planType(tenant.getPlanType())
                 .planTypeLabel(resolvePlanTypeLabel(tenant.getPlanType()))
@@ -72,6 +81,9 @@ public class OrganizationService {
                 .memberCount(memberCount)
                 .maxMembers(maxMembers)
                 .usedPercent(usedPercent)
+                .monthlyTokenQuota(monthlyTokenQuota > 0 ? monthlyTokenQuota : null)
+                .usedTokens(usedTokens)
+                .tokenUsedPercent(calcPercent(usedTokens, monthlyTokenQuota))
                 .build();
     }
 
@@ -468,6 +480,17 @@ public class OrganizationService {
                 .joinedAt(member.getJoinedAt())
                 .lastLoginAt(user != null ? user.getLastLoginAt() : null)
                 .build();
+    }
+
+    private Integer calcPercent(long used, long limit) {
+        if (limit <= 0) {
+            return null;
+        }
+        return (int) Math.min(100, Math.round(used * 100.0 / limit));
+    }
+
+    private long safeLong(Long value) {
+        return value != null ? value : 0L;
     }
 
     private String resolvePlanTypeLabel(String planType) {

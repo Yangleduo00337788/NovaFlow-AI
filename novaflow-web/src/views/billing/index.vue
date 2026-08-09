@@ -1,0 +1,561 @@
+<template>
+  <div class="billing-page" data-testid="billing-page">
+    <div class="page-header">
+      <div>
+        <h1>账单与用量</h1>
+        <p>查看本月 Token 消耗、预估费用与配额使用情况</p>
+      </div>
+      <a-space>
+        <a-date-picker
+          v-model:value="selectedMonth"
+          picker="month"
+          format="YYYY-MM"
+          :allow-clear="false"
+          @change="onMonthChange"
+        />
+        <a-button :loading="loading" @click="loadData">
+          <ReloadOutlined />
+          刷新
+        </a-button>
+        <a-button @click="exportCsv" :disabled="!records.length">
+          <DownloadOutlined />
+          导出 CSV
+        </a-button>
+        <a-button @click="openReceipt">
+          <PrinterOutlined />
+          打印小票
+        </a-button>
+      </a-space>
+    </div>
+
+    <a-spin :spinning="loading">
+      <div class="metrics-grid">
+        <div v-for="item in overview.metrics" :key="item.key" class="metric-card page-card">
+          <div class="metric-label">{{ item.label }}</div>
+          <div class="metric-value">{{ item.value }}</div>
+          <div class="metric-hint">{{ item.hint }}</div>
+        </div>
+      </div>
+
+      <div class="quota-grid">
+        <div class="page-card quota-card">
+          <div class="section-title">套餐与配额</div>
+          <div class="quota-head">
+            <div>
+              <div class="plan-name">{{ overview.quota.planTypeLabel || '免费版' }}</div>
+              <div class="plan-expire">到期时间：{{ formatDate(overview.quota.expireAt) }}</div>
+            </div>
+            <a-tag color="blue">{{ overview.periodLabel }}</a-tag>
+          </div>
+          <div class="quota-item">
+            <div class="quota-row">
+              <span>本月 Token</span>
+              <span>
+                {{ formatNumber(overview.quota.usedTokens) }}
+                <template v-if="overview.quota.monthlyTokenQuota">
+                  / {{ formatNumber(overview.quota.monthlyTokenQuota) }}
+                </template>
+              </span>
+            </div>
+            <a-progress
+              v-if="overview.quota.tokenUsedPercent != null"
+              :percent="overview.quota.tokenUsedPercent"
+              :status="overview.quota.tokenUsedPercent >= 90 ? 'exception' : 'active'"
+            />
+          </div>
+          <div class="quota-item">
+            <div class="quota-row">
+              <span>成员席位</span>
+              <span>{{ overview.quota.memberCount }} / {{ overview.quota.maxMembers }}</span>
+            </div>
+            <a-progress :percent="overview.quota.memberUsedPercent" />
+          </div>
+          <div class="quota-meta">
+            <span>Agent 配额：{{ overview.quota.maxAgents ?? '-' }}</span>
+            <span>知识库配额：{{ overview.quota.maxKnowledge ?? '-' }}</span>
+          </div>
+        </div>
+
+        <div class="page-card trend-card">
+          <div class="section-title">本月 Token 趋势</div>
+          <v-chart class="trend-chart" :option="trendOption" autoresize />
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="page-card">
+          <div class="section-title">按类型分布</div>
+          <a-empty v-if="!overview.usageByType.length" description="暂无用量数据" />
+          <div v-else class="usage-type-list">
+            <div v-for="item in overview.usageByType" :key="item.usageType" class="usage-type-item">
+              <div>
+                <strong>{{ item.usageTypeLabel }}</strong>
+                <div class="usage-type-meta">{{ formatNumber(item.calls) }} 次调用</div>
+              </div>
+              <span>{{ formatNumber(item.tokens) }} tokens</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="page-card">
+          <div class="section-title">模型消耗 Top 5</div>
+          <a-empty v-if="!overview.topModels.length" description="暂无模型用量" />
+          <div v-else class="model-list">
+            <div v-for="(item, index) in overview.topModels" :key="item.modelName" class="model-item">
+              <span class="rank-no" :class="{ top: index < 3 }">{{ index + 1 }}</span>
+              <div class="model-main">
+                <div class="model-name">{{ item.displayName || item.modelName }}</div>
+                <div class="model-meta">{{ formatNumber(item.calls) }} 次 · {{ formatNumber(item.tokens) }} tokens</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-card records-card">
+        <div class="section-title">费用明细</div>
+        <div class="toolbar">
+          <a-space wrap>
+            <a-select
+              v-model:value="agentId"
+              allow-clear
+              placeholder="筛选 Agent"
+              style="width: 220px"
+              :options="agentOptions"
+              @change="onSearch"
+            />
+            <a-select
+              v-model:value="usageType"
+              allow-clear
+              placeholder="调用类型"
+              style="width: 140px"
+              :options="usageTypeOptions"
+              @change="onSearch"
+            />
+            <a-input-search
+              v-model:value="keyword"
+              placeholder="搜索 Agent / 模型"
+              style="width: 260px"
+              allow-clear
+              @search="onSearch"
+            />
+          </a-space>
+          <span class="toolbar-meta">共 {{ total }} 条记录</span>
+        </div>
+        <a-table
+          :columns="columns"
+          :data-source="records"
+          :loading="recordsLoading"
+          row-key="id"
+          :pagination="pagination"
+          @change="onTableChange"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'usageType'">
+              <a-tag>{{ record.usageType || 'chat' }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'totalTokens'">
+              {{ formatNumber(record.totalTokens) }}
+            </template>
+            <template v-else-if="column.key === 'createdAt'">
+              {{ formatDateTime(record.createdAt) }}
+            </template>
+          </template>
+        </a-table>
+      </div>
+    </a-spin>
+
+    <BillingReceiptPrinter
+      v-model:open="receiptOpen"
+      :overview="overview"
+      :month="currentMonth()"
+      :total-records="total"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
+import dayjs, { type Dayjs } from 'dayjs'
+import { message } from 'ant-design-vue'
+import { DownloadOutlined, PrinterOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent } from 'echarts/components'
+import VChart from 'vue-echarts'
+import { fetchAgents } from '@/api/agent'
+import {
+  fetchBillingOverview,
+  fetchBillingRecords,
+  type BillingOverview,
+} from '@/api/billing'
+import type { TokenUsageLogItem } from '@/api/log'
+import { formatDateTime } from '@/utils/datetime'
+import BillingReceiptPrinter from './BillingReceiptPrinter.vue'
+
+use([CanvasRenderer, LineChart, GridComponent, TooltipComponent])
+
+const loading = ref(false)
+const recordsLoading = ref(false)
+const selectedMonth = ref<Dayjs>(dayjs())
+const overview = ref<BillingOverview>({
+  periodLabel: '',
+  totalCalls: 0,
+  totalTokens: 0,
+  totalCostLabel: '¥0.00',
+  tokenChangePercent: '0%',
+  callChangePercent: '0%',
+  metrics: [],
+  dailyTrend: [],
+  usageByType: [],
+  topModels: [],
+  quota: {
+    planType: 'free',
+    planTypeLabel: '免费版',
+    usedTokens: 0,
+    memberCount: 0,
+    maxMembers: 0,
+    memberUsedPercent: 0,
+  },
+})
+const records = ref<TokenUsageLogItem[]>([])
+const keyword = ref('')
+const agentId = ref<number | undefined>()
+const usageType = ref<string | undefined>()
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const receiptOpen = ref(false)
+const agentOptions = ref<Array<{ label: string; value: number }>>([])
+const usageTypeOptions = [
+  { label: '对话', value: 'chat' },
+  { label: '工作流', value: 'workflow' },
+]
+
+const columns = [
+  { title: '时间', key: 'createdAt', width: 180 },
+  { title: 'Agent', dataIndex: 'agentName', key: 'agentName' },
+  { title: '模型', dataIndex: 'displayName', key: 'model' },
+  { title: '类型', key: 'usageType', width: 90 },
+  { title: 'Tokens', key: 'totalTokens', width: 100 },
+  { title: '成本', dataIndex: 'costLabel', key: 'costLabel', width: 100 },
+]
+
+const pagination = reactive({
+  current: 1,
+  pageSize: 20,
+  total: 0,
+  showSizeChanger: true,
+  showTotal: (t: number) => `共 ${t} 条`,
+})
+
+const trendOption = computed(() => ({
+  grid: { left: 40, right: 16, top: 24, bottom: 28 },
+  tooltip: { trigger: 'axis' },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: overview.value.dailyTrend.map((item) => item.label),
+  },
+  yAxis: { type: 'value' },
+  series: [
+    {
+      type: 'line',
+      smooth: true,
+      data: overview.value.dailyTrend.map((item) => item.tokens),
+      areaStyle: { color: 'rgba(99, 102, 241, 0.12)' },
+      lineStyle: { color: '#6366f1', width: 2 },
+      itemStyle: { color: '#6366f1' },
+    },
+  ],
+}))
+
+function currentMonth() {
+  return selectedMonth.value.format('YYYY-MM')
+}
+
+function formatNumber(value?: number) {
+  return value != null ? value.toLocaleString() : '-'
+}
+
+function formatDate(value?: string) {
+  if (!value) return '-'
+  return value.slice(0, 10)
+}
+
+async function loadAgents() {
+  const res = await fetchAgents({ page: 1, pageSize: 100 })
+  agentOptions.value = res.data.data.list.map((item) => ({
+    label: item.agentName,
+    value: item.id,
+  }))
+}
+
+async function loadOverview() {
+  const res = await fetchBillingOverview(currentMonth())
+  overview.value = res.data.data
+}
+
+async function loadRecords() {
+  recordsLoading.value = true
+  try {
+    const res = await fetchBillingRecords({
+      page: page.value,
+      pageSize: pageSize.value,
+      agentId: agentId.value,
+      usageType: usageType.value,
+      month: currentMonth(),
+      keyword: keyword.value || undefined,
+    })
+    records.value = res.data.data.list
+    total.value = res.data.data.total
+    pagination.total = res.data.data.total
+    pagination.current = res.data.data.page
+    pagination.pageSize = res.data.data.pageSize
+  } finally {
+    recordsLoading.value = false
+  }
+}
+
+async function loadData() {
+  loading.value = true
+  try {
+    await Promise.all([loadOverview(), loadRecords()])
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载账单数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function onMonthChange() {
+  page.value = 1
+  loadData()
+}
+
+function onSearch() {
+  page.value = 1
+  loadRecords()
+}
+
+function onTableChange(pag: { current?: number; pageSize?: number }) {
+  page.value = pag.current || 1
+  pageSize.value = pag.pageSize || 20
+  loadRecords()
+}
+
+function openReceipt() {
+  receiptOpen.value = true
+}
+
+function exportCsv() {
+  const header = ['时间', 'Agent', '模型', '类型', 'Tokens', '成本']
+  const rows = records.value.map((item) => [
+    formatDateTime(item.createdAt),
+    item.agentName,
+    item.displayName || item.modelName || '',
+    item.usageType || 'chat',
+    String(item.totalTokens ?? 0),
+    item.costLabel || '',
+  ])
+  const csv = [header, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `billing-${currentMonth()}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+onMounted(async () => {
+  try {
+    await loadAgents()
+    await loadData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载失败')
+  }
+})
+</script>
+
+<style scoped>
+.billing-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  padding: 18px;
+}
+
+.metric-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.metric-value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.metric-hint {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.quota-grid,
+.content-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+}
+
+.quota-card,
+.trend-card,
+.records-card {
+  padding: 18px;
+}
+
+.section-title {
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.quota-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.plan-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.plan-expire {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.quota-item + .quota-item {
+  margin-top: 14px;
+}
+
+.quota-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.quota-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.trend-chart {
+  height: 260px;
+}
+
+.usage-type-list,
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usage-type-item,
+.model-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.usage-type-meta,
+.model-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.rank-no {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rank-no.top {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.model-item {
+  justify-content: flex-start;
+}
+
+.model-main {
+  flex: 1;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.toolbar-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 1200px) {
+  .metrics-grid,
+  .quota-grid,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
