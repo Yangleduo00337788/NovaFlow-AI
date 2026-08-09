@@ -2,6 +2,7 @@ package ai.novaflow.workflow.controller;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
 import ai.novaflow.workflow.domain.dto.WorkflowRunRequest;
 import ai.novaflow.workflow.domain.dto.WorkflowSaveRequest;
 import ai.novaflow.workflow.domain.vo.WorkflowDetailVO;
@@ -9,6 +10,7 @@ import ai.novaflow.workflow.domain.vo.WorkflowRunResultVO;
 import ai.novaflow.workflow.domain.vo.WorkflowVO;
 import ai.novaflow.workflow.service.WorkflowExecutionService;
 import ai.novaflow.workflow.service.WorkflowService;
+import cn.dev33.satoken.stp.StpUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -71,7 +73,15 @@ public class WorkflowController {
     public ApiResult<WorkflowRunResultVO> run(
             @PathVariable Long id,
             @RequestBody(required = false) WorkflowRunRequest request) {
-        return ApiResult.ok(workflowExecutionService.run(id, request));
+        return ApiResult.ok(workflowExecutionService.run(id, request,
+                WorkflowRunOptions.builder()
+                        .triggeredByUserId(resolveTriggeredBy())
+                        .recordUsage(true)
+                        .build()));
+    }
+
+    private Long resolveTriggeredBy() {
+        return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
     }
 
     @DeleteMapping("/{id}")

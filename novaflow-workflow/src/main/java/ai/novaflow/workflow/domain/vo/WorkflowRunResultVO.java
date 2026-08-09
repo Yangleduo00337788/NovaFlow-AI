@@ -14,5 +14,7 @@ public class WorkflowRunResultVO {
     private String output;
     private String errorMessage;
     private Integer durationMs;
+    private Integer tokensUsed;
+    private List<WorkflowModelUsageVO> modelUsages;
     private List<WorkflowRunStepVO> steps;
 }

@@ -7,6 +7,8 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.service.ModelResolutionService;
+import ai.novaflow.model.domain.dto.ModelUsageRecordRequest;
+import ai.novaflow.model.service.ModelUsageService;
 import ai.novaflow.rag.domain.RetrievedChunk;
 import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
@@ -14,7 +16,9 @@ import ai.novaflow.tool.executor.HttpToolExecutor;
 import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
 import ai.novaflow.workflow.domain.WorkflowNodeType;
+import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
 import ai.novaflow.workflow.domain.dto.WorkflowRunRequest;
+import ai.novaflow.workflow.domain.vo.WorkflowModelUsageVO;
 import ai.novaflow.workflow.domain.vo.WorkflowRunResultVO;
 import ai.novaflow.workflow.domain.vo.WorkflowRunStepVO;
 import ai.novaflow.workflow.entity.WorkflowEdgeEntity;
@@ -27,7 +31,6 @@ import ai.novaflow.workflow.mapper.WorkflowExecutionMapper;
 import ai.novaflow.workflow.mapper.WorkflowMapper;
 import ai.novaflow.workflow.mapper.WorkflowNodeLogMapper;
 import ai.novaflow.workflow.mapper.WorkflowNodeMapper;
-import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -57,10 +60,23 @@ public class WorkflowExecutionService {
     private final ToolDefinitionService toolDefinitionService;
     private final HttpToolExecutor httpToolExecutor;
     private final KnowledgeRetrievalService knowledgeRetrievalService;
+    private final ModelUsageService modelUsageService;
     private final ObjectMapper objectMapper;
 
     @Transactional
     public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request) {
+        return run(workflowId, request, WorkflowRunOptions.builder().build());
+    }
+
+    @Transactional
+    public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request, Long triggeredByUserId) {
+        return run(workflowId, request, WorkflowRunOptions.builder().triggeredByUserId(triggeredByUserId).build());
+    }
+
+    @Transactional
+    public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request, WorkflowRunOptions options) {
+        WorkflowRunOptions runOptions = options != null ? options : WorkflowRunOptions.builder().build();
+        Long triggeredByUserId = runOptions.getTriggeredByUserId();
         Long tenantId = requireTenantId();
         WorkflowEntity workflow = getWorkflowOrThrow(workflowId, tenantId);
         List<WorkflowNodeEntity> nodes = listNodes(workflowId, tenantId);
@@ -85,6 +101,7 @@ public class WorkflowExecutionService {
         String input = request != null && StringUtils.hasText(request.getInput()) ? request.getInput().trim() : "";
         String currentPayload = input;
         List<WorkflowRunStepVO> steps = new ArrayList<>();
+        List<WorkflowModelUsageVO> modelUsages = new ArrayList<>();
 
         WorkflowExecutionEntity execution = new WorkflowExecutionEntity();
         execution.setTenantId(tenantId);
@@ -93,7 +110,7 @@ public class WorkflowExecutionService {
         execution.setStatus(WorkflowExecutionStatus.RUNNING);
         execution.setInputData(writeJson(Map.of("input", input)));
         execution.setStartedAt(startedAt);
-        execution.setTriggeredBy(StpUtil.getLoginIdAsLong());
+        execution.setTriggeredBy(triggeredByUserId);
         workflowExecutionMapper.insert(execution);
 
         String currentNodeId = start.getNodeId();
@@ -101,6 +118,7 @@ public class WorkflowExecutionService {
         Integer finalStatus = WorkflowExecutionStatus.SUCCESS;
         String finalOutput = null;
         String errorMessage = null;
+        int totalTokens = 0;
 
         try {
             while (currentNodeId != null && guard++ < 64) {
@@ -113,6 +131,10 @@ public class WorkflowExecutionService {
                 LocalDateTime stepStartedAt = LocalDateTime.now();
                 StepResult stepResult = executeNode(node, currentPayload, tenantId);
                 int stepDuration = (int) (System.currentTimeMillis() - stepStart);
+                totalTokens += stepResult.tokensUsed();
+                if (stepResult.modelUsage() != null) {
+                    modelUsages.add(stepResult.modelUsage());
+                }
 
                 WorkflowNodeLogEntity logEntity = new WorkflowNodeLogEntity();
                 logEntity.setTenantId(tenantId);
@@ -173,12 +195,18 @@ public class WorkflowExecutionService {
         execution.setDurationMs(durationMs);
         workflowExecutionMapper.update(execution);
 
+        if (runOptions.isRecordUsage()) {
+            recordModelUsages(workflow, triggeredByUserId, runOptions.getAgentId(), modelUsages);
+        }
+
         return WorkflowRunResultVO.builder()
                 .executionId(executionId)
                 .status(finalStatus)
                 .output(finalOutput != null ? finalOutput : currentPayload)
                 .errorMessage(errorMessage)
                 .durationMs(durationMs)
+                .tokensUsed(totalTokens)
+                .modelUsages(modelUsages)
                 .steps(steps)
                 .build();
     }
@@ -210,7 +238,20 @@ public class WorkflowExecutionService {
                     .conversationId("workflow-" + node.getWorkflowId() + "-" + node.getNodeId())
                     .memoryWindow(1)
                     .build());
-            return StepResult.ok(result.getReply());
+            int tokensUsed = result.getTokensUsed() != null ? result.getTokensUsed() : 0;
+            int inputTokens = result.getInputTokens() != null ? result.getInputTokens() : 0;
+            int outputTokens = result.getOutputTokens() != null ? result.getOutputTokens() : 0;
+            int total = tokensUsed > 0 ? tokensUsed : inputTokens + outputTokens;
+            WorkflowModelUsageVO usage = WorkflowModelUsageVO.builder()
+                    .nodeId(node.getNodeId())
+                    .nodeName(node.getNodeName())
+                    .modelConfigId(modelConfigId)
+                    .inputTokens(inputTokens)
+                    .outputTokens(outputTokens)
+                    .totalTokens(total)
+                    .latencyMs(result.getLatencyMs() != null ? result.getLatencyMs().intValue() : null)
+                    .build();
+            return StepResult.ok(result.getReply(), total, usage);
         } catch (Exception e) {
             return StepResult.fail("LLM 节点执行失败: " + rootMessage(e));
         }
@@ -408,6 +449,37 @@ public class WorkflowExecutionService {
         return current.getMessage() != null ? current.getMessage() : "未知错误";
     }
 
+    private void recordModelUsages(
+            WorkflowEntity workflow,
+            Long userId,
+            Long agentId,
+            List<WorkflowModelUsageVO> modelUsages) {
+        if (modelUsages == null || modelUsages.isEmpty()) {
+            return;
+        }
+        for (WorkflowModelUsageVO usage : modelUsages) {
+            if (usage.getModelConfigId() == null || safeInt(usage.getTotalTokens()) <= 0) {
+                continue;
+            }
+            modelUsageService.record(ModelUsageRecordRequest.builder()
+                    .tenantId(workflow.getTenantId())
+                    .applicationId(workflow.getApplicationId())
+                    .agentId(agentId)
+                    .userId(userId)
+                    .modelConfigId(usage.getModelConfigId())
+                    .usageType("workflow")
+                    .inputTokens(usage.getInputTokens())
+                    .outputTokens(usage.getOutputTokens())
+                    .totalTokens(usage.getTotalTokens())
+                    .latencyMs(usage.getLatencyMs() != null ? usage.getLatencyMs().longValue() : null)
+                    .build());
+        }
+    }
+
+    private int safeInt(Integer value) {
+        return value != null ? value : 0;
+    }
+
     private Long requireTenantId() {
         Long tenantId = TenantContext.getTenantId();
         if (tenantId == null) {
@@ -416,13 +488,17 @@ public class WorkflowExecutionService {
         return tenantId;
     }
 
-    private record StepResult(boolean success, String output, String errorMessage) {
+    private record StepResult(boolean success, String output, String errorMessage, int tokensUsed, WorkflowModelUsageVO modelUsage) {
         static StepResult ok(String output) {
-            return new StepResult(true, output, null);
+            return ok(output, 0, null);
+        }
+
+        static StepResult ok(String output, int tokensUsed, WorkflowModelUsageVO modelUsage) {
+            return new StepResult(true, output, null, tokensUsed, modelUsage);
         }
 
         static StepResult fail(String errorMessage) {
-            return new StepResult(false, null, errorMessage);
+            return new StepResult(false, null, errorMessage, 0, null);
         }
     }
 }

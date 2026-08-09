@@ -6,6 +6,7 @@ import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
+import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
 import ai.novaflow.workflow.domain.dto.WorkflowRunRequest;
 import ai.novaflow.workflow.domain.vo.WorkflowRunResultVO;
 import ai.novaflow.workflow.service.WorkflowExecutionService;
@@ -36,16 +37,18 @@ public class AgentWorkflowChatService {
             Long tenantId,
             Long userId,
             String conversationPrefix) {
-        WorkflowRunResultVO result = runWorkflow(agent, request.getMessage().trim(), tenantId);
+        WorkflowRunResultVO result = runWorkflow(agent, request.getMessage().trim(), tenantId, userId);
         String reply = resolveReply(result);
         long latencyMs = toLatencyMs(result.getDurationMs());
+        int tokensUsed = result.getTokensUsed() != null ? result.getTokensUsed() : 0;
         AgentDebugChatVO vo = AgentDebugChatVO.builder()
                 .reply(reply)
                 .agentName(agent.getAgentName())
+                .tokensUsed(tokensUsed)
                 .latencyMs(latencyMs)
                 .debugMode(false)
                 .build();
-        persistConversation(agent, request, tenantId, userId, conversationPrefix, reply, latencyMs);
+        persistConversation(agent, request, tenantId, userId, conversationPrefix, reply, latencyMs, tokensUsed);
         return vo;
     }
 
@@ -57,20 +60,22 @@ public class AgentWorkflowChatService {
             String conversationPrefix,
             SseEmitter emitter) {
         try {
-            WorkflowRunResultVO result = runWorkflow(agent, request.getMessage().trim(), tenantId);
+            WorkflowRunResultVO result = runWorkflow(agent, request.getMessage().trim(), tenantId, userId);
             String reply = resolveReply(result);
             long latencyMs = toLatencyMs(result.getDurationMs());
+            int tokensUsed = result.getTokensUsed() != null ? result.getTokensUsed() : 0;
             for (char ch : reply.toCharArray()) {
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("token")
                         .content(String.valueOf(ch))
                         .build());
             }
-            persistConversation(agent, request, tenantId, userId, conversationPrefix, reply, latencyMs);
+            persistConversation(agent, request, tenantId, userId, conversationPrefix, reply, latencyMs, tokensUsed);
             sendEvent(emitter, AgentDebugStreamEvent.builder()
                     .type("done")
                     .reply(reply)
                     .agentName(agent.getAgentName())
+                    .tokensUsed(tokensUsed)
                     .latencyMs(latencyMs)
                     .debugMode(false)
                     .build());
@@ -82,14 +87,21 @@ public class AgentWorkflowChatService {
         }
     }
 
-    private WorkflowRunResultVO runWorkflow(AgentVO agent, String message, Long tenantId) {
+    private WorkflowRunResultVO runWorkflow(AgentVO agent, String message, Long tenantId, Long userId) {
         if (agent.getWorkflowId() == null) {
             throw new BusinessException("Workflow Agent 未绑定工作流");
         }
         workflowService.requirePublishedWorkflow(agent.getWorkflowId(), tenantId);
         WorkflowRunRequest runRequest = new WorkflowRunRequest();
         runRequest.setInput(message);
-        WorkflowRunResultVO result = workflowExecutionService.run(agent.getWorkflowId(), runRequest);
+        WorkflowRunResultVO result = workflowExecutionService.run(
+                agent.getWorkflowId(),
+                runRequest,
+                WorkflowRunOptions.builder()
+                        .triggeredByUserId(userId)
+                        .agentId(agent.getId())
+                        .recordUsage(true)
+                        .build());
         if (!Integer.valueOf(WorkflowExecutionStatus.SUCCESS).equals(result.getStatus())) {
             throw new BusinessException(StringUtils.hasText(result.getErrorMessage())
                     ? result.getErrorMessage()
@@ -116,7 +128,8 @@ public class AgentWorkflowChatService {
             Long userId,
             String conversationPrefix,
             String reply,
-            long latencyMs) {
+            long latencyMs,
+            int tokensUsed) {
         try {
             String prefix = StringUtils.hasText(conversationPrefix) ? conversationPrefix : "workflow";
             String conversationKey = StringUtils.hasText(request.getConversationId())
@@ -130,6 +143,7 @@ public class AgentWorkflowChatService {
                     .userId(userId)
                     .userMessage(request.getMessage().trim())
                     .assistantReply(reply)
+                    .tokensUsed(tokensUsed)
                     .latencyMs(latencyMs)
                     .build());
         } catch (Exception e) {
