@@ -16,6 +16,7 @@ public class RoleEntity {
     private Long tenantId;
     private String roleCode;
     private String roleName;
+    private String description;
     private Integer isSystem;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

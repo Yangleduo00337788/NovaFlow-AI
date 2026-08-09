@@ -15,6 +15,8 @@ public class WorkspaceEntity {
     private Long id;
     private Long tenantId;
     private String workspaceName;
+    private String description;
+    private String icon;
     private Integer isDefault;
     private Long createdBy;
     private LocalDateTime createdAt;

@@ -45,7 +45,7 @@
         <div class="expire">到期时间：{{ planInfo.expireAt }}</div>
         <div class="usage-row">
           <div class="usage-text">
-            已用 <strong class="usage-percent">{{ planInfo.usedPercent }}%</strong> / 100%
+            成员 <strong class="usage-percent">{{ planInfo.memberCount }}</strong> / {{ planInfo.maxMembers }}
           </div>
           <span class="usage-percent-side">{{ planInfo.usedPercent }}%</span>
         </div>
@@ -67,10 +67,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { DashboardOutlined, CrownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
+import { fetchPlanSummary } from '@/api/org'
 import { filterMenuGroups } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
 import { useAuthStore } from '@/stores/auth'
@@ -86,8 +87,29 @@ const visibleMenuGroups = computed(() => filterMenuGroups(auth.hasAnyPermission)
 
 const planInfo = reactive({
   planType: '企业版',
-  expireAt: '2026-12-31',
-  usedPercent: 68,
+  expireAt: '-',
+  memberCount: 0,
+  maxMembers: 100,
+  usedPercent: 0,
+})
+
+async function loadPlanSummary() {
+  try {
+    const res = await fetchPlanSummary()
+    const data = res.data.data
+    if (!data) return
+    planInfo.planType = data.planTypeLabel || data.planType
+    planInfo.expireAt = data.expireAt ? data.expireAt.slice(0, 10) : '-'
+    planInfo.memberCount = data.memberCount
+    planInfo.maxMembers = data.maxMembers
+    planInfo.usedPercent = data.usedPercent
+  } catch {
+    // 侧边栏套餐信息加载失败时保留默认值
+  }
+}
+
+onMounted(() => {
+  loadPlanSummary()
 })
 </script>
 

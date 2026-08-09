@@ -1,17 +1,14 @@
-package ai.novaflow.user.entity;
+package ai.novaflow.user.domain.vo;
 
-import com.mybatisflex.annotation.Id;
-import com.mybatisflex.annotation.KeyType;
-import com.mybatisflex.annotation.Table;
+import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Data
-@Table("tenant")
-public class TenantEntity {
+@Builder
+public class TenantVO {
 
-    @Id(keyType = KeyType.Auto)
     private Long id;
     private String tenantCode;
     private String tenantName;
@@ -20,14 +17,14 @@ public class TenantEntity {
     private String contactEmail;
     private String contactPhone;
     private String planType;
+    private String planTypeLabel;
     private Integer status;
     private LocalDateTime expireAt;
     private Integer maxMembers;
+    private Integer memberCount;
     private Integer maxAgents;
     private Integer maxKnowledge;
     private Integer maxStorageMb;
     private Long monthlyTokenQuota;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private Integer isDeleted;
 }
