@@ -26,6 +26,7 @@ public class AgentConfigEntity {
     private Integer maxTokens;
     private String memoryType;
     private Integer memoryWindow;
+    private Long workflowId;
     private String retrievalConfig;
     private String extraConfig;
     private LocalDateTime createdAt;

@@ -31,6 +31,8 @@ export interface AgentItem {
   promptTemplateVersionId?: number
   promptRefMode?: 'reference' | 'copy' | null
   promptTemplateCurrentVersion?: number
+  workflowId?: number
+  workflowName?: string
   tools?: AgentToolDefinition[]
   createdAt?: string
   updatedAt?: string
@@ -81,6 +83,7 @@ export interface AgentSaveRequest {
   promptTemplateVersionId?: number
   promptRefMode?: 'reference' | 'copy' | null
   promptTemplateCurrentVersion?: number
+  workflowId?: number
   tools?: AgentToolDefinition[]
 }
 

@@ -7,6 +7,11 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.service.ModelResolutionService;
+import ai.novaflow.rag.domain.RetrievedChunk;
+import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
+import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.tool.executor.HttpToolExecutor;
+import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
 import ai.novaflow.workflow.domain.WorkflowNodeType;
 import ai.novaflow.workflow.domain.dto.WorkflowRunRequest;
@@ -49,6 +54,9 @@ public class WorkflowExecutionService {
     private final WorkflowNodeLogMapper workflowNodeLogMapper;
     private final ModelResolutionService modelResolutionService;
     private final ChatAgentExecutor chatAgentExecutor;
+    private final ToolDefinitionService toolDefinitionService;
+    private final HttpToolExecutor httpToolExecutor;
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -150,7 +158,7 @@ public class WorkflowExecutionService {
                     }
                     break;
                 }
-                currentNodeId = nextEdges.get(0).getTargetNodeId();
+                currentNodeId = resolveNextNodeId(node, currentPayload, nextEdges);
             }
         } catch (BusinessException e) {
             finalStatus = WorkflowExecutionStatus.FAILED;
@@ -179,6 +187,8 @@ public class WorkflowExecutionService {
         return switch (node.getNodeType()) {
             case WorkflowNodeType.START -> StepResult.ok(input);
             case WorkflowNodeType.LLM -> executeLlmNode(node, input, tenantId);
+            case WorkflowNodeType.KNOWLEDGE -> executeKnowledgeNode(node, input, tenantId);
+            case WorkflowNodeType.TOOL -> executeToolNode(node, input, tenantId);
             case WorkflowNodeType.CONDITION -> StepResult.ok(evaluateCondition(node, input));
             case WorkflowNodeType.END -> StepResult.ok(StringUtils.hasText(input) ? input : "流程结束");
             default -> StepResult.fail("暂不支持的节点类型: " + node.getNodeType());
@@ -219,6 +229,113 @@ public class WorkflowExecutionService {
             return input != null && input.toLowerCase().contains("success") ? "true" : "false";
         }
         return input;
+    }
+
+    private StepResult executeToolNode(WorkflowNodeEntity node, String input, Long tenantId) {
+        Map<String, Object> config = parseConfig(node.getNodeConfig());
+        Long toolId = toLong(config.get("toolId"));
+        if (toolId == null) {
+            return StepResult.fail("工具节点未选择工具");
+        }
+        try {
+            List<HttpToolDefinition> tools = toolDefinitionService.resolveTools(tenantId, List.of(toolId));
+            if (tools.isEmpty()) {
+                return StepResult.fail("工具不存在或未启用");
+            }
+            Map<String, Object> arguments = new HashMap<>();
+            arguments.put("input", input != null ? input : "");
+            arguments.put("query", input != null ? input : "");
+            String result = httpToolExecutor.execute(tools.get(0), arguments);
+            return StepResult.ok(result);
+        } catch (Exception e) {
+            return StepResult.fail("工具节点执行失败: " + rootMessage(e));
+        }
+    }
+
+    private StepResult executeKnowledgeNode(WorkflowNodeEntity node, String input, Long tenantId) {
+        Map<String, Object> config = parseConfig(node.getNodeConfig());
+        Long knowledgeBaseId = toLong(config.get("knowledgeBaseId"));
+        if (knowledgeBaseId == null) {
+            return StepResult.fail("知识库节点未选择知识库");
+        }
+        if (!StringUtils.hasText(input)) {
+            return StepResult.fail("知识库检索输入不能为空");
+        }
+        int topK = toInt(config.get("topK"), 5);
+        Float scoreThreshold = toFloat(config.get("scoreThreshold"));
+        try {
+            List<RetrievedChunk> chunks = knowledgeRetrievalService.retrieve(
+                    knowledgeBaseId,
+                    tenantId,
+                    input.trim(),
+                    topK,
+                    scoreThreshold
+            );
+            if (chunks.isEmpty()) {
+                return StepResult.ok("未检索到相关内容");
+            }
+            String output = chunks.stream()
+                    .map(RetrievedChunk::getText)
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.joining("\n\n---\n\n"));
+            return StepResult.ok(StringUtils.hasText(output) ? output : "未检索到相关内容");
+        } catch (Exception e) {
+            return StepResult.fail("知识库节点执行失败: " + rootMessage(e));
+        }
+    }
+
+    private String resolveNextNodeId(
+            WorkflowNodeEntity currentNode,
+            String payload,
+            List<WorkflowEdgeEntity> nextEdges) {
+        if (nextEdges == null || nextEdges.isEmpty()) {
+            return null;
+        }
+        if (WorkflowNodeType.CONDITION.equals(currentNode.getNodeType())) {
+            String branch = payload != null ? payload.trim().toLowerCase() : "";
+            for (WorkflowEdgeEntity edge : nextEdges) {
+                String handle = edge.getSourceHandle() != null ? edge.getSourceHandle().trim().toLowerCase() : "";
+                String condition = edge.getCondition() != null ? edge.getCondition().trim().toLowerCase() : "";
+                if (branch.equals(handle) || branch.equals(condition)) {
+                    return edge.getTargetNodeId();
+                }
+            }
+            if ("true".equals(branch)) {
+                return nextEdges.get(0).getTargetNodeId();
+            }
+            if ("false".equals(branch) && nextEdges.size() > 1) {
+                return nextEdges.get(1).getTargetNodeId();
+            }
+        }
+        return nextEdges.get(0).getTargetNodeId();
+    }
+
+    private int toInt(Object value, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    private Float toFloat(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.floatValue();
+        }
+        try {
+            return Float.parseFloat(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private WorkflowEntity getWorkflowOrThrow(Long workflowId, Long tenantId) {

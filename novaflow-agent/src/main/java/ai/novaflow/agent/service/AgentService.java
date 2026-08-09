@@ -18,6 +18,8 @@ import ai.novaflow.agent.util.AgentExtraConfigUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
 import ai.novaflow.prompt.service.PromptTemplateService;
 import ai.novaflow.tool.service.ToolDefinitionService;
+import ai.novaflow.workflow.entity.WorkflowEntity;
+import ai.novaflow.workflow.service.WorkflowService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
@@ -46,6 +48,7 @@ public class AgentService {
     private final ToolDefinitionService toolDefinitionService;
     private final PromptTemplateService promptTemplateService;
     private final RecentAccessService recentAccessService;
+    private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
 
     public PageResult<AgentVO> page(int page, int pageSize, String keyword, String agentType) {
@@ -99,6 +102,7 @@ public class AgentService {
         agent.setIcon(request.getIcon());
         agent.setAgentType(request.getAgentType());
         agent.setStatus(0);
+        validateWorkflowBinding(request, tenantId);
         agent.setVersion(1);
         agent.setCreatedBy(userId);
         agent.setIsDeleted(0);
@@ -121,6 +125,7 @@ public class AgentService {
         agent.setDescription(request.getDescription());
         agent.setIcon(request.getIcon());
         agent.setAgentType(request.getAgentType());
+        validateWorkflowBinding(request, agent.getTenantId());
         agent.setUpdatedAt(LocalDateTime.now());
         agentMapper.update(agent);
 
@@ -287,6 +292,7 @@ public class AgentService {
         config.setMaxTokens(request.getMaxTokens());
         config.setMemoryType(request.getMemoryType());
         config.setMemoryWindow(request.getMemoryWindow());
+        config.setWorkflowId("workflow".equals(request.getAgentType()) ? request.getWorkflowId() : null);
         config.setRetrievalConfig(RetrievalConfigUtils.serialize(objectMapper, toRetrievalConfig(request)));
         config.setExtraConfig(AgentExtraConfigUtils.serializeTools(objectMapper, request.getTools()));
     }
@@ -398,6 +404,16 @@ public class AgentService {
                 .build();
     }
 
+    private void validateWorkflowBinding(AgentSaveRequest request, Long tenantId) {
+        if (!"workflow".equals(request.getAgentType())) {
+            return;
+        }
+        if (request.getWorkflowId() == null) {
+            throw new BusinessException("Workflow Agent 需选择工作流");
+        }
+        workflowService.requireWorkflow(request.getWorkflowId(), tenantId);
+    }
+
     private void recordRecentAccess(AgentEntity agent) {
         try {
             if (!StpUtil.isLogin()) {
@@ -450,6 +466,15 @@ public class AgentService {
             vo.setMaxTokens(config.getMaxTokens());
             vo.setMemoryType(config.getMemoryType());
             vo.setMemoryWindow(config.getMemoryWindow());
+            vo.setWorkflowId(config.getWorkflowId());
+            if (config.getWorkflowId() != null) {
+                try {
+                    WorkflowEntity workflow = workflowService.requireWorkflow(config.getWorkflowId(), agent.getTenantId());
+                    vo.setWorkflowName(workflow.getWorkflowName());
+                } catch (BusinessException ignored) {
+                    vo.setWorkflowName(null);
+                }
+            }
             RetrievalConfig retrievalConfig = RetrievalConfigUtils.parse(objectMapper, config.getRetrievalConfig());
             vo.setRetrievalTopK(retrievalConfig.getTopK());
             vo.setRetrievalScoreThreshold(retrievalConfig.getScoreThreshold());

@@ -32,6 +32,8 @@ public class AgentVO {
     private Integer maxTokens;
     private String memoryType;
     private Integer memoryWindow;
+    private Long workflowId;
+    private String workflowName;
     private Integer retrievalTopK;
     private Float retrievalScoreThreshold;
     private Boolean rerankEnabled;

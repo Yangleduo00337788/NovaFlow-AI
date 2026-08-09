@@ -26,6 +26,7 @@ public class AgentSaveRequest {
     private Integer maxTokens = 2048;
     private String memoryType = "window";
     private Integer memoryWindow = 10;
+    private Long workflowId;
     private Integer retrievalTopK = 5;
     private Float retrievalScoreThreshold;
     private Boolean rerankEnabled;

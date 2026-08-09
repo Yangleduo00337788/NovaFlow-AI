@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/workflows")
 @RequiredArgsConstructor
@@ -36,6 +38,11 @@ public class WorkflowController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long applicationId) {
         return ApiResult.ok(workflowService.page(page, pageSize, keyword, applicationId));
+    }
+
+    @GetMapping("/options")
+    public ApiResult<List<WorkflowVO>> options(@RequestParam(required = false) Long applicationId) {
+        return ApiResult.ok(workflowService.listPublishedOptions(applicationId));
     }
 
     @GetMapping("/{id}")

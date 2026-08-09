@@ -86,6 +86,37 @@
               <a-form-item label="条件类型">
                 <a-select v-model:value="conditionExpression" :options="conditionOptions" />
               </a-form-item>
+              <a-alert
+                type="info"
+                show-icon
+                message="条件分支说明"
+                description="节点输出 true/false。从该节点连出的第一条线为 true 分支，第二条为 false 分支。"
+              />
+            </template>
+            <template v-else-if="selectedNode.type === 'tool'">
+              <a-form-item label="工具">
+                <a-select
+                  v-model:value="toolId"
+                  placeholder="选择工具市场 HTTP 工具"
+                  :options="toolOptions"
+                  :loading="toolsLoading"
+                  allow-clear
+                />
+              </a-form-item>
+            </template>
+            <template v-else-if="selectedNode.type === 'knowledge'">
+              <a-form-item label="知识库">
+                <a-select
+                  v-model:value="knowledgeBaseId"
+                  placeholder="选择知识库"
+                  :options="knowledgeOptions"
+                  :loading="knowledgeLoading"
+                  allow-clear
+                />
+              </a-form-item>
+              <a-form-item label="Top-K">
+                <a-input-number v-model:value="knowledgeTopK" :min="1" :max="20" style="width: 100%" />
+              </a-form-item>
             </template>
             <template v-else>
               <a-empty description="该节点无需额外配置" />
@@ -144,6 +175,8 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import WorkflowNode from '@/components/workflow/WorkflowNode.vue'
 import { fetchModelConfigs } from '@/api/model'
+import { fetchKnowledgeBases } from '@/api/knowledge'
+import { fetchToolOptions } from '@/api/tool'
 import {
   fetchWorkflow,
   publishWorkflow,
@@ -160,12 +193,16 @@ const workflowId = Number(route.params.id)
 const nodeTypes: NodeTypesObject = {
   start: markRaw(WorkflowNode),
   llm: markRaw(WorkflowNode),
+  knowledge: markRaw(WorkflowNode),
+  tool: markRaw(WorkflowNode),
   condition: markRaw(WorkflowNode),
   end: markRaw(WorkflowNode),
 }
 const palette = [
   { type: 'start', label: '开始', icon: '▶' },
   { type: 'llm', label: 'LLM', icon: 'AI' },
+  { type: 'knowledge', label: '知识库', icon: 'KB' },
+  { type: 'tool', label: '工具', icon: 'T' },
   { type: 'condition', label: '条件分支', icon: '?' },
   { type: 'end', label: '结束', icon: '■' },
 ]
@@ -198,7 +235,11 @@ const saving = ref(false)
 const publishing = ref(false)
 const running = ref(false)
 const modelsLoading = ref(false)
+const toolsLoading = ref(false)
+const knowledgeLoading = ref(false)
 const modelOptions = ref<Array<{ label: string; value: number }>>([])
+const toolOptions = ref<Array<{ label: string; value: number }>>([])
+const knowledgeOptions = ref<Array<{ label: string; value: number }>>([])
 const runOpen = ref(false)
 const runInput = ref('你好，请帮我总结这段话。')
 const runResult = ref<WorkflowRunResult | null>(null)
@@ -226,6 +267,30 @@ const conditionExpression = computed({
   set: (value) => {
     if (!selectedNode.value) return
     selectedNode.value.data.config = { ...(selectedNode.value.data.config || {}), expression: value }
+  },
+})
+
+const toolId = computed({
+  get: () => (selectedNode.value?.data?.config?.toolId as number | undefined) ?? undefined,
+  set: (value) => {
+    if (!selectedNode.value) return
+    selectedNode.value.data.config = { ...(selectedNode.value.data.config || {}), toolId: value }
+  },
+})
+
+const knowledgeBaseId = computed({
+  get: () => (selectedNode.value?.data?.config?.knowledgeBaseId as number | undefined) ?? undefined,
+  set: (value) => {
+    if (!selectedNode.value) return
+    selectedNode.value.data.config = { ...(selectedNode.value.data.config || {}), knowledgeBaseId: value }
+  },
+})
+
+const knowledgeTopK = computed({
+  get: () => (selectedNode.value?.data?.config?.topK as number | undefined) ?? 5,
+  set: (value) => {
+    if (!selectedNode.value) return
+    selectedNode.value.data.config = { ...(selectedNode.value.data.config || {}), topK: value }
   },
 })
 
@@ -319,6 +384,32 @@ async function loadDetail() {
   applyDetail(res.data.data)
 }
 
+async function loadTools() {
+  toolsLoading.value = true
+  try {
+    const res = await fetchToolOptions()
+    toolOptions.value = res.data.data.map((item) => ({
+      label: `${item.displayName}（${item.toolName}）`,
+      value: item.id,
+    }))
+  } finally {
+    toolsLoading.value = false
+  }
+}
+
+async function loadKnowledgeBases() {
+  knowledgeLoading.value = true
+  try {
+    const res = await fetchKnowledgeBases({ page: 1, pageSize: 100 })
+    knowledgeOptions.value = res.data.data.list.map((item) => ({
+      label: item.kbName,
+      value: item.id,
+    }))
+  } finally {
+    knowledgeLoading.value = false
+  }
+}
+
 async function loadModels() {
   modelsLoading.value = true
   try {
@@ -386,6 +477,8 @@ async function runWorkflowAction() {
 onMounted(() => {
   loadDetail().catch((e) => message.error(e instanceof Error ? e.message : '加载失败'))
   loadModels()
+  loadTools()
+  loadKnowledgeBases()
 })
 
 watch(
@@ -484,6 +577,8 @@ watch(
 
 .palette-icon.start { background: #dcfce7; color: #16a34a; }
 .palette-icon.llm { background: #eef2ff; color: #4f46e5; }
+.palette-icon.knowledge { background: #dcfce7; color: #15803d; }
+.palette-icon.tool { background: #fee2e2; color: #dc2626; }
 .palette-icon.condition { background: #fef3c7; color: #d97706; }
 .palette-icon.end { background: #fee2e2; color: #dc2626; }
 

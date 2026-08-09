@@ -1,6 +1,7 @@
 package ai.novaflow.workflow.service;
 
-import ai.novaflow.application.service.ApplicationService;
+import ai.novaflow.user.entity.ApplicationEntity;
+import ai.novaflow.user.mapper.ApplicationMapper;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -42,7 +43,7 @@ public class WorkflowService {
     private final WorkflowMapper workflowMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
     private final WorkflowEdgeMapper workflowEdgeMapper;
-    private final ApplicationService applicationService;
+    private final ApplicationMapper applicationMapper;
     private final ObjectMapper objectMapper;
 
     public PageResult<WorkflowVO> page(int page, int pageSize, String keyword, Long applicationId) {
@@ -66,6 +67,50 @@ public class WorkflowService {
                 .map(entity -> toVO(entity, appNameMap.get(entity.getApplicationId()), countNodes(entity.getId())))
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
+    }
+
+    public List<WorkflowVO> listPublishedOptions(Long applicationId) {
+        Long tenantId = requireTenantId();
+        QueryWrapper query = QueryWrapper.create()
+                .eq("tenant_id", tenantId)
+                .eq("is_deleted", 0)
+                .eq("status", WorkflowStatus.PUBLISHED);
+        if (applicationId != null) {
+            query.eq("application_id", applicationId);
+        }
+        query.orderBy("updated_at", false);
+        return workflowMapper.selectListByQuery(query).stream()
+                .map(entity -> toVO(entity, resolveApplicationName(entity.getApplicationId()), countNodes(entity.getId())))
+                .toList();
+    }
+
+    public WorkflowEntity requirePublishedWorkflow(Long workflowId, Long tenantId) {
+        WorkflowEntity entity = workflowMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("id", workflowId)
+                        .eq("tenant_id", tenantId)
+                        .eq("is_deleted", 0)
+        );
+        if (entity == null) {
+            throw new BusinessException("工作流不存在");
+        }
+        if (!Objects.equals(entity.getStatus(), WorkflowStatus.PUBLISHED)) {
+            throw new BusinessException("工作流未发布，请先发布工作流");
+        }
+        return entity;
+    }
+
+    public WorkflowEntity requireWorkflow(Long workflowId, Long tenantId) {
+        WorkflowEntity entity = workflowMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("id", workflowId)
+                        .eq("tenant_id", tenantId)
+                        .eq("is_deleted", 0)
+        );
+        if (entity == null) {
+            throw new BusinessException("工作流不存在");
+        }
+        return entity;
     }
 
     public WorkflowDetailVO detail(Long id) {
@@ -229,6 +274,32 @@ public class WorkflowService {
         if (edges == null || edges.isEmpty()) {
             throw new BusinessException("发布失败：请连接节点后再发布");
         }
+        for (WorkflowNodeEntity node : nodes) {
+            Map<String, Object> config = parseConfig(node.getNodeConfig());
+            if (WorkflowNodeType.LLM.equals(node.getNodeType()) && toLong(config.get("modelConfigId")) == null) {
+                throw new BusinessException("发布失败：LLM 节点「" + node.getNodeName() + "」未配置模型");
+            }
+            if (WorkflowNodeType.TOOL.equals(node.getNodeType()) && toLong(config.get("toolId")) == null) {
+                throw new BusinessException("发布失败：工具节点「" + node.getNodeName() + "」未选择工具");
+            }
+            if (WorkflowNodeType.KNOWLEDGE.equals(node.getNodeType()) && toLong(config.get("knowledgeBaseId")) == null) {
+                throw new BusinessException("发布失败：知识库节点「" + node.getNodeName() + "」未选择知识库");
+            }
+        }
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private WorkflowEntity getWorkflowOrThrow(Long id) {
@@ -266,7 +337,18 @@ public class WorkflowService {
     }
 
     private void ensureApplicationExists(Long applicationId) {
-        applicationService.detail(applicationId);
+        if (applicationId == null) {
+            throw new BusinessException("所属应用不能为空");
+        }
+        ApplicationEntity application = applicationMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("id", applicationId)
+                        .eq("tenant_id", requireTenantId())
+                        .eq("is_deleted", 0)
+        );
+        if (application == null) {
+            throw new BusinessException("应用不存在");
+        }
     }
 
     private void ensureNameUnique(Long tenantId, String workflowName, Long excludeId) {
@@ -284,15 +366,17 @@ public class WorkflowService {
 
     private Map<Long, String> buildApplicationNameMap(List<Long> applicationIds) {
         Map<Long, String> map = new HashMap<>();
-        for (Long applicationId : applicationIds) {
-            if (applicationId == null) {
-                continue;
-            }
-            try {
-                map.put(applicationId, applicationService.detail(applicationId).getAppName());
-            } catch (BusinessException ignored) {
-                map.put(applicationId, "未知应用");
-            }
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return map;
+        }
+        List<Long> ids = applicationIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return map;
+        }
+        applicationMapper.selectListByQuery(QueryWrapper.create().in("id", ids))
+                .forEach(app -> map.put(app.getId(), app.getAppName()));
+        for (Long applicationId : ids) {
+            map.putIfAbsent(applicationId, "未知应用");
         }
         return map;
     }

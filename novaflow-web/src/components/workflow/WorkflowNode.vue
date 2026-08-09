@@ -17,6 +17,8 @@ const icon = computed(() => {
   const map: Record<string, string> = {
     start: '▶',
     llm: 'AI',
+    knowledge: 'KB',
+    tool: 'T',
     condition: '?',
     end: '■',
   }
@@ -45,6 +47,16 @@ const icon = computed(() => {
 .workflow-node.type-llm {
   border-color: #6366f1;
   background: #eef2ff;
+}
+
+.workflow-node.type-knowledge {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.workflow-node.type-tool {
+  border-color: #ef4444;
+  background: #fef2f2;
 }
 
 .workflow-node.type-condition {

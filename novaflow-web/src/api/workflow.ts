@@ -7,6 +7,12 @@ import type {
   WorkflowSaveRequest,
 } from '@/types/workflow'
 
+export function fetchWorkflowOptions(applicationId?: number) {
+  return request.get<ApiResult<WorkflowItem[]>>('/v1/workflows/options', {
+    params: applicationId ? { applicationId } : undefined,
+  })
+}
+
 export function fetchWorkflows(params?: {
   page?: number
   pageSize?: number

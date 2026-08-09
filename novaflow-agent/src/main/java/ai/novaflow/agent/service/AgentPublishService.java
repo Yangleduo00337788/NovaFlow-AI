@@ -9,6 +9,7 @@ import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import com.mybatisflex.core.query.QueryWrapper;
+import ai.novaflow.workflow.service.WorkflowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ public class AgentPublishService {
     private final AgentMapper agentMapper;
     private final AgentService agentService;
     private final AgentApiKeyService agentApiKeyService;
+    private final WorkflowService workflowService;
 
     public AgentPublishVO getPublishInfo(Long agentId) {
         AgentEntity agent = agentService.getAgentEntityOrThrow(agentId);
@@ -93,8 +95,15 @@ public class AgentPublishService {
             }
             return;
         }
+        if ("workflow".equals(agent.getAgentType())) {
+            if (agent.getWorkflowId() == null) {
+                throw new BusinessException("Workflow Agent 发布前需绑定工作流");
+            }
+            workflowService.requirePublishedWorkflow(agent.getWorkflowId(), requireTenantId());
+            return;
+        }
         if (!"chat".equals(agent.getAgentType()) && !"rag".equals(agent.getAgentType())) {
-            throw new BusinessException("当前仅支持发布 Chat / RAG / Tool Agent");
+            throw new BusinessException("当前仅支持发布 Chat / RAG / Tool / Workflow Agent");
         }
         if ("rag".equals(agent.getAgentType())
                 && (agent.getKnowledgeBaseIds() == null || agent.getKnowledgeBaseIds().isEmpty())) {

@@ -51,7 +51,7 @@
               <a-button type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
               <a-button type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
               <a-button
-                v-if="record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool'"
+                v-if="record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool' || record.agentType === 'workflow'"
                 type="link"
                 @click="openPublish(record.id)"
               >
@@ -108,6 +108,7 @@
                 placeholder="选择所属应用"
                 :loading="applicationsLoading"
                 :options="applicationOptions"
+                @change="onApplicationChange"
               />
             </a-form-item>
             <a-form-item>
@@ -120,6 +121,18 @@
                 placeholder="使用租户默认 Chat 模型"
                 :loading="modelsLoading"
                 :options="chatModelOptions"
+              />
+            </a-form-item>
+            <a-form-item v-if="form.agentType === 'workflow'" required>
+              <template #label>
+                <FormLabelTip label="绑定工作流" tip="选择已发布的工作流，用户对话时将按工作流编排执行。" />
+              </template>
+              <a-select
+                v-model:value="form.workflowId"
+                allow-clear
+                placeholder="选择已发布的工作流"
+                :loading="workflowsLoading"
+                :options="workflowOptions"
               />
             </a-form-item>
             <a-form-item v-if="form.agentType === 'rag'" required>
@@ -461,12 +474,13 @@ import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { fetchToolOptions, type ToolDefinition } from '@/api/tool'
 import { fetchPromptOptions, type PromptTemplate } from '@/api/prompt'
 import { fetchApplicationOptions, type ApplicationItem } from '@/api/application'
+import { fetchWorkflowOptions } from '@/api/workflow'
 import { formatDateTime } from '@/utils/datetime'
 
 const AGENT_FIELD_TIPS = {
   agentName: 'Agent 的显示名称，会出现在列表、调试对话和对外 API 的标识中。',
   agentType:
-    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 HTTP 工具；Workflow 用于工作流编排（后续扩展）。',
+    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 HTTP 工具；Workflow 绑定已发布工作流并按编排执行。',
   description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
   applicationId: 'Agent 所属应用。应用用于聚合多个 Agent 与知识库，并作为统一发布入口。',
   modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
@@ -503,6 +517,8 @@ const applications = ref<ApplicationItem[]>([])
 const toolsLoading = ref(false)
 const promptsLoading = ref(false)
 const applicationsLoading = ref(false)
+const workflowsLoading = ref(false)
+const workflowOptions = ref<Array<{ value: number; label: string }>>([])
 const list = ref<AgentItem[]>([])
 const keyword = ref('')
 const agentType = ref<string>()
@@ -569,6 +585,7 @@ const form = reactive<AgentSaveRequest>({
   promptTemplateId: undefined,
   promptRefMode: undefined,
   promptTemplateCurrentVersion: undefined,
+  workflowId: undefined,
 })
 
 const rerankModelOptions = computed(() =>
@@ -704,6 +721,7 @@ function resetForm() {
     promptTemplateId: undefined,
     promptRefMode: undefined,
     promptTemplateCurrentVersion: undefined,
+    workflowId: undefined,
   })
 }
 
@@ -715,6 +733,24 @@ async function loadPromptTemplates() {
   } finally {
     promptsLoading.value = false
   }
+}
+
+async function loadWorkflowOptions(applicationId?: number) {
+  workflowsLoading.value = true
+  try {
+    const res = await fetchWorkflowOptions(applicationId)
+    workflowOptions.value = (res.data.data || []).map((item) => ({
+      value: item.id,
+      label: item.workflowName,
+    }))
+  } finally {
+    workflowsLoading.value = false
+  }
+}
+
+function onApplicationChange(value?: number) {
+  form.workflowId = undefined
+  loadWorkflowOptions(value)
 }
 
 async function loadApplications() {
@@ -804,6 +840,7 @@ function openCreate() {
   loadMarketplaceTools()
   loadPromptTemplates()
   loadApplications()
+  loadWorkflowOptions()
   drawerOpen.value = true
 }
 
@@ -817,6 +854,7 @@ async function openEdit(id: number) {
   const res = await fetchAgent(id)
   const data = res.data.data
   editingId.value = id
+  await loadWorkflowOptions(data.applicationId)
   Object.assign(form, {
     ...data,
     hybridAlpha: data.hybridAlpha ?? 0.7,
@@ -929,6 +967,10 @@ async function onSave() {
   }
   if (form.agentType === 'tool' && (!form.toolIds || form.toolIds.length === 0)) {
     message.warning('Tool Agent 请至少选择一个工具市场的 HTTP 工具')
+    return
+  }
+  if (form.agentType === 'workflow' && !form.workflowId) {
+    message.warning('Workflow Agent 请选择已发布的工作流')
     return
   }
   saving.value = true

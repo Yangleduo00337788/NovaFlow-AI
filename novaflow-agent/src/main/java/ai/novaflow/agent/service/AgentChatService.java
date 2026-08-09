@@ -44,14 +44,21 @@ public class AgentChatService {
     private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
     private final AgentService agentService;
+    private final AgentWorkflowChatService agentWorkflowChatService;
 
     public boolean supportsRealExecution(AgentVO agent) {
+        if ("workflow".equals(agent.getAgentType())) {
+            return agent.getWorkflowId() != null;
+        }
         return "chat".equals(agent.getAgentType())
                 || "rag".equals(agent.getAgentType())
                 || "tool".equals(agent.getAgentType());
     }
 
     public AgentDebugChatVO chat(AgentVO agent, AgentDebugChatRequest request, Long tenantId, Long userId, String conversationPrefix) {
+        if ("workflow".equals(agent.getAgentType())) {
+            return agentWorkflowChatService.chat(agent, request, tenantId, userId, conversationPrefix);
+        }
         String message = buildUserMessage(request);
         ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
         ExecutionPlan plan = buildExecutionPlan(context, message);
@@ -68,6 +75,10 @@ public class AgentChatService {
             Long userId,
             String conversationPrefix,
             SseEmitter emitter) {
+        if ("workflow".equals(agent.getAgentType())) {
+            agentWorkflowChatService.streamChat(agent, request, tenantId, userId, conversationPrefix, emitter);
+            return;
+        }
         String message = buildUserMessage(request);
         ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
         ExecutionPlan plan = buildExecutionPlan(context, message);
