@@ -62,10 +62,15 @@ public class AgentChatService {
         String message = buildUserMessage(request);
         ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
         ExecutionPlan plan = buildExecutionPlan(context, message);
-        ChatExecuteResult result = chatAgentExecutor.execute(plan.executeRequest());
-        recordUsage(context, result, "chat");
-        persistConversation(context, message, result, plan.sources(), conversationPrefix);
-        return toChatVO(agent, result, plan.sources());
+        try {
+            ChatExecuteResult result = chatAgentExecutor.execute(plan.executeRequest());
+            recordUsage(context, result, "chat", true);
+            persistConversation(context, message, result, plan.sources(), conversationPrefix);
+            return toChatVO(agent, result, plan.sources());
+        } catch (RuntimeException ex) {
+            recordFailure(context, "chat");
+            throw ex;
+        }
     }
 
     public void streamChat(
@@ -115,7 +120,7 @@ public class AgentChatService {
 
             @Override
             public void onComplete(ChatExecuteResult result) {
-                recordUsage(context, result, "chat");
+                recordUsage(context, result, "chat", true);
                 persistConversation(context, message, result, plan.sources(), conversationPrefix);
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("done")
@@ -134,6 +139,7 @@ public class AgentChatService {
 
             @Override
             public void onError(Throwable error) {
+                recordFailure(context, "chat");
                 completeWithError(emitter, error);
             }
         });
@@ -209,7 +215,7 @@ public class AgentChatService {
 
             @Override
             public void onComplete(ChatExecuteResult result) {
-                recordUsage(context, result, "chat");
+                recordUsage(context, result, "chat", true);
                 persistConversation(context, message, result, plan.sources(), conversationPrefix);
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("done")
@@ -226,6 +232,7 @@ public class AgentChatService {
 
             @Override
             public void onError(Throwable error) {
+                recordFailure(context, "chat");
                 completeWithError(emitter, error);
             }
         });
@@ -375,7 +382,7 @@ public class AgentChatService {
         return new ChatContext(agent, tenantId, userId, modelConfig, conversationId, agent.getMemoryWindow());
     }
 
-    private void recordUsage(ChatContext context, ChatExecuteResult result, String usageType) {
+    private void recordUsage(ChatContext context, ChatExecuteResult result, String usageType, boolean success) {
         modelUsageService.record(ModelUsageRecordRequest.builder()
                 .tenantId(context.tenantId())
                 .applicationId(context.agent().getApplicationId())
@@ -387,6 +394,23 @@ public class AgentChatService {
                 .outputTokens(result.getOutputTokens())
                 .totalTokens(result.getTokensUsed())
                 .latencyMs(result.getLatencyMs())
+                .success(success)
+                .build());
+    }
+
+    private void recordFailure(ChatContext context, String usageType) {
+        modelUsageService.record(ModelUsageRecordRequest.builder()
+                .tenantId(context.tenantId())
+                .applicationId(context.agent().getApplicationId())
+                .agentId(context.agent().getId())
+                .userId(context.userId())
+                .modelConfigId(context.modelConfig().getModelConfigId())
+                .usageType(usageType)
+                .inputTokens(0)
+                .outputTokens(0)
+                .totalTokens(0)
+                .latencyMs(0L)
+                .success(false)
                 .build());
     }
 

@@ -25,6 +25,10 @@
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-monitor</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
             <artifactId>novaflow-security</artifactId>
         </dependency>
         <dependency>

@@ -11,4 +11,5 @@ public class RecentUsageLogRow {
     private Integer totalTokens;
     private Integer latencyMs;
     private LocalDateTime createdAt;
+    private Integer success;
 }

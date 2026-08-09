@@ -23,7 +23,7 @@
         <div class="stat-value">{{ item.value }}</div>
         <div class="stat-change" :class="{ up: isPositiveTrend(item), down: !isPositiveTrend(item) }">
           <component :is="item.up ? RiseOutlined : FallOutlined" class="trend-icon" />
-          {{ item.change }} 较上周
+          {{ item.change }} {{ trendLabel(item.key) }}
         </div>
         <v-chart
           v-if="(data.sparklines?.[item.key] || []).length"
@@ -39,7 +39,7 @@
       <div class="quick-tiles">
         <router-link
           v-for="tile in quickTiles"
-          :key="tile.label"
+          :key="tile.key"
           :to="tile.path"
           class="quick-tile"
           :class="tile.color"
@@ -72,15 +72,22 @@
               >我的收藏</button>
             </div>
             <div class="recent-list">
-              <a-empty v-if="!displayRecentItems.length" description="暂无最近访问">
+              <a-empty v-if="!displayRecentItems.length" :description="recentTab === 'recent' ? '暂无最近访问' : '暂无收藏'">
                 <template #description>
-                  <span>暂无最近访问</span>
-                  <p class="dashboard-empty-hint">打开 Agent 编辑/调试或知识库详情后，将在此展示最近访问</p>
+                  <span>{{ recentTab === 'recent' ? '暂无最近访问' : '暂无收藏' }}</span>
+                  <p class="dashboard-empty-hint">
+                    <template v-if="recentTab === 'recent'">
+                      打开 Agent 编辑/调试或知识库详情后，将在此展示最近访问
+                    </template>
+                    <template v-else>
+                      在最近使用列表中点击星标，即可加入收藏
+                    </template>
+                  </p>
                 </template>
               </a-empty>
               <router-link
                 v-for="item in displayRecentItems"
-                :key="item.name"
+                :key="`${item.resourceType || item.type}-${item.resourceId || item.name}`"
                 :to="item.path"
                 class="recent-item"
               >
@@ -94,58 +101,37 @@
                   </div>
                   <div class="recent-meta">更新于 {{ item.updatedAt }}</div>
                 </div>
+                <button
+                  v-if="item.resourceType && item.resourceId"
+                  type="button"
+                  class="favorite-btn"
+                  :class="{ active: item.favorite }"
+                  :title="item.favorite ? '取消收藏' : '加入收藏'"
+                  @click.prevent.stop="toggleFavorite(item)"
+                >
+                  <StarFilled v-if="item.favorite" />
+                  <StarOutlined v-else />
+                </button>
               </router-link>
             </div>
-            <a class="recent-view-more">查看更多</a>
+            <button type="button" class="recent-view-more" @click="openRecentDrawer">查看更多</button>
           </div>
 
           <div class="page-card workflow-card">
-            <div class="section-title">
+            <div class="section-title workflow-section-title">
               <span class="section-title-left">
                 <ApartmentOutlined class="section-icon" /> 工作流运行情况
               </span>
-              <a-tag color="success" class="run-tag"><SyncOutlined spin /> 运行中</a-tag>
+              <router-link to="/workflow" class="view-more">全部工作流 <RightOutlined /></router-link>
             </div>
-            <div class="workflow-canvas">
-              <div class="workflow-dag" :style="{ transform: `scale(${dagScale})` }">
-                <div class="dag-row">
-                  <div class="dag-node start"><span class="dag-dot start" /><component :is="getMenuIcon('start')" class="dag-node-icon" /> 开始</div>
-                  <div class="dag-edge" />
-                  <div class="dag-node llm"><component :is="getMenuIcon('llm')" class="dag-node-icon" /> 意图识别(LLM)</div>
-                  <div class="dag-edge" />
-                  <div class="dag-node branch-node dag-anchor"><component :is="getMenuIcon('branch')" class="dag-node-icon" /> 条件分支</div>
-                </div>
-
-                <div class="dag-fork-area">
-                  <svg class="dag-fork-svg" viewBox="0 0 520 52" preserveAspectRatio="xMidYMid meet">
-                    <path
-                      d="M 260 0 L 260 14 L 100 14 L 100 28 M 260 14 L 420 14 L 420 28 M 260 14 L 260 52"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                  <div class="dag-row branch-row">
-                    <div class="dag-node branch"><component :is="getMenuIcon('search')" class="dag-node-icon" /> 知识检索(Qdrant)</div>
-                    <div class="dag-node branch api"><component :is="getMenuIcon('api')" class="dag-node-icon" /> 调用工具(API)</div>
-                  </div>
-                </div>
-
-                <div class="dag-row">
-                  <div class="dag-node llm"><component :is="getMenuIcon('llm')" class="dag-node-icon" /> 生成回答(LLM)</div>
-                  <div class="dag-edge" />
-                  <div class="dag-node end"><span class="dag-dot end" /><component :is="getMenuIcon('end')" class="dag-node-icon" /> 结束</div>
-                </div>
-              </div>
-              <div class="dag-zoom-controls">
-                <button type="button" class="zoom-btn" title="放大" @click="zoomIn">+</button>
-                <button type="button" class="zoom-btn" title="缩小" @click="zoomOut">−</button>
-                <button type="button" class="zoom-btn fit" title="适应画布" @click="zoomFit">
-                  <ExpandOutlined />
-                </button>
-              </div>
+            <a-empty v-if="!data.workflowRuntime" class="workflow-empty" description="暂无已发布工作流">
+              <template #description>
+                <span>暂无已发布工作流</span>
+                <p class="dashboard-empty-hint">在 <router-link to="/workflow">工作流 Studio</router-link> 创建并发布后将在此展示画布预览</p>
+              </template>
+            </a-empty>
+            <div v-else class="workflow-runtime">
+              <DashboardWorkflowCanvas :runtime="data.workflowRuntime!" />
             </div>
           </div>
         </div>
@@ -216,10 +202,54 @@
     </div>
 
     <DashboardRightPanel />
+
+    <a-drawer
+      v-model:open="recentDrawerOpen"
+      :title="recentTab === 'recent' ? '最近使用' : '我的收藏'"
+      placement="right"
+      :width="420"
+      destroy-on-close
+    >
+      <a-spin :spinning="drawerLoading">
+        <a-empty v-if="!drawerItems.length" :description="recentTab === 'recent' ? '暂无最近访问' : '暂无收藏'" />
+        <div v-else class="drawer-recent-list">
+          <router-link
+            v-for="item in drawerItems"
+            :key="`${item.resourceType || item.type}-${item.resourceId || item.name}`"
+            :to="item.path"
+            class="recent-item drawer-recent-item"
+            @click="recentDrawerOpen = false"
+          >
+            <div class="recent-icon" :class="typeClass(item.type)">
+              <component :is="recentTypeIcon(item.type)" />
+            </div>
+            <div class="recent-info">
+              <div class="recent-name-row">
+                <span class="recent-name">{{ item.name }}</span>
+                <span class="recent-type-tag">{{ item.type }}</span>
+              </div>
+              <div class="recent-meta">更新于 {{ item.updatedAt }}</div>
+            </div>
+            <button
+              v-if="item.resourceType && item.resourceId"
+              type="button"
+              class="favorite-btn"
+              :class="{ active: item.favorite }"
+              :title="item.favorite ? '取消收藏' : '加入收藏'"
+              @click.prevent.stop="toggleFavorite(item, true)"
+            >
+              <StarFilled v-if="item.favorite" />
+              <StarOutlined v-else />
+            </button>
+          </router-link>
+        </div>
+      </a-spin>
+    </a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
 import { computed, onMounted, ref } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -234,17 +264,18 @@ import {
   StarOutlined,
   RiseOutlined,
   FallOutlined,
-  SyncOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ExpandOutlined,
   RightOutlined,
+  StarFilled,
 } from '@ant-design/icons-vue'
-import { fetchDashboardOverview } from '@/api/dashboard'
+import { fetchDashboardFavorites, fetchDashboardRecentItems, toggleDashboardFavorite } from '@/api/dashboard'
 import { message } from 'ant-design-vue'
 import { getMenuIcon } from '@/config/menuIcons'
 import DashboardRightPanel from '@/components/dashboard/DashboardRightPanel.vue'
-import type { DashboardOverview, RecentLog } from '@/types/dashboard'
+import DashboardWorkflowCanvas from '@/components/dashboard/DashboardWorkflowCanvas.vue'
+import type { RecentItem, RecentLog } from '@/types/dashboard'
+import { useDashboardOverview } from '@/composables/useDashboardOverview'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { getChartTheme } from '@/utils/chartTheme'
@@ -257,49 +288,34 @@ const auth = useAuthStore()
 const themeStore = useThemeStore()
 const { mode } = storeToRefs(themeStore)
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
-const data = ref<DashboardOverview>({
-  stats: [],
-  recentItems: [],
-  recentLogs: [],
-  modelUsage: [],
-  topApps: [],
-  systemHealth: [],
-  trend: [],
-  quickActions: [],
-  planInfo: { planType: '—', expireAt: '—', usedPercent: 0 },
-  totalModelTokens: '0',
-  sparklines: {},
-})
+const { overview: data, loadOverview } = useDashboardOverview()
 const recentTab = ref<'recent' | 'favorite'>('recent')
-const dagScale = ref(0.86)
+const recentDrawerOpen = ref(false)
+const drawerItems = ref<RecentItem[]>([])
+const drawerLoading = ref(false)
 const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 
-function zoomIn() {
-  dagScale.value = Math.min(1.35, +(dagScale.value + 0.1).toFixed(2))
-}
-function zoomOut() {
-  dagScale.value = Math.max(0.75, +(dagScale.value - 0.1).toFixed(2))
-}
-function zoomFit() {
-  dagScale.value = 0.86
+const quickStartIconMap: Record<string, { leftIcon: Component; icon: Component }> = {
+  agent: { leftIcon: StarOutlined, icon: RobotOutlined },
+  workflow: { leftIcon: ApartmentOutlined, icon: ApartmentOutlined },
+  knowledge: { leftIcon: DatabaseOutlined, icon: DatabaseOutlined },
+  import: { leftIcon: FileAddOutlined, icon: FileAddOutlined },
 }
 
-const quickTiles = [
-  { label: '创建 Agent', desc: '快速创建智能助手', path: '/agent', leftIcon: StarOutlined, icon: RobotOutlined, color: 'blue' },
-  { label: '创建工作流', desc: '可视化编排流程', path: '/workflow', leftIcon: ApartmentOutlined, icon: ApartmentOutlined, color: 'teal' },
-  { label: '创建知识库', desc: '构建企业知识中心', path: '/knowledge', leftIcon: DatabaseOutlined, icon: DatabaseOutlined, color: 'orange' },
-  { label: '导入文档', desc: '支持多种格式', path: '/knowledge', leftIcon: FileAddOutlined, icon: FileAddOutlined, color: 'purple' },
-]
+const quickTiles = computed(() =>
+  (data.value.quickStartTiles || []).map((tile) => {
+    const icons = quickStartIconMap[tile.key] || { leftIcon: StarOutlined, icon: RobotOutlined }
+    return { ...tile, leftIcon: icons.leftIcon, icon: icons.icon }
+  }),
+)
 
 function formatLogTokens(record: RecentLog) {
   if (!record.success || record.tokens == null) return '-'
   return `${record.tokens.toLocaleString()} Tokens`
 }
 
-const favoriteItems = computed(() => (data.value.recentItems || []).filter((_, i) => i % 2 === 0))
-
 const displayRecentItems = computed(() => {
-  const items = recentTab.value === 'recent' ? data.value.recentItems : favoriteItems.value
+  const items = recentTab.value === 'recent' ? data.value.recentItems : (data.value.favoriteItems || [])
   return (items || []).slice(0, 5)
 })
 
@@ -355,6 +371,16 @@ function isPositiveTrend(item: { key: string; up: boolean }) {
   return item.up
 }
 
+function trendLabel(key: string) {
+  if (key === 'invocations' || key === 'tokens' || key === 'cost') {
+    return '较上月'
+  }
+  if (key === 'apps' || key === 'agents' || key === 'knowledge') {
+    return '较上周'
+  }
+  return ''
+}
+
 function typeClass(type: string) {
   if (type.includes('Agent')) return 'agent'
   if (type.includes('工作流')) return 'workflow'
@@ -367,12 +393,45 @@ function recentTypeIcon(type: string) {
   return getMenuIcon('knowledge')
 }
 
+async function toggleFavorite(item: RecentItem, reloadDrawer = false) {
+  if (!item.resourceType || !item.resourceId) return
+  try {
+    await toggleDashboardFavorite({
+      resourceType: item.resourceType,
+      resourceId: item.resourceId,
+      resourceName: item.name,
+    })
+    await loadOverview(true)
+    if (reloadDrawer && recentDrawerOpen.value) {
+      await loadDrawerItems()
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '收藏操作失败')
+  }
+}
+
+async function loadDrawerItems() {
+  drawerLoading.value = true
+  try {
+    const res = recentTab.value === 'recent'
+      ? await fetchDashboardRecentItems(20)
+      : await fetchDashboardFavorites(20)
+    drawerItems.value = res.data.data || []
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载列表失败')
+  } finally {
+    drawerLoading.value = false
+  }
+}
+
+async function openRecentDrawer() {
+  recentDrawerOpen.value = true
+  await loadDrawerItems()
+}
+
 onMounted(async () => {
   try {
-    const res = await fetchDashboardOverview()
-    if (res.data.data) {
-      data.value = res.data.data
-    }
+    await loadOverview()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载工作台数据失败')
   }
@@ -948,6 +1007,45 @@ onMounted(async () => {
   background: var(--bg-muted);
 }
 
+.favorite-btn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.favorite-btn:hover,
+.favorite-btn.active {
+  color: #faad14;
+}
+
+.workflow-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workflow-runtime {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1 1 0;
+  padding-bottom: 6px;
+}
+
+.workflow-runtime-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
 .recent-icon {
   width: 32px;
   height: 32px;
@@ -1001,16 +1099,35 @@ onMounted(async () => {
   color: #1677ff;
   cursor: pointer;
   flex-shrink: 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 0;
 }
 
 .recent-view-more:hover {
   color: #4096ff;
 }
 
+.drawer-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawer-recent-item {
+  text-decoration: none;
+  color: inherit;
+}
+
 /* 工作流 DAG */
 .workflow-card .section-title {
   margin-bottom: 4px;
   flex-shrink: 0;
+}
+
+.workflow-section-title .view-more {
+  font-size: 12px;
 }
 
 .workflow-canvas {

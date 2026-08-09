@@ -170,7 +170,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   BookOutlined,
@@ -192,6 +192,7 @@ import { formatDateTime } from '@/utils/datetime'
 import { formatFileSize } from '@/utils/filesize'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const saving = ref(false)
 const modelsLoading = ref(false)
@@ -337,6 +338,20 @@ async function onDelete(id: number) {
 
 onMounted(async () => {
   await Promise.all([loadEmbeddingModels(), loadData()])
+  if (route.query.create === '1') {
+    openCreate()
+    return
+  }
+  if (route.query.import === '1') {
+    if (list.value.length === 1) {
+      router.push(`/knowledge/${list.value[0].id}`)
+    } else if (list.value.length > 1) {
+      message.info('请选择要导入文档的知识库')
+    } else {
+      message.info('请先创建知识库，再导入文档')
+      openCreate()
+    }
+  }
 })
 </script>
 

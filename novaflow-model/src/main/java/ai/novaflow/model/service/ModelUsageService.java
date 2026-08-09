@@ -65,6 +65,7 @@ public class ModelUsageService {
         entity.setCost(calculation.cost());
         entity.setCurrency(calculation.currency().getCode());
         entity.setLatencyMs(request.getLatencyMs() != null ? request.getLatencyMs().intValue() : null);
+        entity.setSuccess(request.getSuccess() == null || Boolean.TRUE.equals(request.getSuccess()));
         entity.setUsageDate(LocalDate.now());
         entity.setCreatedAt(LocalDateTime.now());
         tokenUsageMapper.insert(entity);

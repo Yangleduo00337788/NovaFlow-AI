@@ -17,4 +17,5 @@ public class ModelUsageRecordRequest {
     private Integer outputTokens;
     private Integer totalTokens;
     private Long latencyMs;
+    private Boolean success;
 }

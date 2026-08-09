@@ -1,8 +1,11 @@
 <template>
-  <div class="workflow-node" :class="`type-${type}`">
+  <div class="workflow-node" :class="[`type-${type}`, statusClass]">
     <Handle v-if="type !== 'start'" type="target" :position="Position.Left" />
     <div class="node-icon">{{ icon }}</div>
-    <div class="node-label">{{ data.label || type }}</div>
+    <div class="node-body">
+      <div class="node-label">{{ data.label || type }}</div>
+      <div v-if="data.statusLabel" class="node-status">{{ data.statusLabel }}</div>
+    </div>
     <template v-if="type === 'condition'">
       <Handle id="true" type="source" :position="Position.Right" class="handle-true" />
       <Handle id="false" type="source" :position="Position.Right" class="handle-false" />
@@ -27,6 +30,14 @@ const icon = computed(() => {
     end: '■',
   }
   return map[String(props.type)] || '•'
+})
+
+const statusClass = computed(() => {
+  const status = Number(props.data?.status ?? -1)
+  if (status === 0) return 'status-running'
+  if (status === 1) return 'status-done'
+  if (status === 2) return 'status-failed'
+  return ''
 })
 </script>
 
@@ -90,6 +101,29 @@ const icon = computed(() => {
   font-size: 13px;
   font-weight: 600;
   color: #111827;
+}
+
+.node-body {
+  min-width: 0;
+}
+
+.node-status {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.workflow-node.status-running {
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.25);
+}
+
+.workflow-node.status-done {
+  border-color: #52c41a !important;
+}
+
+.workflow-node.status-failed {
+  border-color: #ff4d4f !important;
+  background: #fff1f0 !important;
 }
 
 .handle-true {

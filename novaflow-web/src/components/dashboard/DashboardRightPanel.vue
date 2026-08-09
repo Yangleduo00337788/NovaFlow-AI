@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -111,10 +111,9 @@ import {
   AppstoreOutlined,
   RightOutlined,
 } from '@ant-design/icons-vue'
-import { fetchDashboardOverview } from '@/api/dashboard'
 import { message } from 'ant-design-vue'
 import { getMenuIcon } from '@/config/menuIcons'
-import type { DashboardOverview } from '@/types/dashboard'
+import { useDashboardOverview } from '@/composables/useDashboardOverview'
 import { useThemeStore } from '@/stores/theme'
 import { getChartTheme } from '@/utils/chartTheme'
 import { storeToRefs } from 'pinia'
@@ -132,12 +131,14 @@ const topAppThemes = [
   { icon: 'workflow', color: '#13c2c2', iconBg: '#e6fffb' },
 ]
 
-const panelData = ref<Pick<DashboardOverview, 'systemHealth' | 'trend' | 'topApps' | 'quickActions'>>({
-  systemHealth: [],
-  trend: [],
-  topApps: [],
-  quickActions: [],
-})
+const { overview, loadOverview } = useDashboardOverview()
+
+const panelData = computed(() => ({
+  systemHealth: overview.value.systemHealth || [],
+  trend: overview.value.trend || [],
+  topApps: overview.value.topApps || [],
+  quickActions: overview.value.quickActions || [],
+}))
 
 function parseAppValue(val: string) {
   if (val.endsWith('K')) return parseFloat(val) * 1000
@@ -163,6 +164,7 @@ function healthServiceIcon(name: string) {
   if (name.includes('API')) return 'api'
   if (name.includes('向量')) return 'vector'
   if (name.includes('消息')) return 'queue'
+  if (name.includes('存储')) return 'storage'
   return 'storage'
 }
 
@@ -203,21 +205,9 @@ const trendChartOption = computed(() => {
   }
 })
 
-function mergePanelData(remote: DashboardOverview) {
-  panelData.value = {
-    systemHealth: remote.systemHealth || [],
-    trend: remote.trend || [],
-    topApps: remote.topApps || [],
-    quickActions: remote.quickActions || [],
-  }
-}
-
 onMounted(async () => {
   try {
-    const res = await fetchDashboardOverview()
-    if (res.data.data) {
-      mergePanelData(res.data.data)
-    }
+    await loadOverview()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载工作台数据失败')
   }

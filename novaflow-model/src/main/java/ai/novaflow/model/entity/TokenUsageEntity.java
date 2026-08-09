@@ -27,6 +27,7 @@ public class TokenUsageEntity {
     private BigDecimal cost;
     private String currency;
     private Integer latencyMs;
+    private Boolean success;
     private LocalDate usageDate;
     private LocalDateTime createdAt;
 }

@@ -2,6 +2,7 @@ package ai.novaflow.workflow.service;
 
 import ai.novaflow.user.entity.ApplicationEntity;
 import ai.novaflow.user.mapper.ApplicationMapper;
+import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -47,6 +48,7 @@ public class WorkflowService {
     private final WorkflowNodeMapper workflowNodeMapper;
     private final WorkflowEdgeMapper workflowEdgeMapper;
     private final ApplicationMapper applicationMapper;
+    private final RecentAccessService recentAccessService;
     private final ObjectMapper objectMapper;
 
     public PageResult<WorkflowVO> page(int page, int pageSize, String keyword, Long applicationId) {
@@ -118,6 +120,7 @@ public class WorkflowService {
 
     public WorkflowDetailVO detail(Long id) {
         WorkflowEntity entity = getWorkflowOrThrow(id);
+        recordRecentAccess(entity);
         List<WorkflowNodeEntity> nodes = listNodes(id);
         List<WorkflowEdgeEntity> edges = listEdges(id);
         String appName = resolveApplicationName(entity.getApplicationId());
@@ -491,6 +494,19 @@ public class WorkflowService {
             return null;
         }
         return value.trim();
+    }
+
+    private void recordRecentAccess(WorkflowEntity entity) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        recentAccessService.record(
+                entity.getTenantId(),
+                StpUtil.getLoginIdAsLong(),
+                "workflow",
+                entity.getId(),
+                entity.getWorkflowName()
+        );
     }
 
     private Long requireTenantId() {

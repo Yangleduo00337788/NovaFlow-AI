@@ -102,7 +102,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { ApartmentOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { fetchApplicationOptions } from '@/api/application'
@@ -112,6 +112,7 @@ import { getWorkflowStatusColor, getWorkflowStatusLabel } from '@/types/workflow
 import { formatDateTime } from '@/utils/datetime'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const creating = ref(false)
 const appsLoading = ref(false)
@@ -206,9 +207,12 @@ async function onDelete(id: number) {
   }
 }
 
-onMounted(() => {
-  loadApplications()
-  loadData()
+onMounted(async () => {
+  await loadApplications()
+  await loadData()
+  if (route.query.create === '1') {
+    openCreate()
+  }
 })
 </script>
 

@@ -452,6 +452,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
 import FormLabelTip from '@/components/common/FormLabelTip.vue'
@@ -502,6 +503,8 @@ const AGENT_FIELD_TIPS = {
     '控制回复的随机性与创造性。越低越稳定、严谨；越高越发散、有创意，但也更容易偏离事实或产生幻觉。',
   maxTokens: '单次回复允许生成的最大 Token 数，影响回答长度、响应时间与调用成本。',
 } as const
+
+const route = useRoute()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -997,7 +1000,17 @@ async function onDelete(id: number) {
   loadData()
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadData()
+  const id = Number(route.query.id)
+  if (id && !Number.isNaN(id)) {
+    openEdit(id)
+    return
+  }
+  if (route.query.create === '1') {
+    openCreate()
+  }
+})
 </script>
 
 <style scoped>
