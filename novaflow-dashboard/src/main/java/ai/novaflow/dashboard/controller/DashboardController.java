@@ -38,6 +38,12 @@ public class DashboardController {
         return ApiResult.ok(dashboardService.listFavoriteItems(limit));
     }
 
+    @GetMapping("/published-workflows")
+    public ApiResult<List<DashboardOverviewVO.PublishedWorkflowVO>> publishedWorkflows(
+            @RequestParam(defaultValue = "20") int limit) {
+        return ApiResult.ok(dashboardService.listPublishedWorkflows(limit));
+    }
+
     @PostMapping("/favorites/toggle")
     public ApiResult<Boolean> toggleFavorite(@RequestBody FavoriteToggleRequest request) {
         return ApiResult.ok(dashboardService.toggleFavorite(request));

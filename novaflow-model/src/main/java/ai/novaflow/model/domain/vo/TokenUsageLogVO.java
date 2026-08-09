@@ -23,6 +23,8 @@ public class TokenUsageLogVO {
     private String currency;
     private String costLabel;
     private Integer latencyMs;
+    private Boolean success;
+    private String statusLabel;
     private Long userId;
     private LocalDateTime createdAt;
 }

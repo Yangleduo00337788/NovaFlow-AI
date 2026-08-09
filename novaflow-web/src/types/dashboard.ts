@@ -121,13 +121,23 @@ export interface WorkflowRuntimeCanvas {
 export interface WorkflowRuntime {
   workflowId: number
   workflowName: string
-  executionId: string
+  executionId?: string
   status: number
   statusLabel: string
   running: boolean
   path: string
   nodes: WorkflowRuntimeNode[]
   canvas?: WorkflowRuntimeCanvas
+}
+
+export interface PublishedWorkflow {
+  workflowId: number
+  workflowName: string
+  applicationName: string
+  status: number
+  statusLabel: string
+  path: string
+  updatedAt: string
 }
 
 export interface ApiResult<T> {

@@ -22,7 +22,8 @@ public class TokenUsageController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam(required = false) Long agentId,
-            @RequestParam(required = false) String keyword) {
-        return ApiResult.ok(tokenUsageLogService.page(page, pageSize, agentId, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean success) {
+        return ApiResult.ok(tokenUsageLogService.page(page, pageSize, agentId, keyword, success));
     }
 }

@@ -21,16 +21,17 @@ public class TokenUsageLogService {
 
     private final TokenUsageMapper tokenUsageMapper;
 
-    public PageResult<TokenUsageLogVO> page(int page, int pageSize, Long agentId, String keyword) {
+    public PageResult<TokenUsageLogVO> page(int page, int pageSize, Long agentId, String keyword, Boolean success) {
         Long tenantId = requireTenantId();
         int safePage = Math.max(page, 1);
         int safePageSize = Math.min(Math.max(pageSize, 1), 100);
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        Integer successFilter = resolveSuccessFilter(success);
         int offset = (safePage - 1) * safePageSize;
 
-        Long total = tokenUsageMapper.countLogs(tenantId, agentId, null, null, null, trimmedKeyword);
+        Long total = tokenUsageMapper.countLogs(tenantId, agentId, null, null, null, trimmedKeyword, successFilter);
         List<TokenUsageLogVO> list = tokenUsageMapper.pageLogs(
-                        tenantId, agentId, null, null, null, trimmedKeyword, offset, safePageSize)
+                        tenantId, agentId, null, null, null, trimmedKeyword, successFilter, offset, safePageSize)
                 .stream()
                 .map(this::toVO)
                 .toList();
@@ -39,6 +40,7 @@ public class TokenUsageLogService {
 
     private TokenUsageLogVO toVO(TokenUsageLogRow row) {
         BillingCurrency currency = BillingCurrency.fromCode(row.getCurrency());
+        boolean successful = isSuccessful(row.getSuccess());
         return TokenUsageLogVO.builder()
                 .id(row.getId())
                 .agentId(row.getAgentId())
@@ -53,9 +55,22 @@ public class TokenUsageLogService {
                 .currency(currency.getCode())
                 .costLabel(formatCost(row.getCost(), currency))
                 .latencyMs(row.getLatencyMs())
+                .success(successful)
+                .statusLabel(successful ? "成功" : "失败")
                 .userId(row.getUserId())
                 .createdAt(row.getCreatedAt())
                 .build();
+    }
+
+    private Integer resolveSuccessFilter(Boolean success) {
+        if (success == null) {
+            return null;
+        }
+        return success ? 1 : 0;
+    }
+
+    private boolean isSuccessful(Integer success) {
+        return success == null || success != 0;
     }
 
     private String formatCost(BigDecimal cost, BillingCurrency currency) {

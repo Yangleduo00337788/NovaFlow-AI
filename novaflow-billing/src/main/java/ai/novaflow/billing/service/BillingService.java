@@ -153,9 +153,9 @@ public class BillingService {
         int offset = (safePage - 1) * safePageSize;
 
         Long total = tokenUsageMapper.countLogs(
-                tenantId, agentId, trimmedUsageType, startDate, endDate, trimmedKeyword);
+                tenantId, agentId, trimmedUsageType, startDate, endDate, trimmedKeyword, null);
         List<TokenUsageLogVO> list = tokenUsageMapper.pageLogs(
-                        tenantId, agentId, trimmedUsageType, startDate, endDate, trimmedKeyword, offset, safePageSize)
+                        tenantId, agentId, trimmedUsageType, startDate, endDate, trimmedKeyword, null, offset, safePageSize)
                 .stream()
                 .map(this::toLogVO)
                 .toList();
@@ -212,6 +212,7 @@ public class BillingService {
 
     private TokenUsageLogVO toLogVO(TokenUsageLogRow row) {
         BillingCurrency currency = BillingCurrency.fromCode(row.getCurrency());
+        boolean successful = row.getSuccess() == null || row.getSuccess() != 0;
         return TokenUsageLogVO.builder()
                 .id(row.getId())
                 .agentId(row.getAgentId())
@@ -226,6 +227,8 @@ public class BillingService {
                 .currency(currency.getCode())
                 .costLabel(formatCost(row.getCost(), currency))
                 .latencyMs(row.getLatencyMs())
+                .success(successful)
+                .statusLabel(successful ? "成功" : "失败")
                 .userId(row.getUserId())
                 .createdAt(row.getCreatedAt())
                 .build();

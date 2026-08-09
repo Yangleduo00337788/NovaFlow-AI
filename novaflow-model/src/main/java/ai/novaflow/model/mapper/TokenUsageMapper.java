@@ -110,7 +110,7 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             <script>
             SELECT tu.id, tu.agent_id, a.agent_name, mc.model_name, mc.display_name,
                    tu.usage_type, tu.input_tokens, tu.output_tokens, tu.total_tokens,
-                   tu.cost, tu.currency, tu.latency_ms, tu.user_id, tu.created_at
+                   tu.cost, tu.currency, tu.latency_ms, tu.success, tu.user_id, tu.created_at
             FROM token_usage tu
             LEFT JOIN agent a ON tu.agent_id = a.id
             LEFT JOIN model_config mc ON tu.model_config_id = mc.id
@@ -119,6 +119,7 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             <if test="usageType != null and usageType != ''">AND tu.usage_type = #{usageType}</if>
             <if test="startDate != null">AND tu.usage_date &gt;= #{startDate}</if>
             <if test="endDate != null">AND tu.usage_date &lt;= #{endDate}</if>
+            <if test="success != null">AND tu.success = #{success}</if>
             <if test="keyword != null and keyword != ''">
               AND (a.agent_name LIKE CONCAT('%', #{keyword}, '%')
                    OR mc.model_name LIKE CONCAT('%', #{keyword}, '%')
@@ -135,6 +136,7 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             LocalDate startDate,
             LocalDate endDate,
             String keyword,
+            Integer success,
             int offset,
             int pageSize);
 
@@ -142,7 +144,7 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             <script>
             SELECT tu.id, tu.agent_id, a.agent_name, mc.model_name, mc.display_name,
                    tu.usage_type, tu.input_tokens, tu.output_tokens, tu.total_tokens,
-                   tu.cost, tu.currency, tu.latency_ms, tu.user_id, tu.created_at
+                   tu.cost, tu.currency, tu.latency_ms, tu.success, tu.user_id, tu.created_at
             FROM token_usage tu
             LEFT JOIN agent a ON tu.agent_id = a.id
             LEFT JOIN model_config mc ON tu.model_config_id = mc.id
@@ -166,6 +168,7 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             <if test="usageType != null and usageType != ''">AND tu.usage_type = #{usageType}</if>
             <if test="startDate != null">AND tu.usage_date &gt;= #{startDate}</if>
             <if test="endDate != null">AND tu.usage_date &lt;= #{endDate}</if>
+            <if test="success != null">AND tu.success = #{success}</if>
             <if test="keyword != null and keyword != ''">
               AND (a.agent_name LIKE CONCAT('%', #{keyword}, '%')
                    OR mc.model_name LIKE CONCAT('%', #{keyword}, '%')
@@ -179,5 +182,6 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             String usageType,
             LocalDate startDate,
             LocalDate endDate,
-            String keyword);
+            String keyword,
+            Integer success);
 }

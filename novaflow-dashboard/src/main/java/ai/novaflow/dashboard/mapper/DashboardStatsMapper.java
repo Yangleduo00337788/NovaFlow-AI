@@ -2,6 +2,7 @@ package ai.novaflow.dashboard.mapper;
 
 import ai.novaflow.dashboard.domain.DailySparklineRow;
 import ai.novaflow.dashboard.domain.NamedCountRow;
+import ai.novaflow.dashboard.domain.PublishedWorkflowRow;
 import ai.novaflow.dashboard.domain.RecentUsageLogRow;
 import ai.novaflow.dashboard.domain.TrendPointRow;
 import ai.novaflow.dashboard.domain.WorkflowNodeLogRow;
@@ -107,6 +108,22 @@ public interface DashboardStatsMapper {
             LIMIT 1
             """)
     WorkflowRuntimeRow latestPublishedWorkflow(Long tenantId);
+
+    @Select("""
+            SELECT w.id AS workflow_id,
+                   w.workflow_name,
+                   w.status,
+                   COALESCE(app.app_name, '未命名应用') AS application_name,
+                   w.updated_at
+            FROM workflow w
+            LEFT JOIN application app ON w.application_id = app.id AND app.is_deleted = 0
+            WHERE w.tenant_id = #{tenantId}
+              AND w.is_deleted = 0
+              AND w.status = 1
+            ORDER BY w.created_at DESC
+            LIMIT #{limit}
+            """)
+    List<PublishedWorkflowRow> listPublishedWorkflows(Long tenantId, int limit);
 
     @Select("""
             SELECT we.execution_id,

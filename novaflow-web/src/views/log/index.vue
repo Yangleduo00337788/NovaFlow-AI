@@ -18,6 +18,14 @@
           :options="agentOptions"
           @change="onSearch"
         />
+        <a-select
+          v-model:value="successFilter"
+          allow-clear
+          placeholder="调用状态"
+          style="width: 140px"
+          :options="successOptions"
+          @change="onSearch"
+        />
         <a-input-search
           v-model:value="keyword"
           placeholder="搜索 Agent / 模型"
@@ -39,7 +47,14 @@
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'agentName'">
+          <template v-if="column.key === 'status'">
+            <span class="log-status" :class="record.success ? 'success' : 'failed'">
+              <CheckCircleOutlined v-if="record.success" class="log-status-icon" />
+              <CloseCircleOutlined v-else class="log-status-icon" />
+              {{ record.statusLabel || (record.success ? '成功' : '失败') }}
+            </span>
+          </template>
+          <template v-else-if="column.key === 'agentName'">
             <span class="agent-name">{{ record.agentName }}</span>
           </template>
           <template v-else-if="column.key === 'model'">
@@ -69,6 +84,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons-vue'
 import { fetchAgents } from '@/api/agent'
 import { fetchTokenUsageLogs, type TokenUsageLogItem } from '@/api/log'
 import { formatDateTime } from '@/utils/datetime'
@@ -78,13 +94,20 @@ const agentsLoading = ref(false)
 const list = ref<TokenUsageLogItem[]>([])
 const keyword = ref('')
 const agentId = ref<number | undefined>()
+const successFilter = ref<boolean | undefined>()
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const agentOptions = ref<Array<{ label: string; value: number }>>([])
 
+const successOptions = [
+  { label: '成功', value: true },
+  { label: '失败', value: false },
+]
+
 const columns = [
   { title: '时间', key: 'createdAt', width: 180 },
+  { title: '状态', key: 'status', width: 100 },
   { title: 'Agent', key: 'agentName', dataIndex: 'agentName' },
   { title: '模型', key: 'model', width: 180 },
   { title: '类型', key: 'usageType', width: 90 },
@@ -132,6 +155,7 @@ async function loadData() {
       pageSize: pageSize.value,
       agentId: agentId.value,
       keyword: keyword.value || undefined,
+      success: successFilter.value,
     })
     list.value = res.data.data.list
     total.value = res.data.data.total
@@ -194,5 +218,24 @@ onMounted(() => {
 
 .agent-name {
   font-weight: 500;
+}
+
+.log-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.log-status.success {
+  color: #52c41a;
+}
+
+.log-status.failed {
+  color: #ff4d4f;
+}
+
+.log-status-icon {
+  font-size: 12px;
 }
 </style>

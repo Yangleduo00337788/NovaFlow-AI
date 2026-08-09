@@ -5,6 +5,7 @@ import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.dashboard.domain.DailySparklineRow;
 import ai.novaflow.dashboard.domain.DashboardOverviewVO;
 import ai.novaflow.dashboard.domain.NamedCountRow;
+import ai.novaflow.dashboard.domain.PublishedWorkflowRow;
 import ai.novaflow.dashboard.domain.RecentUsageLogRow;
 import ai.novaflow.dashboard.domain.TrendPointRow;
 import ai.novaflow.dashboard.domain.WorkflowNodeLogRow;
@@ -192,6 +193,29 @@ public class DashboardService {
         }
         int safeLimit = Math.min(Math.max(limit, 1), 50);
         return buildFavoriteItems(tenantId, userId, safeLimit);
+    }
+
+    public List<DashboardOverviewVO.PublishedWorkflowVO> listPublishedWorkflows(int limit) {
+        Long tenantId = requireTenantId();
+        int safeLimit = Math.min(Math.max(limit, 1), 50);
+        List<PublishedWorkflowRow> rows = dashboardStatsMapper.listPublishedWorkflows(tenantId, safeLimit);
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(row -> {
+                    int status = row.getStatus() != null ? row.getStatus() : 1;
+                    return DashboardOverviewVO.PublishedWorkflowVO.builder()
+                            .workflowId(row.getWorkflowId())
+                            .workflowName(row.getWorkflowName())
+                            .applicationName(row.getApplicationName())
+                            .status(status)
+                            .statusLabel(workflowStatusLabel(status))
+                            .path("/workflow/" + row.getWorkflowId())
+                            .updatedAt(formatRelativeTime(row.getUpdatedAt()))
+                            .build();
+                })
+                .toList();
     }
 
     private List<DashboardOverviewVO.QuickStartTileVO> buildQuickStartTiles() {

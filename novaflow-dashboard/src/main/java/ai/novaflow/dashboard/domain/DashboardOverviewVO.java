@@ -180,4 +180,16 @@ public class DashboardOverviewVO {
         private int status;
         private String statusLabel;
     }
+
+    @Data
+    @Builder
+    public static class PublishedWorkflowVO {
+        private Long workflowId;
+        private String workflowName;
+        private String applicationName;
+        private int status;
+        private String statusLabel;
+        private String path;
+        private String updatedAt;
+    }
 }

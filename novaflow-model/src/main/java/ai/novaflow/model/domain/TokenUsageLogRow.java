@@ -20,6 +20,7 @@ public class TokenUsageLogRow {
     private BigDecimal cost;
     private String currency;
     private Integer latencyMs;
+    private Integer success;
     private Long userId;
     private LocalDateTime createdAt;
 }
