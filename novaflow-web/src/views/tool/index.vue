@@ -44,14 +44,17 @@
           <p class="tool-desc">{{ item.description || '暂无描述' }}</p>
           <div class="tool-meta">
             <a-tag>{{ item.method || 'GET' }}</a-tag>
-            <span class="tool-url" :title="item.url">{{ item.url }}</span>
+            <a-tag v-if="item.toolType === 'mcp'" color="orange">MCP</a-tag>
+            <span class="tool-url" :title="item.toolType === 'mcp' ? (item.mcpToolName || item.displayName) : item.url">
+              {{ item.toolType === 'mcp' ? (item.mcpToolName || item.displayName) : item.url }}
+            </span>
           </div>
           <div class="tool-footer">
             <span class="tool-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
           <div class="tool-actions">
-            <a-button type="link" size="small" @click="openTest(item)">测试</a-button>
-            <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
+            <a-button v-if="item.toolType !== 'mcp'" type="link" size="small" @click="openTest(item)">测试</a-button>
+            <a-button v-if="item.toolType !== 'mcp'" type="link" size="small" @click="openEdit(item)">编辑</a-button>
             <a-popconfirm title="确认删除该工具？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
@@ -104,7 +107,11 @@
                 <span class="tool-url" :title="item.commandSummary">{{ item.commandSummary }}</span>
               </div>
               <div class="tool-footer">
-                <span class="tool-time">工具 {{ item.toolCount }} 个 · {{ formatDateTime(item.updatedAt) }}</span>
+                <span class="tool-time">
+                  发现 {{ item.toolCount }} 个
+                  <template v-if="item.syncedToolCount"> · 已同步 {{ item.syncedToolCount }} 个</template>
+                  · {{ formatDateTime(item.updatedAt) }}
+                </span>
               </div>
               <div class="tool-actions">
                 <a-button type="link" size="small" :loading="mcpConnectingId === item.id" @click="onMcpConnect(item)">
@@ -112,6 +119,15 @@
                 </a-button>
                 <a-button type="link" size="small" :disabled="!item.toolCount" @click="openMcpTools(item)">
                   工具列表
+                </a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  :loading="mcpSyncingId === item.id"
+                  :disabled="item.status !== 1 || !item.toolCount"
+                  @click="onMcpSync(item)"
+                >
+                  同步市场
                 </a-button>
                 <a-popconfirm title="确认删除该 MCP 服务？" @confirm="onMcpDelete(item.id)">
                   <a-button type="link" size="small" danger>删除</a-button>
@@ -274,6 +290,7 @@ import {
   deleteMcpServer,
   fetchMcpServerDetail,
   fetchMcpServers,
+  syncMcpServerTools,
   type McpDiscoveredTool,
   type McpServer,
 } from '@/api/mcp'
@@ -322,6 +339,7 @@ const mcpPage = ref(1)
 const mcpTotal = ref(0)
 const mcpDrawerOpen = ref(false)
 const mcpConnectingId = ref<number | null>(null)
+const mcpSyncingId = ref<number | null>(null)
 const mcpToolsDrawerOpen = ref(false)
 const mcpToolsLoading = ref(false)
 const mcpToolsServer = ref<McpServer | null>(null)
@@ -410,6 +428,20 @@ async function onMcpConnect(item: McpServer) {
     loadMcpData()
   } finally {
     mcpConnectingId.value = null
+  }
+}
+
+async function onMcpSync(item: McpServer) {
+  mcpSyncingId.value = item.id
+  try {
+    const res = await syncMcpServerTools(item.id)
+    const result = res.data.data
+    message.success(result.message || `已同步 ${result.syncedToolCount} 个工具到工具市场`)
+    loadMcpData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '同步失败')
+  } finally {
+    mcpSyncingId.value = null
   }
 }
 

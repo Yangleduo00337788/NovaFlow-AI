@@ -7,6 +7,7 @@ import ai.novaflow.tool.domain.dto.McpServerSaveRequest;
 import ai.novaflow.tool.domain.vo.McpConnectResultVO;
 import ai.novaflow.tool.domain.vo.McpDiscoveredToolVO;
 import ai.novaflow.tool.domain.vo.McpServerVO;
+import ai.novaflow.tool.domain.vo.McpSyncResultVO;
 import ai.novaflow.tool.entity.McpServerEntity;
 import ai.novaflow.tool.mapper.McpServerMapper;
 import ai.novaflow.tool.mcp.McpClient;
@@ -35,6 +36,7 @@ public class McpServerService {
 
     private final McpServerMapper mcpServerMapper;
     private final McpClient mcpClient;
+    private final McpToolSyncService mcpToolSyncService;
     private final ObjectMapper objectMapper;
 
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
@@ -79,6 +81,18 @@ public class McpServerService {
         }
         mcpServerMapper.update(entity);
         return toConnectResultVO(entity, result);
+    }
+
+    public McpSyncResultVO syncTools(Long id) {
+        McpServerEntity entity = getOrThrow(id);
+        if (entity.getStatus() == null || entity.getStatus() != 1) {
+            throw new BusinessException("请先完成连接测试后再同步到工具市场");
+        }
+        List<McpDiscoveredTool> tools = parseDiscoveredToolEntities(entity.getDiscoveredTools());
+        if (tools.isEmpty()) {
+            throw new BusinessException("暂无已发现工具，请先执行连接测试");
+        }
+        return mcpToolSyncService.sync(entity, tools);
     }
 
     @Transactional
@@ -201,6 +215,19 @@ public class McpServerService {
         }
     }
 
+    private List<McpDiscoveredTool> parseDiscoveredToolEntities(String json) {
+        if (!StringUtils.hasText(json)) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(
+                    json,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, McpDiscoveredTool.class));
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
     private McpServerVO toVO(McpServerEntity entity) {
         McpServerConfig config = parseStoredConfig(entity.getServerName(), entity.getServerConfig());
         int toolCount = 0;
@@ -215,6 +242,7 @@ public class McpServerService {
             }
         }
         int status = entity.getStatus() != null ? entity.getStatus() : 0;
+        int syncedToolCount = mcpToolSyncService.countSyncedTools(entity.getTenantId(), entity.getId());
         return McpServerVO.builder()
                 .id(entity.getId())
                 .serverName(entity.getServerName())
@@ -225,6 +253,7 @@ public class McpServerService {
                 .status(status)
                 .statusLabel(statusLabel(status))
                 .toolCount(toolCount)
+                .syncedToolCount(syncedToolCount)
                 .lastConnectedAt(entity.getLastConnectedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

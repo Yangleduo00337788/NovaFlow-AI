@@ -1,6 +1,7 @@
 package ai.novaflow.tool.util;
 
 import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.tool.domain.McpToolDefinition;
 import ai.novaflow.tool.entity.ToolDefinitionEntity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +23,16 @@ public class ToolConfigConverter {
         tool.setName(entity.getToolName());
         tool.setDescription(entity.getDescription());
         if (!StringUtils.hasText(entity.getToolConfig())) {
+            return tool;
+        }
+        if ("mcp".equalsIgnoreCase(entity.getToolType())) {
+            McpToolDefinition mcpTool = toMcpTool(entity);
+            tool.setToolType("mcp");
+            tool.setMcpServerId(mcpTool.getMcpServerId());
+            tool.setMcpToolName(mcpTool.getMcpToolName());
+            if (mcpTool.getInputSchema() != null) {
+                tool.setInputSchema(mcpTool.getInputSchema());
+            }
             return tool;
         }
         try {
@@ -52,6 +63,53 @@ public class ToolConfigConverter {
             // 保持最小可用定义
         }
         return tool;
+    }
+
+    public McpToolDefinition toMcpTool(ToolDefinitionEntity entity) {
+        McpToolDefinition tool = McpToolDefinition.builder().build();
+        if (!StringUtils.hasText(entity.getToolConfig())) {
+            return tool;
+        }
+        try {
+            Map<String, Object> config = objectMapper.readValue(
+                    entity.getToolConfig(),
+                    new TypeReference<Map<String, Object>>() {}
+            );
+            Object mcpServerId = config.get("mcpServerId");
+            if (mcpServerId instanceof Number number) {
+                tool.setMcpServerId(number.longValue());
+            } else if (mcpServerId != null) {
+                tool.setMcpServerId(Long.parseLong(String.valueOf(mcpServerId)));
+            }
+            tool.setMcpToolName(stringValue(config.get("mcpToolName"), null));
+            tool.setSourceServerName(stringValue(config.get("sourceServerName"), null));
+            Object inputSchema = config.get("inputSchema");
+            if (inputSchema instanceof Map<?, ?> schemaMap) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> typed = (Map<String, Object>) schemaMap;
+                tool.setInputSchema(typed);
+            }
+        } catch (Exception ignored) {
+            // 保持最小可用定义
+        }
+        return tool;
+    }
+
+    public String serializeMcpConfig(McpToolDefinition tool) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("mcpServerId", tool.getMcpServerId());
+        config.put("mcpToolName", tool.getMcpToolName());
+        if (StringUtils.hasText(tool.getSourceServerName())) {
+            config.put("sourceServerName", tool.getSourceServerName());
+        }
+        if (tool.getInputSchema() != null && !tool.getInputSchema().isEmpty()) {
+            config.put("inputSchema", tool.getInputSchema());
+        }
+        try {
+            return objectMapper.writeValueAsString(config);
+        } catch (Exception e) {
+            throw new IllegalStateException("MCP 工具配置序列化失败", e);
+        }
     }
 
     public String serializeConfig(HttpToolDefinition tool) {

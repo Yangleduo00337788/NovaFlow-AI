@@ -19,6 +19,7 @@ public class McpServerVO {
     private Integer status;
     private String statusLabel;
     private Integer toolCount;
+    private Integer syncedToolCount;
     private LocalDateTime lastConnectedAt;
     private LocalDateTime updatedAt;
     private List<McpDiscoveredToolVO> tools;

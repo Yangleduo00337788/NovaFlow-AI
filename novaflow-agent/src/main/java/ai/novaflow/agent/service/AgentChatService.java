@@ -170,7 +170,7 @@ public class AgentChatService {
     private ExecutionPlan buildToolExecutionPlan(ChatContext context, String userMessage) {
         List<HttpToolDefinition> tools = context.agent().getTools() != null ? context.agent().getTools() : List.of();
         if (tools.isEmpty()) {
-            throw new BusinessException("Tool Agent 未配置 HTTP 工具，请先添加至少一个工具");
+            throw new BusinessException("Tool Agent 未配置工具，请先添加至少一个工具");
         }
         ChatExecuteRequest request = context.toExecuteRequest(
                 userMessage,

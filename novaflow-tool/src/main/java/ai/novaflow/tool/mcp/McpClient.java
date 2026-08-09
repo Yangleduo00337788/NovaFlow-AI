@@ -33,6 +33,7 @@ public class McpClient {
     private static final String PROTOCOL_VERSION = "2024-11-05";
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration TOOL_CALL_TIMEOUT = Duration.ofMinutes(3);
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -68,6 +69,118 @@ public class McpClient {
         }
     }
 
+    public String callTool(McpServerConfig config, String toolName, Map<String, Object> arguments) {
+        if (config == null) {
+            throw new BusinessException("MCP 服务配置不能为空");
+        }
+        if (!StringUtils.hasText(toolName)) {
+            throw new BusinessException("MCP 工具名称不能为空");
+        }
+        String transportType = StringUtils.hasText(config.getTransportType())
+                ? config.getTransportType().trim().toLowerCase()
+                : "stdio";
+        Map<String, Object> args = arguments != null ? arguments : Map.of();
+        try {
+            JsonNode response = switch (transportType) {
+                case "stdio" -> callToolViaStdio(config, toolName, args);
+                case "sse", "http" -> callToolViaHttp(requireEndpoint(config), toolName, args);
+                default -> throw new BusinessException("不支持的传输类型: " + transportType);
+            };
+            return parseToolCallResult(response);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("MCP tool call failed: tool={}, summary={}, error={}",
+                    toolName, config.commandSummary(), ex.getMessage());
+            throw new BusinessException("MCP 工具调用失败: " + ex.getMessage());
+        }
+    }
+
+    private JsonNode callToolViaStdio(McpServerConfig config, String toolName, Map<String, Object> arguments)
+            throws Exception {
+        Process process = McpProcessLauncher.start(config);
+        try {
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
+                    process.getOutputStream(), StandardCharsets.UTF_8));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    process.getInputStream(), StandardCharsets.UTF_8));
+
+            AtomicInteger idSeq = new AtomicInteger(1);
+            int initId = idSeq.getAndIncrement();
+            sendStdioRequest(writer, initId, "initialize", buildInitializeParams());
+            JsonNode initResponse = readStdioResponse(reader, initId, REQUEST_TIMEOUT);
+            ensureNoError(initResponse, "initialize");
+
+            sendStdioNotification(writer, "notifications/initialized", Map.of());
+
+            int callId = idSeq.getAndIncrement();
+            sendStdioRequest(writer, callId, "tools/call", buildToolCallParams(toolName, arguments));
+            JsonNode callResponse = readStdioResponse(reader, callId, TOOL_CALL_TIMEOUT);
+            ensureNoError(callResponse, "tools/call");
+            return callResponse;
+        } finally {
+            process.destroy();
+            if (!process.waitFor(3, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private JsonNode callToolViaHttp(String endpoint, String toolName, Map<String, Object> arguments) throws Exception {
+        AtomicInteger idSeq = new AtomicInteger(1);
+        JsonNode initResponse = sendHttpRequest(endpoint, "initialize", buildInitializeParams(), idSeq.getAndIncrement());
+        ensureNoError(initResponse, "initialize");
+
+        sendHttpNotification(endpoint, "notifications/initialized", Map.of());
+
+        JsonNode callResponse = sendHttpRequest(
+                endpoint,
+                "tools/call",
+                buildToolCallParams(toolName, arguments),
+                idSeq.getAndIncrement());
+        ensureNoError(callResponse, "tools/call");
+        return callResponse;
+    }
+
+    private Map<String, Object> buildToolCallParams(String toolName, Map<String, Object> arguments) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("name", toolName);
+        params.put("arguments", arguments != null ? arguments : Map.of());
+        return params;
+    }
+
+    private String parseToolCallResult(JsonNode response) throws Exception {
+        JsonNode content = response.path("result").path("content");
+        if (!content.isArray() || content.isEmpty()) {
+            JsonNode result = response.path("result");
+            return result.isMissingNode() || result.isNull()
+                    ? response.toString()
+                    : objectMapper.writeValueAsString(result);
+        }
+        StringBuilder builder = new StringBuilder();
+        for (JsonNode item : content) {
+            String type = item.path("type").asText("text");
+            if ("text".equals(type)) {
+                appendLine(builder, item.path("text").asText(""));
+            } else if ("image".equals(type)) {
+                appendLine(builder, item.path("data").asText(item.toString()));
+            } else {
+                appendLine(builder, item.toString());
+            }
+        }
+        return builder.toString();
+    }
+
+    private void appendLine(StringBuilder builder, String line) {
+        if (!StringUtils.hasText(line)) {
+            return;
+        }
+        if (builder.length() > 0) {
+            builder.append('\n');
+        }
+        builder.append(line);
+    }
+
     private McpConnectResult discoverViaStdio(McpServerConfig config) throws Exception {
         Process process = McpProcessLauncher.start(config);
         try {
@@ -79,14 +192,14 @@ public class McpClient {
             AtomicInteger idSeq = new AtomicInteger(1);
             int initId = idSeq.getAndIncrement();
             sendStdioRequest(writer, initId, "initialize", buildInitializeParams());
-            JsonNode initResponse = readStdioResponse(reader, initId);
+            JsonNode initResponse = readStdioResponse(reader, initId, REQUEST_TIMEOUT);
             ensureNoError(initResponse, "initialize");
 
             sendStdioNotification(writer, "notifications/initialized", Map.of());
 
             int listId = idSeq.getAndIncrement();
             sendStdioRequest(writer, listId, "tools/list", Map.of());
-            JsonNode listResponse = readStdioResponse(reader, listId);
+            JsonNode listResponse = readStdioResponse(reader, listId, REQUEST_TIMEOUT);
             ensureNoError(listResponse, "tools/list");
 
             List<McpDiscoveredTool> tools = parseTools(listResponse.path("result"));
@@ -175,7 +288,11 @@ public class McpClient {
     }
 
     private JsonNode readStdioResponse(BufferedReader reader, int expectedId) throws Exception {
-        long deadline = System.currentTimeMillis() + REQUEST_TIMEOUT.toMillis();
+        return readStdioResponse(reader, expectedId, REQUEST_TIMEOUT);
+    }
+
+    private JsonNode readStdioResponse(BufferedReader reader, int expectedId, Duration timeout) throws Exception {
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
         while (System.currentTimeMillis() < deadline) {
             if (!reader.ready()) {
                 Thread.sleep(50);

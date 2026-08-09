@@ -17,6 +17,9 @@ public class ToolDefinitionVO {
     private String toolType;
     private String method;
     private String url;
+    private Long mcpServerId;
+    private String mcpToolName;
+    private String sourceServerName;
     private String bodyTemplate;
     private Map<String, String> headers;
     private Map<String, Object> inputSchema;

@@ -240,7 +240,7 @@
                   v-model:value="form.toolIds"
                   mode="multiple"
                   allow-clear
-                  placeholder="从工具市场选择 HTTP 工具"
+                  placeholder="从工具市场选择 HTTP / MCP 工具"
                   :loading="toolsLoading"
                   :options="toolOptions"
                 />
@@ -327,6 +327,7 @@
       title="Agent 调试"
       :width="debugDrawerWidth"
       class="debug-only-drawer"
+      :class="{ 'debug-only-drawer--fullscreen': debugWideLayout }"
       :body-style="debugDrawerBodyStyle"
       @close="onDebugDrawerClose"
     >
@@ -541,7 +542,7 @@ const revealedApiKey = ref('')
 
 const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin
 
-const debugDrawerWidth = computed(() => (debugWideLayout.value ? 1080 : 480))
+const debugDrawerWidth = computed(() => (debugWideLayout.value ? '100vw' : '50vw'))
 const debugDrawerBodyStyle = {
   padding: '0',
   overflow: 'hidden',
@@ -1061,11 +1062,23 @@ onMounted(async () => {
 .debug-only-drawer :deep(.ant-drawer-content) {
   display: flex;
   flex-direction: column;
+  transition: width 0.2s ease;
+}
+
+.debug-only-drawer--fullscreen :deep(.ant-drawer-content-wrapper) {
+  width: 100vw !important;
+  max-width: 100vw;
 }
 
 .debug-only-drawer :deep(.ant-drawer-body) {
   flex: 1;
   min-height: 0;
+}
+
+.debug-only-drawer :deep(.ant-drawer-header),
+.debug-only-drawer--fullscreen :deep(.ant-drawer-header) {
+  padding-left: 60px;
+  padding-right: 60px;
 }
 
 .tool-list {

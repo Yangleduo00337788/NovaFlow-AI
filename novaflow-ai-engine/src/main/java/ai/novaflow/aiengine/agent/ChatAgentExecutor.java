@@ -6,7 +6,7 @@ import ai.novaflow.aiengine.llm.OpenAiCompatibleStreamClient;
 import ai.novaflow.model.domain.ModelExtraParametersBuilder;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.tool.domain.HttpToolDefinition;
-import ai.novaflow.tool.executor.HttpToolExecutor;
+import ai.novaflow.tool.executor.ToolExecutorRouter;
 import ai.novaflow.tool.schema.ToolSchemaBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -38,7 +38,7 @@ public class ChatAgentExecutor {
     private final ChatMemoryStore chatMemoryStore;
     private final OpenAiCompatibleStreamClient openAiCompatibleStreamClient;
     private final OpenAiCompatibleChatClient openAiCompatibleChatClient;
-    private final HttpToolExecutor httpToolExecutor;
+    private final ToolExecutorRouter toolExecutorRouter;
     private final ToolSchemaBuilder toolSchemaBuilder;
     private final ObjectMapper objectMapper;
 
@@ -146,7 +146,7 @@ public class ChatAgentExecutor {
 
                     HttpToolDefinition definition = findTool(tools, toolCall.getName());
                     listener.onToolCall(toolCall.getName(), toolCall.getArguments());
-                    String result = httpToolExecutor.execute(
+                    String result = toolExecutorRouter.execute(
                             definition,
                             toolSchemaBuilder.parseArguments(toolCall.getArguments()));
                     listener.onToolResult(toolCall.getName(), result);

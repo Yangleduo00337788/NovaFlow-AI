@@ -17,9 +17,22 @@ export interface McpServer {
   status: number
   statusLabel: string
   toolCount: number
+  syncedToolCount?: number
   lastConnectedAt?: string
   updatedAt: string
   tools?: McpDiscoveredTool[]
+}
+
+export interface McpSyncResult {
+  mcpServerId: number
+  serverName: string
+  created: number
+  updated: number
+  removed: number
+  total: number
+  syncedToolCount: number
+  message: string
+  toolNames: string[]
 }
 
 export interface McpConnectResult {
@@ -62,4 +75,8 @@ export function fetchMcpServerDetail(id: number) {
 
 export function connectMcpServer(id: number) {
   return request.post<ApiResult<McpConnectResult>>(`/v1/mcp-servers/${id}/connect`)
+}
+
+export function syncMcpServerTools(id: number) {
+  return request.post<ApiResult<McpSyncResult>>(`/v1/mcp-servers/${id}/sync-tools`)
 }

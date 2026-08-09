@@ -15,10 +15,10 @@
             历史
           </a-button>
         </a-tooltip>
-        <a-tooltip title="切换调试面板宽窄布局。宽屏模式下引用来源横向排列，便于查看多个文档。" placement="top">
+        <a-tooltip title="在全屏与半屏调试窗口之间切换" placement="top">
           <a-button size="small" @click="toggleLayout">
             <ColumnWidthOutlined />
-            {{ wide ? '窄屏' : '切换窗口' }}
+            {{ wide ? '半屏' : '全屏' }}
           </a-button>
         </a-tooltip>
         <a-tooltip title="清空当前调试会话的消息记录与上下文记忆，相当于开始一段新对话。" placement="top">
@@ -1145,13 +1145,14 @@ onUnmounted(() => {
   min-height: 480px;
   border-left: 1px solid #f0f0f0;
   background: #fafafa;
+  --debug-inline-padding: 60px;
 }
 
 .debug-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 16px var(--debug-inline-padding);
   border-bottom: 1px solid #f0f0f0;
   background: #fff;
 }
@@ -1171,7 +1172,7 @@ onUnmounted(() => {
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px var(--debug-inline-padding);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1620,7 +1621,7 @@ onUnmounted(() => {
 }
 
 .input-area {
-  padding: 12px 16px 16px;
+  padding: 12px var(--debug-inline-padding) 20px;
   border-top: 1px solid #f0f0f0;
   background: #fafafa;
 }

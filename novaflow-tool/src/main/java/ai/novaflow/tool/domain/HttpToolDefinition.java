@@ -10,6 +10,9 @@ public class HttpToolDefinition {
 
     private String name;
     private String description;
+    private String toolType = "http";
+    private Long mcpServerId;
+    private String mcpToolName;
     private Map<String, Object> inputSchema;
     private String method = "GET";
     private String url;

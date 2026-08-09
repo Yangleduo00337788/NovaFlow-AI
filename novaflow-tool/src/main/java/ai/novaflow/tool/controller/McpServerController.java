@@ -5,6 +5,7 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.tool.domain.dto.McpServerSaveRequest;
 import ai.novaflow.tool.domain.vo.McpConnectResultVO;
 import ai.novaflow.tool.domain.vo.McpServerVO;
+import ai.novaflow.tool.domain.vo.McpSyncResultVO;
 import ai.novaflow.tool.service.McpServerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,11 @@ public class McpServerController {
     @PostMapping("/{id}/connect")
     public ApiResult<McpConnectResultVO> connect(@PathVariable Long id) {
         return ApiResult.ok(mcpServerService.connect(id));
+    }
+
+    @PostMapping("/{id}/sync-tools")
+    public ApiResult<McpSyncResultVO> syncTools(@PathVariable Long id) {
+        return ApiResult.ok(mcpServerService.syncTools(id));
     }
 
     @PostMapping

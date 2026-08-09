@@ -9,6 +9,8 @@ export interface ToolDefinition {
   toolType: string
   method?: string
   url?: string
+  mcpToolName?: string
+  sourceServerName?: string
   bodyTemplate?: string
   headers?: Record<string, string>
   inputSchema?: Record<string, unknown>

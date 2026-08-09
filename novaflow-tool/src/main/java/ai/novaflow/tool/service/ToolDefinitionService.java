@@ -4,12 +4,13 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.tool.domain.McpToolDefinition;
 import ai.novaflow.tool.domain.dto.ToolDefinitionSaveRequest;
 import ai.novaflow.tool.domain.dto.ToolTestRequest;
 import ai.novaflow.tool.domain.vo.ToolDefinitionVO;
 import ai.novaflow.tool.domain.vo.ToolTestResultVO;
 import ai.novaflow.tool.entity.ToolDefinitionEntity;
-import ai.novaflow.tool.executor.HttpToolExecutor;
+import ai.novaflow.tool.executor.ToolExecutorRouter;
 import ai.novaflow.tool.mapper.ToolDefinitionMapper;
 import ai.novaflow.tool.util.ToolConfigConverter;
 import cn.dev33.satoken.stp.StpUtil;
@@ -32,7 +33,7 @@ public class ToolDefinitionService {
 
     private final ToolDefinitionMapper toolDefinitionMapper;
     private final ToolConfigConverter toolConfigConverter;
-    private final HttpToolExecutor httpToolExecutor;
+    private final ToolExecutorRouter toolExecutorRouter;
 
     public PageResult<ToolDefinitionVO> page(int page, int pageSize, String keyword) {
         Long tenantId = requireTenantId();
@@ -118,12 +119,30 @@ public class ToolDefinitionService {
 
     public ToolTestResultVO test(Long id, ToolTestRequest request) {
         ToolDefinitionEntity entity = getToolOrThrow(id);
+        if ("mcp".equalsIgnoreCase(entity.getToolType())) {
+            HttpToolDefinition tool = toolConfigConverter.toHttpTool(entity);
+            Map<String, Object> arguments = request != null && request.getArguments() != null
+                    ? request.getArguments()
+                    : new HashMap<>();
+            try {
+                String result = toolExecutorRouter.execute(tool, arguments);
+                return ToolTestResultVO.builder()
+                        .success(true)
+                        .result(result)
+                        .build();
+            } catch (Exception e) {
+                return ToolTestResultVO.builder()
+                        .success(false)
+                        .error(e.getMessage())
+                        .build();
+            }
+        }
         HttpToolDefinition tool = toolConfigConverter.toHttpTool(entity);
         Map<String, Object> arguments = request != null && request.getArguments() != null
                 ? request.getArguments()
                 : new HashMap<>();
         try {
-            String result = httpToolExecutor.execute(tool, arguments);
+            String result = toolExecutorRouter.execute(tool, arguments);
             return ToolTestResultVO.builder()
                     .success(true)
                     .result(result)
@@ -195,21 +214,30 @@ public class ToolDefinitionService {
     }
 
     private ToolDefinitionVO toVO(ToolDefinitionEntity entity) {
-        HttpToolDefinition tool = toolConfigConverter.toHttpTool(entity);
-        return ToolDefinitionVO.builder()
+        ToolDefinitionVO.ToolDefinitionVOBuilder builder = ToolDefinitionVO.builder()
                 .id(entity.getId())
                 .toolName(entity.getToolName())
                 .displayName(entity.getDisplayName())
                 .description(entity.getDescription())
                 .toolType(entity.getToolType())
+                .enabled(entity.getIsEnabled() != null && entity.getIsEnabled() == 1)
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt());
+        if ("mcp".equalsIgnoreCase(entity.getToolType())) {
+            McpToolDefinition mcpTool = toolConfigConverter.toMcpTool(entity);
+            builder.mcpServerId(mcpTool.getMcpServerId())
+                    .mcpToolName(mcpTool.getMcpToolName())
+                    .sourceServerName(mcpTool.getSourceServerName())
+                    .inputSchema(mcpTool.getInputSchema());
+            return builder.build();
+        }
+        HttpToolDefinition tool = toolConfigConverter.toHttpTool(entity);
+        return builder
                 .method(tool.getMethod())
                 .url(tool.getUrl())
                 .bodyTemplate(tool.getBodyTemplate())
                 .headers(tool.getHeaders())
                 .inputSchema(tool.getInputSchema())
-                .enabled(entity.getIsEnabled() != null && entity.getIsEnabled() == 1)
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 
