@@ -3,10 +3,12 @@ package ai.novaflow.monitor.service;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.monitor.domain.NamedCountRow;
 import ai.novaflow.monitor.domain.TraceNodeRow;
 import ai.novaflow.monitor.domain.TraceSpanRow;
 import ai.novaflow.monitor.domain.TrendPointRow;
 import ai.novaflow.monitor.domain.vo.MonitorOverviewVO;
+import ai.novaflow.monitor.domain.vo.ObservabilityAlertVO;
 import ai.novaflow.monitor.domain.vo.ObservabilityOverviewVO;
 import ai.novaflow.monitor.domain.vo.TraceDetailVO;
 import ai.novaflow.monitor.domain.vo.TraceNodeVO;
@@ -17,7 +19,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -62,8 +66,9 @@ public class TraceService {
 
         TraceSpanRow workflowSpan = traceMapper.findWorkflowSpan(tenantId, trimmedTraceId);
         if (workflowSpan != null) {
+            LocalDateTime traceStart = workflowSpan.getStartedAt();
             List<TraceNodeVO> nodes = traceMapper.workflowNodes(tenantId, trimmedTraceId).stream()
-                    .map(this::toNodeVO)
+                    .map(row -> toNodeVO(row, traceStart))
                     .toList();
             return toDetailVO(workflowSpan, nodes);
         }
@@ -72,17 +77,17 @@ public class TraceService {
         if (agentSpan == null) {
             throw new BusinessException("未找到对应链路");
         }
-        TraceNodeVO chatNode = TraceNodeVO.builder()
-                .nodeId("chat")
-                .nodeName("Agent 对话")
-                .nodeType("agent")
-                .status(agentSpan.getStatus())
-                .statusLabel(spanStatusLabel(agentSpan.getStatus()))
-                .durationMs(agentSpan.getDurationMs())
-                .durationLabel(formatDuration(agentSpan.getDurationMs()))
-                .errorMessage(agentSpan.getErrorMessage())
-                .startedAt(agentSpan.getStartedAt())
-                .build();
+        LocalDateTime traceStart = agentSpan.getStartedAt();
+        TraceNodeRow chatRow = new TraceNodeRow();
+        chatRow.setNodeId("chat");
+        chatRow.setNodeName("Agent 对话");
+        chatRow.setNodeType("agent");
+        chatRow.setStatus(agentSpan.getStatus());
+        chatRow.setDurationMs(agentSpan.getDurationMs());
+        chatRow.setErrorMessage(agentSpan.getErrorMessage());
+        chatRow.setStartedAt(agentSpan.getStartedAt());
+        chatRow.setFinishedAt(agentSpan.getFinishedAt());
+        TraceNodeVO chatNode = toNodeVO(chatRow, traceStart);
         return toDetailVO(agentSpan, List.of(chatNode));
     }
 
@@ -95,19 +100,95 @@ public class TraceService {
         long todayCalls = safeLong(monitorStatsMapper.countCallsToday(tenantId));
         long failedCalls = safeLong(traceMapper.countFailedCallsToday(tenantId));
         long avgLatency = safeLong(monitorStatsMapper.avgLatencyToday(tenantId));
+        long p95Latency = safeLong(monitorStatsMapper.p95LatencyToday(tenantId));
+        long p99Latency = safeLong(monitorStatsMapper.p99LatencyToday(tenantId));
         int failureRate = todayCalls > 0 ? (int) Math.round(failedCalls * 100.0 / todayCalls) : 0;
+        List<MonitorOverviewVO.ServiceHealthVO> services = infrastructureHealthChecker.checkAll();
 
         return ObservabilityOverviewVO.builder()
                 .metrics(List.of(
                         metric("failureRate", "今日失败率", failureRate + "%", "基于 Token 调用统计"),
                         metric("errors", "今日错误数", String.valueOf(failedCalls), "失败调用次数"),
-                        metric("latency", "平均延迟", formatDuration((int) avgLatency), "今日成功调用"),
+                        metric("latency", "平均延迟", formatDuration((int) avgLatency), "今日调用"),
+                        metric("p95", "P95 延迟", formatDuration((int) p95Latency), "今日调用"),
+                        metric("p99", "P99 延迟", formatDuration((int) p99Latency), "今日调用"),
                         metric("calls", "今日调用", formatCount(todayCalls), "自今日 00:00 起")
                 ))
-                .services(infrastructureHealthChecker.checkAll())
+                .services(services)
                 .failedTrend(toTrend(traceMapper.hourlyFailedTrend(tenantId)))
                 .latencyTrend(toLatencyTrend(traceMapper.hourlyLatencyTrend(tenantId)))
+                .errorAgents(toErrorAgents(monitorStatsMapper.topErrorAgentsToday(tenantId)))
+                .alerts(buildAlerts(failureRate, failedCalls, p95Latency, services))
                 .build();
+    }
+
+    private List<MonitorOverviewVO.RankingItemVO> toErrorAgents(List<NamedCountRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(row -> MonitorOverviewVO.RankingItemVO.builder()
+                        .name(row.getName())
+                        .value(safeLong(row.getValue()))
+                        .valueLabel(safeLong(row.getValue()) + " 次失败")
+                        .build())
+                .toList();
+    }
+
+    private List<ObservabilityAlertVO> buildAlerts(
+            int failureRate,
+            long failedCalls,
+            long p95Latency,
+            List<MonitorOverviewVO.ServiceHealthVO> services) {
+        List<ObservabilityAlertVO> alerts = new ArrayList<>();
+        if (failureRate > 5) {
+            alerts.add(ObservabilityAlertVO.builder()
+                    .key("error_rate")
+                    .level("warning")
+                    .title("失败率偏高")
+                    .message("今日失败率 " + failureRate + "%，已超过 5% 阈值")
+                    .active(true)
+                    .build());
+        }
+        if (failedCalls > 0 && failureRate <= 5) {
+            alerts.add(ObservabilityAlertVO.builder()
+                    .key("errors")
+                    .level("info")
+                    .title("存在失败调用")
+                    .message("今日累计 " + failedCalls + " 次失败，建议查看调用日志")
+                    .active(true)
+                    .build());
+        }
+        if (p95Latency > 5000) {
+            alerts.add(ObservabilityAlertVO.builder()
+                    .key("latency")
+                    .level("warning")
+                    .title("P95 延迟过高")
+                    .message("今日 P95 延迟 " + formatDuration((int) p95Latency) + "，已超过 5s 阈值")
+                    .active(true)
+                    .build());
+        }
+        for (MonitorOverviewVO.ServiceHealthVO service : services) {
+            if (!service.isHealthy()) {
+                alerts.add(ObservabilityAlertVO.builder()
+                        .key("service-" + service.getKey())
+                        .level("error")
+                        .title(service.getName() + " 异常")
+                        .message(StringUtils.hasText(service.getDetail()) ? service.getDetail() : "健康检查未通过")
+                        .active(true)
+                        .build());
+            }
+        }
+        if (alerts.isEmpty()) {
+            alerts.add(ObservabilityAlertVO.builder()
+                    .key("healthy")
+                    .level("success")
+                    .title("系统运行正常")
+                    .message("当前未发现需要关注的告警")
+                    .active(false)
+                    .build());
+        }
+        return alerts;
     }
 
     private TraceSpanVO toSpanVO(TraceSpanRow row) {
@@ -142,17 +223,27 @@ public class TraceService {
                 .build();
     }
 
-    private TraceNodeVO toNodeVO(TraceNodeRow row) {
+    private TraceNodeVO toNodeVO(TraceNodeRow row, LocalDateTime traceStart) {
+        long offsetMs = 0L;
+        if (traceStart != null && row.getStartedAt() != null) {
+            offsetMs = Math.max(0, Duration.between(traceStart, row.getStartedAt()).toMillis());
+        }
+        Integer durationMs = row.getDurationMs();
+        if ((durationMs == null || durationMs <= 0) && row.getStartedAt() != null && row.getFinishedAt() != null) {
+            durationMs = (int) Math.max(0, Duration.between(row.getStartedAt(), row.getFinishedAt()).toMillis());
+        }
         return TraceNodeVO.builder()
                 .nodeId(row.getNodeId())
                 .nodeName(StringUtils.hasText(row.getNodeName()) ? row.getNodeName() : row.getNodeId())
                 .nodeType(row.getNodeType())
                 .status(row.getStatus())
                 .statusLabel(nodeStatusLabel(row.getStatus()))
-                .durationMs(row.getDurationMs())
-                .durationLabel(formatDuration(row.getDurationMs()))
+                .durationMs(durationMs)
+                .durationLabel(formatDuration(durationMs))
                 .errorMessage(row.getErrorMessage())
                 .startedAt(row.getStartedAt())
+                .finishedAt(row.getFinishedAt())
+                .offsetMs(offsetMs)
                 .build();
     }
 

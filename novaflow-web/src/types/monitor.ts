@@ -3,6 +3,16 @@ export interface ObservabilityOverview {
   services: MonitorServiceHealth[]
   failedTrend: MonitorTrendPoint[]
   latencyTrend: MonitorTrendPoint[]
+  errorAgents: MonitorRankingItem[]
+  alerts: ObservabilityAlert[]
+}
+
+export interface ObservabilityAlert {
+  key: string
+  level: string
+  title: string
+  message: string
+  active: boolean
 }
 
 export interface MonitorOverview {

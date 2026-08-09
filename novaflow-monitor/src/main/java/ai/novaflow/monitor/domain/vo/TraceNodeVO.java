@@ -18,4 +18,6 @@ public class TraceNodeVO {
     private String durationLabel;
     private String errorMessage;
     private LocalDateTime startedAt;
+    private LocalDateTime finishedAt;
+    private Long offsetMs;
 }

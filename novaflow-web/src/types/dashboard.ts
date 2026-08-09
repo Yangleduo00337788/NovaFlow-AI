@@ -34,6 +34,8 @@ export interface RecentItem {
 }
 
 export interface RecentLog {
+  logId?: number
+  traceId?: string
   name: string
   status: string
   success: boolean

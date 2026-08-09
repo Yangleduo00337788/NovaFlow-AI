@@ -14,4 +14,5 @@ public class TraceNodeRow {
     private Integer durationMs;
     private String errorMessage;
     private LocalDateTime startedAt;
+    private LocalDateTime finishedAt;
 }

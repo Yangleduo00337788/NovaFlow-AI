@@ -3,14 +3,16 @@
     <div class="page-header">
       <div>
         <h1>工具市场</h1>
-        <p>注册可复用的 HTTP 工具，供多个 Agent 共享调用</p>
+        <p>{{ activeTab === 'http' ? '注册可复用的 HTTP 工具，供多个 Agent 共享调用' : '注册 MCP Server，后续可自动发现并接入工具' }}</p>
       </div>
-      <a-button type="primary" data-testid="create-tool-btn" @click="openCreate">
+      <a-button type="primary" data-testid="create-tool-btn" @click="onCreateClick">
         <PlusOutlined />
-        注册工具
+        {{ activeTab === 'http' ? '注册工具' : '注册 MCP' }}
       </a-button>
     </div>
 
+    <a-tabs v-model:activeKey="activeTab" @change="onTabChange">
+      <a-tab-pane key="http" tab="HTTP 工具">
     <div class="toolbar page-card">
       <a-input-search
         v-model:value="keyword"
@@ -68,6 +70,53 @@
         @change="loadData"
       />
     </div>
+      </a-tab-pane>
+
+      <a-tab-pane key="mcp" tab="MCP 服务">
+        <div class="toolbar page-card">
+          <a-input-search
+            v-model:value="mcpKeyword"
+            placeholder="搜索 MCP 服务名称"
+            style="width: 280px"
+            allow-clear
+            @search="loadMcpData"
+          />
+          <span class="toolbar-meta">共 {{ mcpTotal }} 个服务</span>
+        </div>
+
+        <a-spin :spinning="mcpLoading">
+          <div v-if="mcpList.length" class="tool-grid">
+            <div v-for="item in mcpList" :key="item.id" class="tool-card page-card">
+              <div class="tool-card-head">
+                <div class="tool-icon mcp">
+                  <ApiOutlined />
+                </div>
+                <div class="tool-title-wrap">
+                  <h3>{{ item.serverName }}</h3>
+                  <p class="tool-name">{{ item.transportType }}</p>
+                </div>
+              </div>
+              <p class="tool-desc">{{ item.description || '暂无描述' }}</p>
+              <div class="tool-meta">
+                <a-tag :color="item.status === 1 ? 'success' : item.status === 2 ? 'error' : 'default'">
+                  {{ item.statusLabel }}
+                </a-tag>
+                <span class="tool-url" :title="item.endpoint">{{ item.endpoint }}</span>
+              </div>
+              <div class="tool-footer">
+                <span class="tool-time">工具 {{ item.toolCount }} 个 · {{ formatDateTime(item.updatedAt) }}</span>
+              </div>
+              <div class="tool-actions">
+                <a-popconfirm title="确认删除该 MCP 服务？" @confirm="onMcpDelete(item.id)">
+                  <a-button type="link" size="small" danger>删除</a-button>
+                </a-popconfirm>
+              </div>
+            </div>
+          </div>
+          <a-empty v-else description="暂无 MCP 服务，点击右上角注册" />
+        </a-spin>
+      </a-tab-pane>
+    </a-tabs>
 
     <a-drawer
       v-model:open="drawerOpen"
@@ -154,6 +203,24 @@
         </div>
       </div>
     </a-modal>
+
+    <a-drawer v-model:open="mcpDrawerOpen" title="注册 MCP 服务" :width="520" @close="resetMcpForm">
+      <a-form layout="vertical" :model="mcpForm">
+        <a-form-item label="服务名称" required>
+          <a-input v-model:value="mcpForm.serverName" placeholder="github-mcp" />
+        </a-form-item>
+        <a-form-item label="描述">
+          <a-textarea v-model:value="mcpForm.description" :rows="2" placeholder="GitHub 仓库操作工具集" />
+        </a-form-item>
+        <a-form-item label="传输类型" required>
+          <a-select v-model:value="mcpForm.transportType" :options="transportOptions" />
+        </a-form-item>
+        <a-form-item label="服务地址" required>
+          <a-input v-model:value="mcpForm.endpoint" placeholder="http://localhost:3001/sse" />
+        </a-form-item>
+        <a-button type="primary" block :loading="mcpSaving" @click="onMcpSave">保存</a-button>
+      </a-form>
+    </a-drawer>
   </div>
 </template>
 
@@ -170,8 +237,10 @@ import {
   type ToolDefinition,
   type ToolSaveRequest,
 } from '@/api/tool'
+import { createMcpServer, deleteMcpServer, fetchMcpServers, type McpServer } from '@/api/mcp'
 import { formatDateTime } from '@/utils/datetime'
 
+const activeTab = ref('http')
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<ToolDefinition[]>([])
@@ -205,6 +274,97 @@ const testingTool = ref<ToolDefinition | null>(null)
 const testArgsJson = ref('{}')
 const testLoading = ref(false)
 const testResult = ref<{ success: boolean; result?: string; error?: string } | null>(null)
+
+const mcpLoading = ref(false)
+const mcpSaving = ref(false)
+const mcpList = ref<McpServer[]>([])
+const mcpKeyword = ref('')
+const mcpPage = ref(1)
+const mcpTotal = ref(0)
+const mcpDrawerOpen = ref(false)
+const mcpForm = reactive({
+  serverName: '',
+  description: '',
+  transportType: 'sse',
+  endpoint: '',
+})
+const transportOptions = [
+  { value: 'sse', label: 'SSE' },
+  { value: 'http', label: 'HTTP' },
+  { value: 'stdio', label: 'Stdio' },
+]
+
+function onCreateClick() {
+  if (activeTab.value === 'mcp') {
+    resetMcpForm()
+    mcpDrawerOpen.value = true
+    return
+  }
+  openCreate()
+}
+
+function onTabChange(key: string | number) {
+  if (key === 'mcp' && !mcpList.value.length) {
+    loadMcpData()
+  }
+}
+
+function resetMcpForm() {
+  Object.assign(mcpForm, {
+    serverName: '',
+    description: '',
+    transportType: 'sse',
+    endpoint: '',
+  })
+}
+
+async function loadMcpData() {
+  mcpLoading.value = true
+  try {
+    const res = await fetchMcpServers({
+      page: mcpPage.value,
+      pageSize: 12,
+      keyword: mcpKeyword.value || undefined,
+    })
+    mcpList.value = res.data.data.list
+    mcpTotal.value = res.data.data.total
+  } finally {
+    mcpLoading.value = false
+  }
+}
+
+async function onMcpSave() {
+  if (!mcpForm.serverName.trim() || !mcpForm.endpoint.trim()) {
+    message.warning('请填写服务名称和服务地址')
+    return
+  }
+  mcpSaving.value = true
+  try {
+    await createMcpServer({
+      serverName: mcpForm.serverName.trim(),
+      description: mcpForm.description.trim() || undefined,
+      transportType: mcpForm.transportType,
+      endpoint: mcpForm.endpoint.trim(),
+    })
+    message.success('MCP 服务已注册')
+    mcpDrawerOpen.value = false
+    loadMcpData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '注册失败')
+  } finally {
+    mcpSaving.value = false
+  }
+}
+
+async function onMcpDelete(id: number) {
+  try {
+    await deleteMcpServer(id)
+    message.success('已删除')
+    loadMcpData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '删除失败')
+  }
+}
 
 function isBodyMethod(method?: string) {
   const normalized = (method || 'GET').toUpperCase()
@@ -404,6 +564,11 @@ onMounted(loadData)
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
+}
+
+.tool-icon.mcp {
+  background: rgba(250, 140, 22, 0.12);
+  color: #fa8c16;
 }
 
 .tool-title-wrap h3 {

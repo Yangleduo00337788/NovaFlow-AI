@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { fetchPublishedWorkflows, fetchWorkflowRuntime } from '@/api/dashboard'
 import WorkflowCanvasViewer from '@/components/workflow/WorkflowCanvasViewer.vue'
@@ -49,6 +49,9 @@ import type { PublishedWorkflow, WorkflowRuntime } from '@/types/dashboard'
 const props = defineProps<{
   runtime: WorkflowRuntime
 }>()
+
+const POLL_INTERVAL_MS = 3000
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const workflows = ref<PublishedWorkflow[]>([])
 const selectedId = ref(props.runtime.workflowId)
@@ -130,6 +133,7 @@ async function loadRuntime(workflowId: number) {
   try {
     const res = await fetchWorkflowRuntime(workflowId)
     runtime.value = res.data.data
+    syncPolling()
   } catch {
     runtime.value = {
       ...runtime.value,
@@ -139,8 +143,37 @@ async function loadRuntime(workflowId: number) {
       nodes: [],
       canvas: undefined,
     }
+    stopPolling()
   }
 }
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function syncPolling() {
+  if (runtime.value.running) {
+    if (!pollTimer) {
+      pollTimer = setInterval(() => {
+        if (selectedId.value) {
+          loadRuntime(selectedId.value)
+        }
+      }, POLL_INTERVAL_MS)
+    }
+  } else {
+    stopPolling()
+  }
+}
+
+watch(
+  () => runtime.value.running,
+  () => {
+    syncPolling()
+  },
+)
 
 function switchPrev() {
   if (!canPrev.value) return
@@ -158,6 +191,11 @@ function onSelectChange(value: number) {
 
 onMounted(() => {
   loadWorkflows()
+  syncPolling()
+})
+
+onBeforeUnmount(() => {
+  stopPolling()
 })
 </script>
 

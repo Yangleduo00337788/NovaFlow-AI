@@ -24,6 +24,8 @@ export interface TraceNode {
   durationLabel?: string
   errorMessage?: string
   startedAt?: string
+  finishedAt?: string
+  offsetMs?: number
 }
 
 export interface TraceDetail extends TraceSpan {

@@ -51,6 +51,8 @@ public class DashboardOverviewVO {
     @Data
     @Builder
     public static class RecentLogVO {
+        private Long logId;
+        private String traceId;
         private String name;
         private String status;
         private boolean success;

@@ -62,20 +62,28 @@
         </a-table>
     </div>
 
-    <a-drawer v-model:open="detailOpen" title="链路详情" width="520" destroy-on-close>
+    <a-drawer v-model:open="detailOpen" title="链路详情" width="720" destroy-on-close>
       <a-spin :spinning="detailLoading">
         <template v-if="detail">
-          <a-descriptions :column="1" size="small" bordered>
-            <a-descriptions-item label="Trace ID">{{ detail.traceId }}</a-descriptions-item>
+          <a-descriptions :column="2" size="small" bordered>
+            <a-descriptions-item label="Trace ID" :span="2">{{ detail.traceId }}</a-descriptions-item>
             <a-descriptions-item label="类型">{{ detail.spanTypeLabel }}</a-descriptions-item>
             <a-descriptions-item label="名称">{{ detail.name }}</a-descriptions-item>
             <a-descriptions-item label="状态">{{ detail.statusLabel }}</a-descriptions-item>
             <a-descriptions-item label="耗时">{{ detail.durationLabel || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="开始时间">{{ formatDateTime(detail.startedAt) }}</a-descriptions-item>
-            <a-descriptions-item v-if="detail.errorMessage" label="错误信息">
+            <a-descriptions-item label="开始时间" :span="2">{{ formatDateTime(detail.startedAt) }}</a-descriptions-item>
+            <a-descriptions-item v-if="detail.errorMessage" label="错误信息" :span="2">
               {{ detail.errorMessage }}
             </a-descriptions-item>
           </a-descriptions>
+
+          <div class="section-title">执行瀑布图</div>
+          <a-empty v-if="!detail.nodes?.length" description="暂无 Span 数据" />
+          <TraceWaterfall
+            v-else
+            :nodes="detail.nodes"
+            :total-duration-ms="detail.durationMs"
+          />
 
           <div class="section-title">节点明细</div>
           <a-empty v-if="!detail.nodes?.length" description="暂无节点数据" />
@@ -103,6 +111,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { fetchTraceDetail, fetchTraceSpans, type TraceDetail, type TraceSpan } from '@/api/trace'
+import TraceWaterfall from '@/components/trace/TraceWaterfall.vue'
 import { formatDateTime } from '@/utils/datetime'
 
 const route = useRoute()

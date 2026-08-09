@@ -70,11 +70,13 @@ public interface DashboardStatsMapper {
     BigDecimal sumCostByTenantAndCurrency(Long tenantId, String currency);
 
     @Select("""
-            SELECT COALESCE(a.agent_name, '未知 Agent') AS agent_name,
+            SELECT tu.id,
+                   COALESCE(a.agent_name, '未知 Agent') AS agent_name,
                    tu.total_tokens,
                    tu.latency_ms,
                    tu.created_at,
-                   tu.success
+                   tu.success,
+                   tu.trace_id
             FROM token_usage tu
             LEFT JOIN agent a ON tu.agent_id = a.id
             WHERE tu.tenant_id = #{tenantId}

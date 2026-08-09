@@ -141,7 +141,8 @@ public interface TraceMapper {
                    wnl.status,
                    wnl.duration_ms,
                    wnl.error_message,
-                   wnl.started_at
+                   wnl.started_at,
+                   wnl.finished_at
             FROM workflow_node_log wnl
             LEFT JOIN workflow_execution we ON wnl.execution_id = we.execution_id
             LEFT JOIN workflow_node wn ON wn.workflow_id = we.workflow_id AND wn.node_id = wnl.node_id

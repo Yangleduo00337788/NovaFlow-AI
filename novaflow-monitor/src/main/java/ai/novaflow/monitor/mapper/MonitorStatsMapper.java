@@ -84,4 +84,50 @@ public interface MonitorStatsMapper {
             ORDER BY HOUR(created_at)
             """)
     List<TrendPointRow> hourlyInvocationTrend(Long tenantId);
+
+    @Select("""
+            SELECT COALESCE(latency_ms, 0)
+            FROM (
+                SELECT latency_ms,
+                       ROW_NUMBER() OVER (ORDER BY latency_ms) AS row_num,
+                       COUNT(*) OVER () AS total_count
+                FROM token_usage
+                WHERE tenant_id = #{tenantId}
+                  AND DATE(created_at) = CURDATE()
+                  AND latency_ms IS NOT NULL
+            ) ranked
+            WHERE row_num = GREATEST(1, CEILING(total_count * 0.95))
+            LIMIT 1
+            """)
+    Long p95LatencyToday(Long tenantId);
+
+    @Select("""
+            SELECT COALESCE(latency_ms, 0)
+            FROM (
+                SELECT latency_ms,
+                       ROW_NUMBER() OVER (ORDER BY latency_ms) AS row_num,
+                       COUNT(*) OVER () AS total_count
+                FROM token_usage
+                WHERE tenant_id = #{tenantId}
+                  AND DATE(created_at) = CURDATE()
+                  AND latency_ms IS NOT NULL
+            ) ranked
+            WHERE row_num = GREATEST(1, CEILING(total_count * 0.99))
+            LIMIT 1
+            """)
+    Long p99LatencyToday(Long tenantId);
+
+    @Select("""
+            SELECT COALESCE(a.agent_name, '未知 Agent') AS name,
+                   COUNT(*) AS value
+            FROM token_usage tu
+            LEFT JOIN agent a ON tu.agent_id = a.id
+            WHERE tu.tenant_id = #{tenantId}
+              AND tu.success = 0
+              AND DATE(tu.created_at) = CURDATE()
+            GROUP BY tu.agent_id, a.agent_name
+            ORDER BY value DESC
+            LIMIT 5
+            """)
+    List<NamedCountRow> topErrorAgentsToday(Long tenantId);
 }

@@ -5,6 +5,7 @@
         <h1>调用日志</h1>
         <p>查看 Agent 与模型的 Token 消耗、耗时与成本明细</p>
       </div>
+      <a-button :loading="exporting" @click="onExport">导出 CSV</a-button>
     </div>
 
     <div class="page-card toolbar">
@@ -129,11 +130,12 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons-vue'
 import { fetchAgents } from '@/api/agent'
-import { fetchTokenUsageLogs, type TokenUsageLogItem } from '@/api/log'
+import { fetchTokenUsageLogs, exportTokenUsageLogs, type TokenUsageLogItem } from '@/api/log'
 import { formatDateTime } from '@/utils/datetime'
 
 const route = useRoute()
 const loading = ref(false)
+const exporting = ref(false)
 const agentsLoading = ref(false)
 const list = ref<TokenUsageLogItem[]>([])
 const keyword = ref('')
@@ -235,19 +237,48 @@ function onSearch() {
   loadData()
 }
 
+async function onExport() {
+  exporting.value = true
+  try {
+    const res = await exportTokenUsageLogs({
+      agentId: agentId.value,
+      keyword: keyword.value || undefined,
+      success: successFilter.value,
+      usageType: usageType.value,
+    })
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `token-usage-logs-${Date.now()}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    message.success('导出成功')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '导出失败')
+  } finally {
+    exporting.value = false
+  }
+}
+
 function onTableChange(pag: { current?: number; pageSize?: number }) {
   page.value = pag.current || 1
   pageSize.value = pag.pageSize || 20
   loadData()
 }
 
-onMounted(() => {
-  loadAgents()
-  loadData()
+onMounted(async () => {
+  await loadAgents()
+  await loadData()
   const traceId = route.query.traceId
   if (typeof traceId === 'string' && traceId) {
     keyword.value = traceId
     onSearch()
+  }
+  const logId = route.query.logId
+  if (typeof logId === 'string' && logId) {
+    const record = list.value.find((item) => String(item.id) === logId)
+    if (record) openDetail(record)
   }
 })
 </script>
@@ -256,6 +287,13 @@ onMounted(() => {
 .log-page {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 16px;
 }
 

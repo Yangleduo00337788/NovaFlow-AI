@@ -392,6 +392,8 @@ public class DashboardService {
                 .map(row -> {
                     boolean success = row.getSuccess() == null || row.getSuccess() != 0;
                     return log(
+                            row.getId(),
+                            row.getTraceId(),
                             row.getAgentName(),
                             success,
                             formatRelativeTime(row.getCreatedAt()),
@@ -859,10 +861,24 @@ public class DashboardService {
         return DashboardOverviewVO.StatCardVO.builder().key(key).label(label).value(value).change(change).up(up).build();
     }
 
-    private DashboardOverviewVO.RecentLogVO log(String name, boolean success, String time, String duration, int tokens) {
+    private DashboardOverviewVO.RecentLogVO log(
+            Long logId,
+            String traceId,
+            String name,
+            boolean success,
+            String time,
+            String duration,
+            int tokens) {
         return DashboardOverviewVO.RecentLogVO.builder()
-                .name(name).success(success).status(success ? "成功" : "失败")
-                .time(time).duration(duration).tokens(tokens).build();
+                .logId(logId)
+                .traceId(traceId)
+                .name(name)
+                .success(success)
+                .status(success ? "成功" : "失败")
+                .time(time)
+                .duration(duration)
+                .tokens(tokens)
+                .build();
     }
 
     private DashboardOverviewVO.ModelUsageVO model(String model, int percent, String tokens) {

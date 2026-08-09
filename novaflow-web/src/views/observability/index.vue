@@ -19,6 +19,34 @@
 
       <div class="content-grid">
         <div class="page-card">
+          <div class="section-title">告警概览</div>
+          <div class="alert-list">
+            <div
+              v-for="alert in overview.alerts"
+              :key="alert.key"
+              class="alert-item"
+              :class="alert.level"
+            >
+              <div class="alert-title">{{ alert.title }}</div>
+              <div class="alert-message">{{ alert.message }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="page-card">
+          <div class="section-title">今日失败 Agent Top 5</div>
+          <a-empty v-if="!overview.errorAgents.length" description="今日暂无失败调用" />
+          <div v-else class="ranking-list">
+            <div v-for="(item, index) in overview.errorAgents" :key="item.name" class="ranking-item">
+              <span class="rank-no" :class="{ top: index < 3 }">{{ index + 1 }}</span>
+              <span class="rank-name">{{ item.name }}</span>
+              <span class="rank-value">{{ item.valueLabel }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="page-card">
           <div class="section-title">近 24 小时失败趋势</div>
           <a-empty v-if="!overview.failedTrend.length" description="暂无失败数据" />
           <v-chart v-else class="trend-chart" :option="failedTrendOption" autoresize />
@@ -68,6 +96,8 @@ const overview = ref<ObservabilityOverview>({
   services: [],
   failedTrend: [],
   latencyTrend: [],
+  errorAgents: [],
+  alerts: [],
 })
 
 const failedTrendOption = computed(() => ({
@@ -141,7 +171,7 @@ onMounted(loadData)
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -224,6 +254,90 @@ onMounted(loadData)
 }
 
 .service-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-item {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.alert-item.warning {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.alert-item.error {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.alert-item.info {
+  border-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.alert-item.success {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.alert-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.alert-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.rank-no {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: #f1f5f9;
+}
+
+.rank-no.top {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.rank-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-value {
   font-size: 12px;
   color: var(--text-secondary);
 }

@@ -13,6 +13,8 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -39,6 +41,47 @@ public class TokenUsageLogService {
                 .map(this::toVO)
                 .toList();
         return PageResult.of(list, total != null ? total : 0L, safePage, safePageSize);
+    }
+
+    public byte[] exportCsv(Long agentId, String keyword, Boolean success, String usageType) {
+        Long tenantId = requireTenantId();
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        String trimmedUsageType = StringUtils.hasText(usageType) ? usageType.trim() : null;
+        Integer successFilter = resolveSuccessFilter(success);
+        List<TokenUsageLogRow> rows = tokenUsageMapper.pageLogs(
+                tenantId, agentId, trimmedUsageType, null, null, trimmedKeyword, successFilter, 0, 5000);
+        StringBuilder csv = new StringBuilder();
+        csv.append('\uFEFF');
+        csv.append("时间,状态,Agent,模型,类型,输入Tokens,输出Tokens,总Tokens,耗时(ms),成本,Trace ID,错误信息\n");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        for (TokenUsageLogRow row : rows) {
+            TokenUsageLogVO vo = toVO(row);
+            csv.append(csvCell(vo.getCreatedAt() != null ? vo.getCreatedAt().format(formatter) : "")).append(',')
+                    .append(csvCell(vo.getStatusLabel())).append(',')
+                    .append(csvCell(vo.getAgentName())).append(',')
+                    .append(csvCell(vo.getDisplayName())).append(',')
+                    .append(csvCell(vo.getUsageType())).append(',')
+                    .append(vo.getInputTokens() != null ? vo.getInputTokens() : 0).append(',')
+                    .append(vo.getOutputTokens() != null ? vo.getOutputTokens() : 0).append(',')
+                    .append(vo.getTotalTokens() != null ? vo.getTotalTokens() : 0).append(',')
+                    .append(vo.getLatencyMs() != null ? vo.getLatencyMs() : 0).append(',')
+                    .append(csvCell(vo.getCostLabel())).append(',')
+                    .append(csvCell(vo.getTraceId())).append(',')
+                    .append(csvCell(vo.getErrorMessage()))
+                    .append('\n');
+        }
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String csvCell(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String escaped = value.replace("\"", "\"\"");
+        if (escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n")) {
+            return "\"" + escaped + "\"";
+        }
+        return escaped;
     }
 
     private TokenUsageLogVO toVO(TokenUsageLogRow row) {

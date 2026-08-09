@@ -184,7 +184,12 @@
                   <p class="dashboard-empty-hint">可在 <router-link to="/log">调用日志</router-link> 查看完整记录</p>
                 </template>
               </a-empty>
-              <div v-for="record in displayLogs" :key="record.name + record.time" class="log-row">
+              <router-link
+                v-for="record in displayLogs"
+                :key="`${record.logId || record.name}-${record.time}`"
+                :to="resolveLogPath(record)"
+                class="log-row log-link"
+              >
                 <span class="log-name" :title="record.name">{{ record.name }}</span>
                 <span class="log-status" :class="record.success ? 'success' : 'failed'">
                   <CheckCircleOutlined v-if="record.success" class="log-status-icon" />
@@ -194,7 +199,7 @@
                 <span class="log-time">{{ record.time }}</span>
                 <span class="log-duration">{{ record.duration }}</span>
                 <span class="log-tokens">{{ formatLogTokens(record) }}</span>
-              </div>
+              </router-link>
             </div>
           </div>
         </div>
@@ -312,6 +317,16 @@ const quickTiles = computed(() =>
 function formatLogTokens(record: RecentLog) {
   if (!record.success || record.tokens == null) return '-'
   return `${record.tokens.toLocaleString()} Tokens`
+}
+
+function resolveLogPath(record: RecentLog) {
+  if (record.traceId) {
+    return `/trace?traceId=${encodeURIComponent(record.traceId)}`
+  }
+  if (record.logId) {
+    return `/log?logId=${record.logId}`
+  }
+  return '/log'
 }
 
 const displayRecentItems = computed(() => {
@@ -1473,6 +1488,16 @@ onMounted(async () => {
 
 .log-row:last-child {
   border-bottom: none;
+}
+
+.log-link {
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.log-link:hover {
+  background: rgba(22, 119, 255, 0.04);
 }
 
 .log-name {

@@ -40,3 +40,15 @@ export function fetchTokenUsageLogs(params?: {
 }) {
   return request.get<ApiResult<TokenUsageLogPage>>('/v1/token-usage/logs', { params })
 }
+
+export function exportTokenUsageLogs(params?: {
+  agentId?: number
+  keyword?: string
+  success?: boolean
+  usageType?: string
+}) {
+  return request.get('/v1/token-usage/logs/export', {
+    params,
+    responseType: 'blob',
+  })
+}

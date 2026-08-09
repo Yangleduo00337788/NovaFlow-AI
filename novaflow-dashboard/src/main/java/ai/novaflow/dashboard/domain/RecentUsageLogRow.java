@@ -7,9 +7,11 @@ import java.time.LocalDateTime;
 @Data
 public class RecentUsageLogRow {
 
+    private Long id;
     private String agentName;
     private Integer totalTokens;
     private Integer latencyMs;
     private LocalDateTime createdAt;
     private Integer success;
+    private String traceId;
 }
