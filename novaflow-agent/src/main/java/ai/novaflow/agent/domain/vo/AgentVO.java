@@ -43,6 +43,7 @@ public class AgentVO {
     private Float hybridAlpha;
     private List<Long> knowledgeBaseIds;
     private List<Long> toolIds;
+    private List<Long> skillIds;
     private List<HttpToolDefinition> tools;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -69,7 +69,8 @@
     <a-drawer
       v-model:open="drawerOpen"
       :title="editingId ? '编辑 Agent' : '创建 Agent'"
-      :width="editingId ? 1080 : 720"
+      :width="editingId ? 1200 : 720"
+      :body-style="editDrawerBodyStyle"
       @close="resetForm"
     >
       <div class="drawer-body" :class="{ split: !!editingId }">
@@ -240,16 +241,33 @@
                   v-model:value="form.toolIds"
                   mode="multiple"
                   allow-clear
-                  placeholder="从工具市场选择 HTTP / MCP 工具"
+                  placeholder="从工具市场选择 MCP 插件工具"
                   :loading="toolsLoading"
                   :options="toolOptions"
                 />
                 <div class="tool-market-hint">
-                  还没有工具？
-                  <router-link to="/tool" target="_blank">前往工具市场注册</router-link>
+                  还没有 MCP 工具？
+                  <router-link to="/tool" target="_blank">前往工具市场配置</router-link>
                 </div>
               </a-form-item>
             </template>
+            <a-form-item v-if="form.agentType !== 'workflow'">
+              <template #label>
+                <FormLabelTip label="关联技能" :tip="AGENT_FIELD_TIPS.skillIds" />
+              </template>
+              <a-select
+                v-model:value="form.skillIds"
+                mode="multiple"
+                allow-clear
+                placeholder="从工具市场选择已上传的 Skill"
+                :loading="skillsLoading"
+                :options="skillOptions"
+              />
+              <div class="tool-market-hint">
+                还没有技能？
+                <router-link to="/tool" target="_blank">前往工具市场上传 SKILL.md</router-link>
+              </div>
+            </a-form-item>
             <a-form-item>
               <template #label>
                 <FormLabelTip label="Prompt 模板" :tip="AGENT_FIELD_TIPS.promptTemplateId" />
@@ -473,7 +491,7 @@ import {
 } from '@/api/agent'
 import { fetchKnowledgeBases, type KnowledgeBaseItem } from '@/api/knowledge'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
-import { fetchToolOptions, type ToolDefinition } from '@/api/tool'
+import { fetchToolOptions, fetchSkillOptions, type ToolDefinition } from '@/api/tool'
 import { fetchPromptOptions, type PromptTemplate } from '@/api/prompt'
 import { fetchApplicationOptions, type ApplicationItem } from '@/api/application'
 import { fetchWorkflowOptions } from '@/api/workflow'
@@ -482,12 +500,13 @@ import { formatDateTime } from '@/utils/datetime'
 const AGENT_FIELD_TIPS = {
   agentName: 'Agent 的显示名称，会出现在列表、调试对话和对外 API 的标识中。',
   agentType:
-    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 HTTP 工具；Workflow 绑定已发布工作流并按编排执行。',
+    '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 MCP 插件工具；Workflow 绑定已发布工作流并按编排执行。',
   description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
   applicationId: 'Agent 所属应用。应用用于聚合多个 Agent 与知识库，并作为统一发布入口。',
   modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
   knowledgeBaseIds: 'RAG Agent 进行向量检索的知识库，支持多选。每次提问会从中召回与问题最相关的文档分块作为参考。',
-  toolIds: '从工具市场选择已注册的 HTTP 工具，支持多选。Tool Agent 将根据用户问题自动决定调用哪些工具。',
+  toolIds: '从工具市场选择已同步的 MCP 插件工具，支持多选。Tool Agent 将根据用户问题自动决定调用哪些工具。',
+  skillIds: '从工具市场选择已上传的 Skill 技能，支持多选。技能内容会注入 System Prompt，指导 Agent 如何回答与处理流程，不会被当作可调用工具。',
   retrievalTopK:
     '每次提问最多召回的文档分块数量。数值越大上下文越丰富，但可能引入无关内容；一般建议 3–10。',
   retrievalScoreThreshold:
@@ -516,9 +535,11 @@ const chatModels = ref<ModelConfigItem[]>([])
 const rerankModels = ref<ModelConfigItem[]>([])
 const knowledgeBases = ref<KnowledgeBaseItem[]>([])
 const marketplaceTools = ref<ToolDefinition[]>([])
+const marketplaceSkills = ref<ToolDefinition[]>([])
 const promptTemplates = ref<PromptTemplate[]>([])
 const applications = ref<ApplicationItem[]>([])
 const toolsLoading = ref(false)
+const skillsLoading = ref(false)
 const promptsLoading = ref(false)
 const applicationsLoading = ref(false)
 const workflowsLoading = ref(false)
@@ -543,6 +564,13 @@ const revealedApiKey = ref('')
 const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin
 
 const debugDrawerWidth = computed(() => (debugWideLayout.value ? '100vw' : '50vw'))
+const editDrawerBodyStyle = {
+  padding: '0',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+}
 const debugDrawerBodyStyle = {
   padding: '0',
   overflow: 'hidden',
@@ -586,6 +614,7 @@ const form = reactive<AgentSaveRequest>({
   modelConfigId: undefined,
   knowledgeBaseIds: [],
   toolIds: [],
+  skillIds: [],
   promptTemplateId: undefined,
   promptRefMode: undefined,
   promptTemplateCurrentVersion: undefined,
@@ -619,6 +648,13 @@ const knowledgeBaseOptions = computed(() =>
 
 const toolOptions = computed(() =>
   marketplaceTools.value.map((item) => ({
+    value: item.id,
+    label: `${item.displayName}（${item.toolName}）`,
+  })),
+)
+
+const skillOptions = computed(() =>
+  marketplaceSkills.value.map((item) => ({
     value: item.id,
     label: `${item.displayName}（${item.toolName}）`,
   })),
@@ -722,6 +758,7 @@ function resetForm() {
     modelConfigId: undefined,
     knowledgeBaseIds: [],
     toolIds: [],
+    skillIds: [],
     promptTemplateId: undefined,
     promptRefMode: undefined,
     promptTemplateCurrentVersion: undefined,
@@ -806,6 +843,16 @@ async function loadMarketplaceTools() {
   }
 }
 
+async function loadMarketplaceSkills() {
+  skillsLoading.value = true
+  try {
+    const res = await fetchSkillOptions()
+    marketplaceSkills.value = res.data.data
+  } finally {
+    skillsLoading.value = false
+  }
+}
+
 async function loadKnowledgeBases() {
   knowledgeBasesLoading.value = true
   try {
@@ -842,6 +889,7 @@ function openCreate() {
   loadRerankModels()
   loadKnowledgeBases()
   loadMarketplaceTools()
+  loadMarketplaceSkills()
   loadPromptTemplates()
   loadApplications()
   loadWorkflowOptions()
@@ -853,6 +901,7 @@ async function openEdit(id: number) {
   loadRerankModels()
   loadKnowledgeBases()
   loadMarketplaceTools()
+  loadMarketplaceSkills()
   loadPromptTemplates()
   loadApplications()
   const res = await fetchAgent(id)
@@ -863,6 +912,7 @@ async function openEdit(id: number) {
     ...data,
     hybridAlpha: data.hybridAlpha ?? 0.7,
     toolIds: data.toolIds || [],
+    skillIds: data.skillIds || [],
     promptRefMode: data.promptRefMode || undefined,
     promptTemplateCurrentVersion: data.promptTemplateCurrentVersion,
   })
@@ -970,7 +1020,7 @@ async function onSave() {
     }
   }
   if (form.agentType === 'tool' && (!form.toolIds || form.toolIds.length === 0)) {
-    message.warning('Tool Agent 请至少选择一个工具市场的 HTTP 工具')
+    message.warning('Tool Agent 请至少选择一个 MCP 插件工具')
     return
   }
   if (form.agentType === 'workflow' && !form.workflowId) {
@@ -1037,25 +1087,40 @@ onMounted(async () => {
 }
 
 .drawer-body {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .drawer-body.split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0;
-  margin: -24px;
-  min-height: calc(100vh - 120px);
 }
 
 .config-panel {
   padding: 24px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .debug-side {
-  min-height: 100%;
+  min-height: 0;
   height: 100%;
+  overflow: hidden;
+}
+
+:deep(.ant-drawer-content-wrapper),
+:deep(.ant-drawer-content) {
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.ant-drawer-body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .debug-only-drawer :deep(.ant-drawer-content-wrapper),

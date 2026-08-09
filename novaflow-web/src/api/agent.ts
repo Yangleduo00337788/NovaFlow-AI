@@ -27,6 +27,7 @@ export interface AgentItem {
   hybridAlpha?: number
   knowledgeBaseIds?: number[]
   toolIds?: number[]
+  skillIds?: number[]
   promptTemplateId?: number
   promptTemplateVersionId?: number
   promptRefMode?: 'reference' | 'copy' | null
@@ -79,6 +80,7 @@ export interface AgentSaveRequest {
   hybridAlpha?: number
   knowledgeBaseIds?: number[]
   toolIds?: number[]
+  skillIds?: number[]
   promptTemplateId?: number
   promptTemplateVersionId?: number
   promptRefMode?: 'reference' | 'copy' | null

@@ -3,25 +3,32 @@
     <div class="page-header">
       <div>
         <h1>工具市场</h1>
-        <p>{{ activeTab === 'http' ? '注册可复用的 HTTP 工具，供多个 Agent 共享调用' : '注册 MCP Server（command/args/env），连接后自动发现工具' }}</p>
+        <p>{{ pageSubtitle }}</p>
       </div>
       <a-button type="primary" data-testid="create-tool-btn" @click="onCreateClick">
         <PlusOutlined />
-        {{ activeTab === 'http' ? '注册工具' : '注册 MCP' }}
+        {{ createButtonLabel }}
       </a-button>
     </div>
 
     <a-tabs v-model:activeKey="activeTab" @change="onTabChange">
-      <a-tab-pane key="http" tab="HTTP 工具">
+      <a-tab-pane key="skill" tab="Skill 技能">
+        <div class="concept-banner page-card">
+          <div class="concept-banner__title">Skill = 流程与知识</div>
+          <p>
+            上传符合 Agent Skills 标准的 <code>SKILL.md</code> 文件，为 Agent 注入流程与领域知识。
+            技能不会作为可调用工具，而是在对话时指导 Agent「怎么做」。
+          </p>
+        </div>
     <div class="toolbar page-card">
       <a-input-search
         v-model:value="keyword"
-        placeholder="搜索工具名称或标识"
+        placeholder="搜索技能名称或标识"
         style="width: 280px"
         allow-clear
         @search="loadData"
       />
-      <span class="toolbar-meta">共 {{ total }} 个工具</span>
+      <span class="toolbar-meta">共 {{ total }} 个技能</span>
     </div>
 
     <a-spin :spinning="loading">
@@ -33,8 +40,8 @@
           :data-testid="`tool-card-${item.id}`"
         >
           <div class="tool-card-head">
-            <div class="tool-icon">
-              <ApiOutlined />
+            <div class="tool-icon skill">
+              <ThunderboltOutlined />
             </div>
             <div class="tool-title-wrap">
               <h3>{{ item.displayName }}</h3>
@@ -43,25 +50,23 @@
           </div>
           <p class="tool-desc">{{ item.description || '暂无描述' }}</p>
           <div class="tool-meta">
-            <a-tag>{{ item.method || 'GET' }}</a-tag>
-            <a-tag v-if="item.toolType === 'mcp'" color="orange">MCP</a-tag>
-            <span class="tool-url" :title="item.toolType === 'mcp' ? (item.mcpToolName || item.displayName) : item.url">
-              {{ item.toolType === 'mcp' ? (item.mcpToolName || item.displayName) : item.url }}
-            </span>
+            <a-tag color="purple">Skill</a-tag>
+            <span class="tool-url" :title="item.skillFileName">{{ item.skillFileName || 'SKILL.md' }}</span>
           </div>
+          <p v-if="item.skillContentPreview" class="skill-preview">{{ item.skillContentPreview }}</p>
           <div class="tool-footer">
             <span class="tool-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
           <div class="tool-actions">
-            <a-button v-if="item.toolType !== 'mcp'" type="link" size="small" @click="openTest(item)">测试</a-button>
-            <a-button v-if="item.toolType !== 'mcp'" type="link" size="small" @click="openEdit(item)">编辑</a-button>
-            <a-popconfirm title="确认删除该工具？" @confirm="onDelete(item.id)">
+            <a-button type="link" size="small" @click="openSkillView(item)">查看</a-button>
+            <a-button type="link" size="small" @click="openSkillReupload(item)">重新上传</a-button>
+            <a-popconfirm title="确认删除该技能？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
           </div>
         </div>
       </div>
-      <a-empty v-else description="暂无工具，点击右上角注册" />
+      <a-empty v-else description="暂无技能，点击右上角上传 SKILL.md" />
     </a-spin>
 
     <div v-if="total > pageSize" class="pagination-wrap">
@@ -75,7 +80,19 @@
     </div>
       </a-tab-pane>
 
-      <a-tab-pane key="mcp" tab="MCP 服务">
+      <a-tab-pane key="mcp" tab="MCP 插件">
+        <div class="concept-banner page-card">
+          <div class="concept-banner__title">MCP = 插件与连接</div>
+          <p>
+            插件让 Agent「能连上外部系统」：通过 Model Context Protocol 连接数据库、API、文件系统等，
+            由独立进程暴露 tools / resources（对应 MCP Server / Plugin 连接层）。
+          </p>
+        </div>
+        <div class="section-block">
+          <div class="section-header">
+            <h2>插件服务</h2>
+            <p>注册并连接 MCP Server，发现工具后可同步到下方插件市场</p>
+          </div>
         <div class="toolbar page-card">
           <a-input-search
             v-model:value="mcpKeyword"
@@ -135,105 +152,134 @@
               </div>
             </div>
           </div>
-          <a-empty v-else description="暂无 MCP 服务，点击右上角注册" />
+          <a-empty v-else description="暂无 MCP 插件，点击右上角配置" />
         </a-spin>
+        </div>
+
+        <div class="section-block">
+          <div class="section-header">
+            <h2>插件工具</h2>
+            <p>从 MCP 插件同步到市场的可调用工具，可在 Agent 中直接选用</p>
+          </div>
+          <div class="toolbar page-card">
+            <a-input-search
+              v-model:value="mcpMarketKeyword"
+              placeholder="搜索插件工具名称"
+              style="width: 280px"
+              allow-clear
+              @search="loadMcpMarketData"
+            />
+            <span class="toolbar-meta">共 {{ mcpMarketTotal }} 个插件工具</span>
+          </div>
+
+          <a-spin :spinning="mcpMarketLoading">
+            <div v-if="mcpMarketList.length" class="tool-grid">
+              <div
+                v-for="item in mcpMarketList"
+                :key="item.id"
+                class="tool-card page-card"
+                :data-testid="`mcp-tool-card-${item.id}`"
+              >
+                <div class="tool-card-head">
+                  <div class="tool-icon mcp">
+                    <ApiOutlined />
+                  </div>
+                  <div class="tool-title-wrap">
+                    <h3>{{ item.displayName }}</h3>
+                    <p class="tool-name">{{ item.toolName }}</p>
+                  </div>
+                </div>
+                <p class="tool-desc">{{ item.description || '暂无描述' }}</p>
+                <div class="tool-meta">
+                  <a-tag color="orange">MCP 插件</a-tag>
+                  <span class="tool-url" :title="item.sourceServerName || item.mcpToolName">
+                    {{ item.sourceServerName || item.mcpToolName || 'MCP 工具' }}
+                  </span>
+                </div>
+                <div class="tool-footer">
+                  <span class="tool-time">{{ formatDateTime(item.updatedAt) }}</span>
+                </div>
+                <div class="tool-actions">
+                  <a-popconfirm title="确认删除该插件工具？" @confirm="onDeleteMcpMarketTool(item.id)">
+                    <a-button type="link" size="small" danger>删除</a-button>
+                  </a-popconfirm>
+                </div>
+              </div>
+            </div>
+            <a-empty v-else description="暂无插件工具，请先在上方插件服务中执行「同步市场」" />
+          </a-spin>
+
+          <div v-if="mcpMarketTotal > mcpMarketPageSize" class="pagination-wrap">
+            <a-pagination
+              v-model:current="mcpMarketPage"
+              :total="mcpMarketTotal"
+              :page-size="mcpMarketPageSize"
+              show-less-items
+              @change="loadMcpMarketData"
+            />
+          </div>
+        </div>
       </a-tab-pane>
     </a-tabs>
 
     <a-drawer
-      v-model:open="drawerOpen"
-      :title="editingId ? '编辑工具' : '注册工具'"
-      :width="640"
-      @close="resetForm"
+      v-model:open="skillUploadOpen"
+      :title="skillReuploadId ? '重新上传技能' : '上传技能'"
+      :width="560"
+      @close="resetSkillUpload"
     >
-      <a-form layout="vertical" :model="form">
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="工具标识" required>
-              <a-input
-                v-model:value="form.toolName"
-                placeholder="get_weather"
-                :disabled="!!editingId"
-                data-testid="tool-name-input"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="显示名称" required>
-              <a-input v-model:value="form.displayName" placeholder="天气查询" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="描述">
-          <a-textarea v-model:value="form.description" :rows="2" placeholder="帮助模型判断何时调用此工具" />
-        </a-form-item>
-        <a-row :gutter="16">
-          <a-col :span="6">
-            <a-form-item label="请求方法" required>
-              <a-select v-model:value="form.method" :options="methodOptions" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="18">
-            <a-form-item label="请求 URL" required>
-              <a-input v-model:value="form.url" placeholder="https://api.example.com/weather?city={{city}}" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item v-if="isBodyMethod(form.method)" label="Body 模板">
-          <a-textarea
-            v-model:value="form.bodyTemplate"
-            :rows="4"
-            placeholder='{"city":"{{city}}"}'
-          />
-        </a-form-item>
-        <a-form-item label="参数 Schema（OpenAI JSON Schema）">
-          <a-textarea
-            v-model:value="inputSchemaJson"
-            :rows="6"
-            placeholder='{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}'
-          />
-        </a-form-item>
-        <a-button type="primary" :loading="saving" data-testid="save-tool-btn" @click="onSave">保存</a-button>
-      </a-form>
+      <p class="upload-hint">
+        请上传 <code>SKILL.md</code> 文件。支持 YAML frontmatter（<code>name</code>、<code>description</code>）自动解析名称与描述。
+      </p>
+      <a-upload-dragger
+        :file-list="skillFileList"
+        accept=".md"
+        :max-count="1"
+        :before-upload="beforeSkillUpload"
+        @remove="onSkillFileRemove"
+      >
+        <p class="ant-upload-drag-icon">
+          <InboxOutlined />
+        </p>
+        <p class="ant-upload-text">点击或拖拽 SKILL.md 到此处</p>
+        <p class="ant-upload-hint">仅支持 .md 格式，最大 512KB</p>
+      </a-upload-dragger>
+      <a-button
+        type="primary"
+        block
+        :loading="skillUploading"
+        style="margin-top: 16px"
+        :disabled="!skillUploadFile"
+        @click="submitSkillUpload"
+      >
+        {{ skillReuploadId ? '确认重新上传' : '确认上传' }}
+      </a-button>
     </a-drawer>
 
-    <a-modal
-      v-model:open="testOpen"
-      title="测试工具"
-      :footer="null"
-      width="720px"
-      @cancel="resetTest"
+    <a-drawer
+      v-model:open="skillViewOpen"
+      :title="skillViewItem ? `${skillViewItem.displayName} · 技能内容` : '技能内容'"
+      :width="720"
+      @close="resetSkillView"
     >
-      <div v-if="testingTool" class="test-modal">
-        <p class="test-target">{{ testingTool.displayName }}（{{ testingTool.toolName }}）</p>
-        <a-textarea
-          v-model:value="testArgsJson"
-          :rows="6"
-          placeholder='{"city":"北京"}'
-        />
-        <a-button type="primary" :loading="testLoading" style="margin-top: 12px" @click="runTest">
-          执行测试
-        </a-button>
-        <div v-if="testResult" class="test-result">
-          <a-alert
-            :type="testResult.success ? 'success' : 'error'"
-            :message="testResult.success ? '调用成功' : '调用失败'"
-            show-icon
-            style="margin-top: 16px"
-          />
-          <pre class="result-box">{{ testResult.success ? testResult.result : testResult.error }}</pre>
+      <a-spin :spinning="skillViewLoading">
+        <div v-if="skillViewItem" class="skill-view-meta">
+          <a-tag color="purple">Skill</a-tag>
+          <span>{{ skillViewItem.skillFileName || 'SKILL.md' }}</span>
         </div>
-      </div>
-    </a-modal>
+        <pre v-if="skillViewContent" class="skill-content">{{ skillViewContent }}</pre>
+        <a-empty v-else description="暂无内容" />
+      </a-spin>
+    </a-drawer>
 
-    <a-drawer v-model:open="mcpDrawerOpen" title="注册 MCP 服务" :width="640" @close="resetMcpForm">
+    <a-drawer v-model:open="mcpDrawerOpen" title="配置 MCP 插件" :width="640" @close="resetMcpForm">
       <a-form layout="vertical" :model="mcpForm">
-        <a-form-item label="服务名称" required>
+        <a-form-item label="插件名称" required>
           <a-input v-model:value="mcpForm.serverName" placeholder="example-server" />
           <div class="form-hint">若使用 mcpServers 完整配置，名称需与 JSON 中的 key 一致</div>
         </a-form-item>
         <a-form-item label="描述">
-          <a-textarea v-model:value="mcpForm.description" :rows="2" placeholder="图像生成 MCP 服务" />
+          <a-textarea v-model:value="mcpForm.description" :rows="2" placeholder="图像生成 MCP 插件" />
         </a-form-item>
         <a-form-item label="服务配置（JSON）" required>
           <a-textarea
@@ -272,17 +318,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
-import { ApiOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import type { UploadFile } from 'ant-design-vue'
+import { ApiOutlined, InboxOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import {
-  createTool,
   deleteTool,
+  fetchTool,
   fetchTools,
-  testTool,
-  updateTool,
+  reuploadSkill,
+  uploadSkill,
   type ToolDefinition,
-  type ToolSaveRequest,
 } from '@/api/tool'
 import {
   connectMcpServer,
@@ -296,40 +342,33 @@ import {
 } from '@/api/mcp'
 import { formatDateTime } from '@/utils/datetime'
 
-const activeTab = ref('http')
+const activeTab = ref('skill')
+
+const pageSubtitle = computed(() =>
+  activeTab.value === 'skill'
+    ? 'Skill 技能：上传 SKILL.md，为 Agent 注入流程与领域知识'
+    : 'MCP 插件：配置外部连接并同步可调用工具',
+)
+
+const createButtonLabel = computed(() =>
+  activeTab.value === 'skill' ? '上传技能' : '配置 MCP 插件',
+)
 const loading = ref(false)
-const saving = ref(false)
 const list = ref<ToolDefinition[]>([])
 const keyword = ref('')
 const page = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
 
-const drawerOpen = ref(false)
-const editingId = ref<number | null>(null)
-const inputSchemaJson = ref('')
-const form = reactive<ToolSaveRequest>({
-  toolName: '',
-  displayName: '',
-  description: '',
-  toolType: 'http',
-  method: 'GET',
-  url: '',
-  bodyTemplate: '',
-})
-
-const methodOptions = [
-  { value: 'GET', label: 'GET' },
-  { value: 'POST', label: 'POST' },
-  { value: 'PUT', label: 'PUT' },
-  { value: 'PATCH', label: 'PATCH' },
-]
-
-const testOpen = ref(false)
-const testingTool = ref<ToolDefinition | null>(null)
-const testArgsJson = ref('{}')
-const testLoading = ref(false)
-const testResult = ref<{ success: boolean; result?: string; error?: string } | null>(null)
+const skillUploadOpen = ref(false)
+const skillReuploadId = ref<number | null>(null)
+const skillUploadFile = ref<File | null>(null)
+const skillFileList = ref<UploadFile[]>([])
+const skillUploading = ref(false)
+const skillViewOpen = ref(false)
+const skillViewLoading = ref(false)
+const skillViewItem = ref<ToolDefinition | null>(null)
+const skillViewContent = ref('')
 
 const mcpLoading = ref(false)
 const mcpSaving = ref(false)
@@ -345,6 +384,12 @@ const mcpToolsLoading = ref(false)
 const mcpToolsServer = ref<McpServer | null>(null)
 const mcpTools = ref<McpDiscoveredTool[]>([])
 const mcpToolsCache = ref<Record<number, McpDiscoveredTool[]>>({})
+const mcpMarketLoading = ref(false)
+const mcpMarketList = ref<ToolDefinition[]>([])
+const mcpMarketKeyword = ref('')
+const mcpMarketPage = ref(1)
+const mcpMarketPageSize = 12
+const mcpMarketTotal = ref(0)
 const mcpForm = reactive({
   serverName: '',
   description: '',
@@ -367,12 +412,15 @@ function onCreateClick() {
     mcpDrawerOpen.value = true
     return
   }
-  openCreate()
+  openSkillUpload()
 }
 
 function onTabChange(key: string | number) {
-  if (key === 'mcp' && !mcpList.value.length) {
-    loadMcpData()
+  if (key === 'mcp') {
+    if (!mcpList.value.length) {
+      loadMcpData()
+    }
+    loadMcpMarketData()
   }
 }
 
@@ -436,8 +484,9 @@ async function onMcpSync(item: McpServer) {
   try {
     const res = await syncMcpServerTools(item.id)
     const result = res.data.data
-    message.success(result.message || `已同步 ${result.syncedToolCount} 个工具到工具市场`)
+    message.success(result.message || `已同步 ${result.syncedToolCount} 个插件工具到市场`)
     loadMcpData()
+    loadMcpMarketData()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '同步失败')
   } finally {
@@ -477,7 +526,7 @@ function formatSchema(schema: Record<string, unknown>) {
 
 async function onMcpSave() {
   if (!mcpForm.serverName.trim()) {
-    message.warning('请填写服务名称')
+    message.warning('请填写插件名称')
     return
   }
   if (!mcpConfigJson.value.trim()) {
@@ -497,7 +546,7 @@ async function onMcpSave() {
       description: mcpForm.description.trim() || undefined,
       serverConfig: mcpConfigJson.value.trim(),
     })
-    message.success('MCP 服务已注册')
+    message.success('MCP 插件已注册')
     mcpDrawerOpen.value = false
     loadMcpData()
   } catch (e) {
@@ -517,103 +566,124 @@ async function onMcpDelete(id: number) {
   }
 }
 
-function isBodyMethod(method?: string) {
-  const normalized = (method || 'GET').toUpperCase()
-  return normalized === 'POST' || normalized === 'PUT' || normalized === 'PATCH'
+function resetSkillUpload() {
+  skillReuploadId.value = null
+  skillUploadFile.value = null
+  skillFileList.value = []
+}
+
+function openSkillUpload() {
+  resetSkillUpload()
+  skillUploadOpen.value = true
+}
+
+function openSkillReupload(item: ToolDefinition) {
+  skillReuploadId.value = item.id
+  skillUploadFile.value = null
+  skillFileList.value = []
+  skillUploadOpen.value = true
+}
+
+function beforeSkillUpload(file: File) {
+  if (!file.name.toLowerCase().endsWith('.md')) {
+    message.warning('仅支持 .md 格式的 Skill 文件')
+    return false
+  }
+  skillUploadFile.value = file
+  skillFileList.value = [{ uid: String(Date.now()), name: file.name, status: 'done' }]
+  return false
+}
+
+function onSkillFileRemove() {
+  skillUploadFile.value = null
+  skillFileList.value = []
+}
+
+async function submitSkillUpload() {
+  if (!skillUploadFile.value) {
+    message.warning('请先选择 SKILL.md 文件')
+    return
+  }
+  skillUploading.value = true
+  try {
+    if (skillReuploadId.value) {
+      await reuploadSkill(skillReuploadId.value, skillUploadFile.value)
+      message.success('技能已更新')
+    } else {
+      await uploadSkill(skillUploadFile.value)
+      message.success('技能上传成功')
+    }
+    skillUploadOpen.value = false
+    resetSkillUpload()
+    loadData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '上传失败')
+  } finally {
+    skillUploading.value = false
+  }
+}
+
+async function openSkillView(item: ToolDefinition) {
+  skillViewItem.value = item
+  skillViewContent.value = ''
+  skillViewOpen.value = true
+  skillViewLoading.value = true
+  try {
+    const res = await fetchTool(item.id)
+    skillViewItem.value = res.data.data
+    skillViewContent.value = res.data.data.skillContent || res.data.data.skillContentPreview || ''
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载技能内容失败')
+  } finally {
+    skillViewLoading.value = false
+  }
+}
+
+function resetSkillView() {
+  skillViewItem.value = null
+  skillViewContent.value = ''
+}
+
+async function loadMcpMarketData() {
+  mcpMarketLoading.value = true
+  try {
+    const res = await fetchTools({
+      page: mcpMarketPage.value,
+      pageSize: mcpMarketPageSize,
+      keyword: mcpMarketKeyword.value || undefined,
+      toolType: 'mcp',
+    })
+    mcpMarketList.value = res.data.data.list
+    mcpMarketTotal.value = res.data.data.total
+  } finally {
+    mcpMarketLoading.value = false
+  }
+}
+
+async function onDeleteMcpMarketTool(id: number) {
+  try {
+    await deleteTool(id)
+    message.success('删除成功')
+    loadMcpMarketData()
+    loadMcpData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '删除失败')
+  }
 }
 
 async function loadData() {
   loading.value = true
   try {
-    const res = await fetchTools({ page: page.value, pageSize: pageSize.value, keyword: keyword.value || undefined })
+    const res = await fetchTools({
+      page: page.value,
+      pageSize: pageSize.value,
+      keyword: keyword.value || undefined,
+      toolType: 'skill',
+    })
     list.value = res.data.data.list
     total.value = res.data.data.total
   } finally {
     loading.value = false
-  }
-}
-
-function resetForm() {
-  editingId.value = null
-  inputSchemaJson.value = ''
-  Object.assign(form, {
-    toolName: '',
-    displayName: '',
-    description: '',
-    toolType: 'http',
-    method: 'GET',
-    url: '',
-    bodyTemplate: '',
-  })
-}
-
-function openCreate() {
-  resetForm()
-  drawerOpen.value = true
-}
-
-function openEdit(item: ToolDefinition) {
-  editingId.value = item.id
-  Object.assign(form, {
-    toolName: item.toolName,
-    displayName: item.displayName,
-    description: item.description || '',
-    toolType: item.toolType || 'http',
-    method: item.method || 'GET',
-    url: item.url || '',
-    bodyTemplate: item.bodyTemplate || '',
-  })
-  inputSchemaJson.value = item.inputSchema ? JSON.stringify(item.inputSchema, null, 2) : ''
-  drawerOpen.value = true
-}
-
-function openTest(item: ToolDefinition) {
-  testingTool.value = item
-  testArgsJson.value = '{}'
-  testResult.value = null
-  testOpen.value = true
-}
-
-function resetTest() {
-  testingTool.value = null
-  testResult.value = null
-}
-
-async function onSave() {
-  if (!form.toolName?.trim() || !form.displayName?.trim() || !form.url?.trim()) {
-    message.warning('请填写工具标识、显示名称和 URL')
-    return
-  }
-  let inputSchema: Record<string, unknown> | undefined
-  if (inputSchemaJson.value.trim()) {
-    try {
-      inputSchema = JSON.parse(inputSchemaJson.value) as Record<string, unknown>
-    } catch {
-      message.error('参数 Schema JSON 格式不正确')
-      return
-    }
-  }
-  saving.value = true
-  try {
-    const payload: ToolSaveRequest = {
-      ...form,
-      toolName: form.toolName.trim(),
-      displayName: form.displayName.trim(),
-      inputSchema,
-    }
-    if (editingId.value) {
-      await updateTool(editingId.value, payload)
-      message.success('更新成功')
-    } else {
-      await createTool(payload)
-      message.success('注册成功')
-    }
-    drawerOpen.value = false
-    loadData()
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '保存失败')
-  } finally {
-    saving.value = false
   }
 }
 
@@ -624,28 +694,6 @@ async function onDelete(id: number) {
     loadData()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '删除失败')
-  }
-}
-
-async function runTest() {
-  if (!testingTool.value) return
-  let args: Record<string, unknown> = {}
-  if (testArgsJson.value.trim()) {
-    try {
-      args = JSON.parse(testArgsJson.value) as Record<string, unknown>
-    } catch {
-      message.error('测试参数 JSON 格式不正确')
-      return
-    }
-  }
-  testLoading.value = true
-  try {
-    const res = await testTool(testingTool.value.id, { arguments: args })
-    testResult.value = res.data.data
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '测试失败')
-  } finally {
-    testLoading.value = false
   }
 }
 
@@ -671,6 +719,45 @@ onMounted(loadData)
 
 .page-header p {
   margin: 0;
+  color: var(--text-secondary);
+}
+
+.concept-banner {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+}
+
+.concept-banner__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.concept-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.section-block + .section-block {
+  margin-top: 28px;
+}
+
+.section-header {
+  margin-bottom: 12px;
+}
+
+.section-header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.section-header p {
+  margin: 0;
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
@@ -725,8 +812,13 @@ onMounted(loadData)
 }
 
 .tool-icon.mcp {
-  background: rgba(250, 140, 22, 0.12);
-  color: #fa8c16;
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.tool-icon.skill {
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 .tool-title-wrap h3 {
@@ -800,21 +892,51 @@ onMounted(loadData)
   margin-top: 20px;
 }
 
-.test-target {
-  margin-bottom: 8px;
+.upload-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--text-secondary);
 }
 
-.result-box {
-  margin-top: 12px;
-  padding: 12px;
+.skill-preview {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skill-view-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.skill-content {
+  margin: 0;
+  padding: 14px;
   background: var(--bg-muted, #f8fafc);
   border-radius: 8px;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 320px;
+  max-height: calc(100vh - 180px);
   overflow: auto;
   font-size: 12px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
 }
 
 .mcp-tools-list {

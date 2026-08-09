@@ -2,6 +2,7 @@ package ai.novaflow.tool.util;
 
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.tool.domain.McpToolDefinition;
+import ai.novaflow.tool.domain.SkillDefinition;
 import ai.novaflow.tool.entity.ToolDefinitionEntity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,6 +94,35 @@ public class ToolConfigConverter {
             // 保持最小可用定义
         }
         return tool;
+    }
+
+    public SkillDefinition toSkill(ToolDefinitionEntity entity) {
+        SkillDefinition.SkillDefinitionBuilder builder = SkillDefinition.builder();
+        if (!StringUtils.hasText(entity.getToolConfig())) {
+            return builder.build();
+        }
+        try {
+            Map<String, Object> config = objectMapper.readValue(
+                    entity.getToolConfig(),
+                    new TypeReference<Map<String, Object>>() {}
+            );
+            builder.fileName(stringValue(config.get("fileName"), null));
+            builder.content(stringValue(config.get("content"), null));
+        } catch (Exception ignored) {
+            // 保持最小可用定义
+        }
+        return builder.build();
+    }
+
+    public String serializeSkill(SkillDefinition skill) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("fileName", skill.getFileName());
+        config.put("content", skill.getContent());
+        try {
+            return objectMapper.writeValueAsString(config);
+        } catch (Exception e) {
+            throw new IllegalStateException("Skill 配置序列化失败", e);
+        }
     }
 
     public String serializeMcpConfig(McpToolDefinition tool) {

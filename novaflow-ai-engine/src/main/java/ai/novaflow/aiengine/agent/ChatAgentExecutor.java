@@ -107,6 +107,8 @@ public class ChatAgentExecutor {
         ArrayNode messages = buildOpenAiMessageNodes(request, memory);
         ArrayNode toolSpecs = toolSchemaBuilder.toOpenAiTools(tools);
         OpenAiCompatibleStreamClient.TokenUsageSummary usageSummary = new OpenAiCompatibleStreamClient.TokenUsageSummary();
+        StringBuilder thinkingBuilder = new StringBuilder();
+        final boolean forwardThinking = Boolean.TRUE.equals(request.getModelConfig().getEnableDeepThinking());
 
         try {
             for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -114,6 +116,10 @@ public class ChatAgentExecutor {
                         openAiCompatibleChatClient.chat(request.getModelConfig(), messages, toolSpecs);
                 if (response.getUsage() != null) {
                     usageSummary.updateFrom(response.getUsage());
+                }
+                if (forwardThinking && StringUtils.hasText(response.getReasoningContent())) {
+                    streamThinkingTokens(response.getReasoningContent(), listener);
+                    thinkingBuilder.append(response.getReasoningContent());
                 }
 
                 if (response.getToolCalls() == null || response.getToolCalls().isEmpty()) {
@@ -123,6 +129,7 @@ public class ChatAgentExecutor {
                     memory.add(AiMessage.from(reply));
                     listener.onComplete(ChatExecuteResult.builder()
                             .reply(reply)
+                            .thinking(forwardThinking ? thinkingBuilder.toString() : "")
                             .tokensUsed(usageSummary.totalTokens())
                             .inputTokens(usageSummary.inputTokens())
                             .outputTokens(usageSummary.outputTokens())
@@ -170,6 +177,16 @@ public class ChatAgentExecutor {
         int chunkSize = text.length() > 48 ? 2 : 1;
         for (int i = 0; i < text.length(); i += chunkSize) {
             listener.onToken(text.substring(i, Math.min(text.length(), i + chunkSize)));
+        }
+    }
+
+    private void streamThinkingTokens(String text, ChatStreamListener listener) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        int chunkSize = text.length() > 48 ? 2 : 1;
+        for (int i = 0; i < text.length(); i += chunkSize) {
+            listener.onThinkingToken(text.substring(i, Math.min(text.length(), i + chunkSize)));
         }
     }
 

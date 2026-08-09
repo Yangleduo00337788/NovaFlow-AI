@@ -23,6 +23,9 @@ public class ToolDefinitionVO {
     private String bodyTemplate;
     private Map<String, String> headers;
     private Map<String, Object> inputSchema;
+    private String skillFileName;
+    private String skillContentPreview;
+    private String skillContent;
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

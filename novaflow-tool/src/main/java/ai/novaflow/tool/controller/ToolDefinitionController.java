@@ -32,8 +32,9 @@ public class ToolDefinitionController {
     public ApiResult<PageResult<ToolDefinitionVO>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int pageSize,
-            @RequestParam(required = false) String keyword) {
-        return ApiResult.ok(toolDefinitionService.page(page, pageSize, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String toolType) {
+        return ApiResult.ok(toolDefinitionService.page(page, pageSize, keyword, toolType));
     }
 
     @GetMapping("/options")

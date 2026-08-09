@@ -164,7 +164,7 @@ public class AgentChatService {
     }
 
     private String resolveUserSystemPrompt(AgentVO agent, Long tenantId) {
-        return agentService.resolveRuntimeSystemPrompt(agent, tenantId);
+        return agentService.resolveFullSystemPrompt(agent, tenantId);
     }
 
     private ExecutionPlan buildToolExecutionPlan(ChatContext context, String userMessage) {
@@ -187,6 +187,14 @@ public class AgentChatService {
             String conversationPrefix,
             SseEmitter emitter) {
         chatAgentExecutor.executeToolStream(plan.executeRequest(), new ai.novaflow.aiengine.agent.ChatStreamListener() {
+            @Override
+            public void onThinkingToken(String token) {
+                sendEvent(emitter, AgentDebugStreamEvent.builder()
+                        .type("thinking_token")
+                        .content(token)
+                        .build());
+            }
+
             @Override
             public void onToolCall(String toolName, String arguments) {
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
@@ -220,6 +228,7 @@ public class AgentChatService {
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("done")
                         .reply(result.getReply())
+                        .thinking(result.getThinking())
                         .agentName(agent.getAgentName())
                         .tokensUsed(result.getTokensUsed())
                         .latencyMs(result.getLatencyMs())

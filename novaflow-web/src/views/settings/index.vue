@@ -39,7 +39,7 @@ const settingItems = [
   { key: 'model', title: '模型中心', desc: '模型接入与参数配置', path: '/model', icon: RobotOutlined },
   { key: 'billing', title: '账单与用量', desc: '费用统计与套餐信息', path: '/billing', icon: BankOutlined },
   { key: 'knowledge', title: '知识库 Hub', desc: '知识库与文档管理', path: '/knowledge', icon: DatabaseOutlined },
-  { key: 'tool', title: '工具市场', desc: 'MCP 与外部工具', path: '/tool', icon: ApiOutlined },
+  { key: 'tool', title: '工具市场', desc: 'Skill 技能与 MCP 插件', path: '/tool', icon: ApiOutlined },
   { key: 'monitor', title: '运行监控', desc: '服务健康与调用指标', path: '/monitor', icon: SettingOutlined },
 ]
 </script>

@@ -1,5 +1,12 @@
 <template>
-  <div class="debug-panel" :class="{ 'debug-panel--wide': wide }" data-testid="agent-debug-panel">
+  <div
+    class="debug-panel"
+    :class="{
+      'debug-panel--wide': wide,
+      'debug-panel--drawer': showLayoutToggle,
+    }"
+    data-testid="agent-debug-panel"
+  >
     <div class="debug-header">
       <div>
         <div class="title">
@@ -82,179 +89,36 @@
         <div v-if="msg.role === 'user'" class="bubble user-bubble">
           {{ msg.content }}
         </div>
-        <template v-else-if="msg.deepThinkingUsed || msg.thinkingContent">
-          <div class="deep-think-block">
-            <button type="button" class="deep-think-block__toggle" @click="toggleThinkingExpanded(msg)">
-              <div
-                class="tech-loader tech-loader--xs"
-                :class="{ 'tech-loader--paused': isThinkingPaused(msg) }"
-                aria-hidden="true"
-              >
-                <span class="tech-loader__ring tech-loader__ring--outer" />
-                <span class="tech-loader__ring tech-loader__ring--inner" />
-                <span class="tech-loader__core">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linejoin="round"
-                    />
-                    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-                  </svg>
-                </span>
-              </div>
-              <span class="deep-think-block__title">{{ getThinkingTitle(msg) }}</span>
-              <DownOutlined class="deep-think-block__chevron" :class="{ 'is-collapsed': msg.thinkingExpanded === false }" />
-            </button>
-            <div v-show="msg.thinkingExpanded !== false" class="deep-think-block__panel">
-              <div v-if="msg.thinkingContent" class="deep-think-block__text">
-                {{ msg.thinkingContent }}<span v-if="!isThinkingPaused(msg)" class="cursor">|</span>
-              </div>
-              <div v-else-if="!isThinkingPaused(msg)" class="deep-think-block__text deep-think-block__text--muted">
-                正在分析问题...
-              </div>
-            </div>
-          </div>
-          <WebSearchStatusBar
-            v-if="shouldShowWebSearchBar(msg)"
-            :items="resolveWebSearchItems(msg)"
-            :query="getPreviousUserQuery(msg)"
-            :loading="Boolean(msg.streaming && !resolveWebSearchItems(msg).length)"
-          />
-          <div v-if="msg.toolCalls?.length" class="tool-call-list">
-            <template v-for="(tool, toolIndex) in msg.toolCalls" :key="toolIndex">
-              <SearchToolResult
-                v-if="isSearchToolName(tool.name)"
-                :name="tool.name"
-                :args="tool.args"
-                :result="tool.result"
-              />
-              <div v-else class="tool-call-item">
-                <div class="tool-call-item__head">
-                  <span>{{ tool.result ? '已完成' : '调用中' }} · {{ tool.name }}</span>
-                </div>
-                <pre v-if="tool.args" class="tool-call-item__body">{{ tool.args }}</pre>
-                <pre v-if="tool.result" class="tool-call-item__result">{{ tool.result }}</pre>
-              </div>
-            </template>
-          </div>
-          <div v-if="msg.content" class="assistant-content-wrap">
-            <div
-              class="assistant-content markdown-body"
-              v-html="renderAssistantContent(msg.content, msg)"
-            />
-            <span v-if="msg.streaming" class="cursor">|</span>
-          </div>
-          <div v-if="msg.sources?.length" class="source-list">
-            <div class="source-title">
-              引用来源
-              <FieldHelpIcon text="RAG 检索命中的知识库文档。点击文件名可跳转至知识库详情页并高亮对应文档，用于核对回答依据。" />
-            </div>
-            <div class="source-links" :class="{ 'source-links--horizontal': wide }">
-              <a
-                v-for="(source, index) in uniqueSources(msg.sources)"
-                :key="index"
-                class="source-link"
-                :title="sourceLinkTitle(source)"
-                @click="openSource(source)"
-              >
-                <LinkOutlined />
-                <span>{{ sourceLinkLabel(source) }}</span>
-              </a>
-            </div>
-          </div>
-        </template>
         <template v-else>
-          <div v-if="msg.streaming && !msg.content" class="assistant-loading">
-            <div class="tech-loader" aria-label="思考中">
-              <span class="tech-loader__ring tech-loader__ring--outer" />
-              <span class="tech-loader__ring tech-loader__ring--inner" />
-              <span class="tech-loader__core">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path
-                    d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linejoin="round"
-                  />
-                  <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-                </svg>
-              </span>
-            </div>
+          <div v-if="showInitialLoading(msg)" class="assistant-loading">
+            <AgentTechLoader aria-label="思考中" />
             <span class="thinking-label">正在思考......</span>
           </div>
-          <div v-else-if="msg.content && (msg.streaming || hasReplyMeta(msg)) && !shouldHideReplyHead(msg)" class="assistant-reply-head">
-            <div
-              class="tech-loader tech-loader--xs"
-              :class="{ 'tech-loader--paused': !msg.streaming }"
-              aria-hidden="true"
-            >
-              <span class="tech-loader__ring tech-loader__ring--outer" />
-              <span class="tech-loader__ring tech-loader__ring--inner" />
-              <span class="tech-loader__core">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linejoin="round"
-                  />
-                  <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-                </svg>
-              </span>
-            </div>
+          <div v-else-if="showReplyHead(msg)" class="assistant-reply-head">
+            <AgentTechLoader size="xs" :paused="!msg.streaming" aria-hidden="true" />
             <span class="assistant-reply-head__label">
               {{ msg.streaming ? '正在回答......' : '已完成' }}
             </span>
           </div>
-          <WebSearchStatusBar
-            v-if="shouldShowWebSearchBar(msg)"
-            :items="resolveWebSearchItems(msg)"
-            :query="getPreviousUserQuery(msg)"
-            :loading="Boolean(msg.streaming && !resolveWebSearchItems(msg).length)"
+          <AgentAssistantProcesses
+            :msg="msg"
+            :show-thinking="shouldShowThinking(msg)"
+            :thinking-title="getThinkingTitle(msg)"
+            :thinking-content="msg.thinkingContent"
+            :thinking-loading="isThinkingLoading(msg)"
+            :thinking-expanded="msg.thinkingExpanded !== false"
+            :show-web-search="shouldShowWebSearchBar(msg)"
+            :web-search-items="resolveWebSearchItems(msg)"
+            :web-search-query="getPreviousUserQuery(msg)"
+            @update:thinking-expanded="(value) => patchMessage(msg.id, { thinkingExpanded: value })"
+            @open-source="openSource"
           />
-          <div v-if="msg.toolCalls?.length" class="tool-call-list">
-            <template v-for="(tool, toolIndex) in msg.toolCalls" :key="toolIndex">
-              <SearchToolResult
-                v-if="isSearchToolName(tool.name)"
-                :name="tool.name"
-                :args="tool.args"
-                :result="tool.result"
-              />
-              <div v-else class="tool-call-item">
-                <div class="tool-call-item__head">
-                  <span>{{ tool.result ? '已完成' : '调用中' }} · {{ tool.name }}</span>
-                </div>
-                <pre v-if="tool.args" class="tool-call-item__body">{{ tool.args }}</pre>
-                <pre v-if="tool.result" class="tool-call-item__result">{{ tool.result }}</pre>
-              </div>
-            </template>
-          </div>
           <div v-if="msg.content" class="assistant-content-wrap">
             <div
               class="assistant-content markdown-body"
               v-html="renderAssistantContent(msg.content, msg)"
             />
             <span v-if="msg.streaming" class="cursor">|</span>
-          </div>
-          <div v-if="msg.sources?.length" class="source-list">
-            <div class="source-title">
-              引用来源
-              <FieldHelpIcon text="RAG 检索命中的知识库文档。点击文件名可跳转至知识库详情页并高亮对应文档，用于核对回答依据。" />
-            </div>
-            <div class="source-links" :class="{ 'source-links--horizontal': wide }">
-              <a
-                v-for="(source, index) in uniqueSources(msg.sources)"
-                :key="index"
-                class="source-link"
-                :title="sourceLinkTitle(source)"
-                @click="openSource(source)"
-              >
-                <LinkOutlined />
-                <span>{{ sourceLinkLabel(source) }}</span>
-              </a>
-            </div>
           </div>
         </template>
         <a-tooltip
@@ -267,21 +131,7 @@
       </div>
       <div v-if="loading && !streamingMessageId" class="message assistant">
         <div class="assistant-loading">
-          <div class="tech-loader" aria-label="加载中">
-            <span class="tech-loader__ring tech-loader__ring--outer" />
-            <span class="tech-loader__ring tech-loader__ring--inner" />
-            <span class="tech-loader__core">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linejoin="round"
-                />
-                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-              </svg>
-            </span>
-          </div>
+          <AgentTechLoader aria-label="加载中" />
         </div>
       </div>
     </div>
@@ -289,12 +139,13 @@
     <div class="input-area">
       <div class="input-label">
         测试消息
-        <FieldHelpIcon text="输入问题测试 Agent 回复效果。Enter 发送，Shift+Enter 换行。RAG Agent 会自动检索关联知识库后生成回答。" />
+        <FieldHelpIcon text="输入问题测试 Agent 回复效果。Enter 发送，Shift+Enter 换行。生成过程中可点击停止按钮打断回复。" />
       </div>
-      <div
-        class="input-box"
-        :class="{ 'input-box--focused': inputFocused, 'input-box--disabled': loading }"
-      >
+      <div class="input-box-shell" :class="{ 'input-box-shell--streaming': loading }">
+        <div
+          class="input-box"
+          :class="{ 'input-box--focused': inputFocused, 'input-box--disabled': loading }"
+        >
         <div
           v-if="attachment"
           class="attachment-chip"
@@ -364,45 +215,41 @@
               <PaperClipOutlined />
             </button>
             <button
+              v-if="loading"
+              type="button"
+              class="send-btn send-btn--stop"
+              aria-label="停止生成"
+              @click="stopGeneration"
+            >
+              <StopOutlined />
+            </button>
+            <button
+              v-else
               type="button"
               class="send-btn"
               data-testid="debug-send"
-              :disabled="loading || !canSend"
+              :disabled="!canSend"
               aria-label="发送"
               @click="onSend"
             >
-              <span v-if="loading" class="tech-loader tech-loader--send" aria-hidden="true">
-                <span class="tech-loader__ring tech-loader__ring--outer" />
-                <span class="tech-loader__ring tech-loader__ring--inner" />
-                <span class="tech-loader__core">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 3L20 8V16L12 21L4 16V8L12 3Z"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linejoin="round"
-                    />
-                    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-                  </svg>
-                </span>
-              </span>
-              <ArrowUpOutlined v-else />
+              <ArrowUpOutlined />
             </button>
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { ArrowUpOutlined, BulbOutlined, ColumnWidthOutlined, DownOutlined, GlobalOutlined, HistoryOutlined, LinkOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
+import { ArrowUpOutlined, BulbOutlined, ColumnWidthOutlined, GlobalOutlined, HistoryOutlined, PaperClipOutlined, StopOutlined } from '@ant-design/icons-vue'
 import FieldHelpIcon from '@/components/common/FieldHelpIcon.vue'
-import SearchToolResult from '@/components/agent/SearchToolResult.vue'
-import WebSearchStatusBar from '@/components/agent/WebSearchStatusBar.vue'
+import AgentAssistantProcesses from '@/components/agent/AgentAssistantProcesses.vue'
+import AgentTechLoader from '@/components/agent/AgentTechLoader.vue'
 import {
   clearAgentDebugConversation,
   fetchAgentDebugWelcome,
@@ -631,9 +478,45 @@ function isThinkingPaused(msg: ChatMessage) {
   return Boolean(msg.thinkingComplete)
 }
 
+function shouldShowThinking(msg: ChatMessage) {
+  return Boolean(
+    msg.deepThinkingRequested
+    || msg.deepThinkingUsed
+    || msg.thinkingContent?.trim(),
+  )
+}
+
+function isThinkingLoading(msg: ChatMessage) {
+  if (!shouldShowThinking(msg)) {
+    return false
+  }
+  return !isThinkingPaused(msg)
+}
+
+function showInitialLoading(msg: ChatMessage) {
+  return Boolean(
+    msg.streaming
+    && !msg.content
+    && !shouldShowThinking(msg)
+    && !(msg.toolCalls?.length),
+  )
+}
+
+function showReplyHead(msg: ChatMessage) {
+  return Boolean(
+    msg.content
+    && (msg.streaming || hasReplyMeta(msg))
+    && !shouldHideReplyHead(msg)
+    && !shouldShowThinking(msg),
+  )
+}
+
 function getThinkingTitle(msg: ChatMessage) {
   if (!msg.thinkingComplete) {
     return '思考中......'
+  }
+  if (!msg.thinkingContent?.trim()) {
+    return '已思考'
   }
   const start = msg.thinkingStartedAt || Date.now()
   const end = msg.thinkingFinishedAt || Date.now()
@@ -641,15 +524,11 @@ function getThinkingTitle(msg: ChatMessage) {
   return `已思考 (用时 ${seconds} 秒)`
 }
 
-function toggleThinkingExpanded(msg: ChatMessage) {
-  patchMessage(msg.id, { thinkingExpanded: msg.thinkingExpanded === false })
-}
-
 function markThinkingComplete(msg: ChatMessage | undefined) {
   if (!msg || msg.thinkingComplete) {
     return
   }
-  if (!msg.deepThinkingUsed && !msg.thinkingContent) {
+  if (!shouldShowThinking(msg)) {
     return
   }
   patchMessage(msg.id, {
@@ -672,34 +551,6 @@ function finalizeAssistantMessage(assistantMessageId: number) {
 
 function hasReplyMeta(msg: ChatMessage) {
   return Boolean(msg.meta?.includes('tokens'))
-}
-
-function getDocumentBaseName(fileName?: string) {
-  if (!fileName) return '未知文档'
-  const dot = fileName.lastIndexOf('.')
-  return dot > 0 ? fileName.slice(0, dot) : fileName
-}
-
-function uniqueSources(sources: RetrievalSourceItem[]) {
-  const seen = new Set<string>()
-  const result: RetrievalSourceItem[] = []
-  for (const source of sources) {
-    const key = source.documentId != null ? `doc:${source.documentId}` : `name:${source.docName}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(source)
-  }
-  return result
-}
-
-function sourceLinkLabel(source: RetrievalSourceItem) {
-  return getDocumentBaseName(source.docName)
-}
-
-function sourceLinkTitle(source: RetrievalSourceItem) {
-  const kb = source.knowledgeBaseName ? `${source.knowledgeBaseName} / ` : ''
-  const score = source.score != null ? ` · 相关度 ${source.score.toFixed(3)}` : ''
-  return `${kb}${getDocumentBaseName(source.docName)}${score}`
 }
 
 function formatHistoryTime(value?: string) {
@@ -977,7 +828,13 @@ function appendToolCall(assistantMessageId: number, toolName: string, toolArgs: 
   const target = messages.value.find((item) => item.id === assistantMessageId)
   if (!target) return
   const toolCalls = [...(target.toolCalls || []), { name: toolName, args: toolArgs }]
-  patchMessage(assistantMessageId, { toolCalls })
+  patchMessage(assistantMessageId, {
+    toolCalls,
+    deepThinkingUsed: target.deepThinkingUsed || target.deepThinkingRequested,
+  })
+  if (target.thinkingContent?.trim()) {
+    markThinkingComplete(target)
+  }
   scrollToBottom()
 }
 
@@ -1116,11 +973,41 @@ async function onSend() {
     saveSession()
     message.error(e instanceof Error ? e.message : '发送失败')
   } finally {
-    finalizeAssistantMessage(assistantMessageId)
-    loading.value = false
-    streamingMessageId.value = null
-    scrollToBottom()
+    if (loading.value) {
+      finalizeAssistantMessage(assistantMessageId)
+      loading.value = false
+      streamingMessageId.value = null
+      scrollToBottom()
+    }
   }
+}
+
+function stopGeneration() {
+  if (!loading.value) return
+  const assistantId = streamingMessageId.value
+  abortController?.abort()
+  abortController = null
+  clearTypewriter()
+  if (assistantId != null) {
+    flushTypewriter(assistantId)
+    const target = messages.value.find((item) => item.id === assistantId)
+    if (target) {
+      const hasContent = Boolean(
+        target.content?.trim()
+          || target.thinkingContent?.trim()
+          || target.toolCalls?.length,
+      )
+      if (!hasContent) {
+        messages.value = messages.value.filter((item) => item.id !== assistantId)
+      } else {
+        finalizeAssistantMessage(assistantId)
+      }
+    }
+  }
+  loading.value = false
+  streamingMessageId.value = null
+  saveSession()
+  scrollToBottom()
 }
 
 watch(() => props.agentId, (id) => {
@@ -1142,9 +1029,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 480px;
+  min-height: 0;
   border-left: 1px solid #f0f0f0;
   background: #fafafa;
+  --debug-inline-padding: 16px;
+}
+
+.debug-panel--drawer {
+  min-height: 480px;
   --debug-inline-padding: 60px;
 }
 
@@ -1326,69 +1218,6 @@ onUnmounted(() => {
   letter-spacing: 0.02em;
 }
 
-.deep-think-block {
-  width: 100%;
-  margin-bottom: 8px;
-}
-
-.deep-think-block__toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 4px 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.deep-think-block__toggle:hover .deep-think-block__title {
-  color: #475569;
-}
-
-.deep-think-block__title {
-  flex: 1;
-  font-size: 13px;
-  color: #64748b;
-  transition: color 0.15s ease;
-}
-
-.deep-think-block__chevron {
-  font-size: 10px;
-  color: #94a3b8;
-  transition: transform 0.2s ease;
-}
-
-.deep-think-block__chevron.is-collapsed {
-  transform: rotate(-90deg);
-}
-
-.deep-think-block__panel {
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 4px 0 8px 28px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.deep-think-block__panel::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.deep-think-block__text {
-  white-space: pre-wrap;
-  line-height: 1.65;
-  font-size: 13px;
-  color: #94a3b8;
-}
-
-.deep-think-block__text--muted {
-  color: #cbd5e1;
-}
-
 .input-toolbar {
   display: flex;
   align-items: center;
@@ -1443,98 +1272,6 @@ onUnmounted(() => {
   gap: 4px;
 }
 
-.tech-loader {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.tech-loader--xs {
-  width: 20px;
-  height: 20px;
-}
-
-.tech-loader--xs .tech-loader__ring--inner {
-  inset: 4px;
-}
-
-.tech-loader--xs .tech-loader__core {
-  width: 10px;
-  height: 10px;
-}
-
-.tech-loader--paused .tech-loader__ring--outer,
-.tech-loader--paused .tech-loader__ring--inner,
-.tech-loader--paused .tech-loader__core {
-  animation-play-state: paused;
-}
-
-.tech-loader--paused .tech-loader__ring--outer,
-.tech-loader--paused .tech-loader__ring--inner {
-  opacity: 0.9;
-}
-
-.tech-loader__ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 2px solid transparent;
-}
-
-.tech-loader__ring--outer {
-  inset: 0;
-  border-top-color: #69b1ff;
-  border-right-color: rgba(54, 207, 201, 0.85);
-  box-shadow: 0 0 14px rgba(22, 119, 255, 0.25);
-  animation: tech-spin 1.1s linear infinite;
-}
-
-.tech-loader__ring--inner {
-  inset: 7px;
-  border-bottom-color: #1677ff;
-  border-left-color: rgba(105, 177, 255, 0.7);
-  animation: tech-spin 0.75s linear infinite reverse;
-}
-
-.tech-loader__core {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  color: #1677ff;
-  filter: drop-shadow(0 0 6px rgba(22, 119, 255, 0.55));
-  animation: tech-pulse 1.4s ease-in-out infinite;
-}
-
-.tech-loader__core svg {
-  width: 100%;
-  height: 100%;
-}
-
-@keyframes tech-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes tech-pulse {
-  0%,
-  100% {
-    opacity: 0.75;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 .cursor {
   display: inline-block;
   margin-left: 2px;
@@ -1554,70 +1291,12 @@ onUnmounted(() => {
   cursor: help;
 }
 
-.source-list {
-  margin-top: 10px;
-  width: 100%;
-  max-width: 100%;
-}
-
-.source-title {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
-  margin-bottom: 6px;
-}
-
 .debug-panel--wide .assistant-content {
   max-width: none;
 }
 
 .debug-panel--wide .message.assistant {
   max-width: 100%;
-}
-
-.source-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.source-links--horizontal {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-
-.source-links--horizontal .source-link {
-  flex-shrink: 0;
-}
-
-.source-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 12px;
-  line-height: 1.4;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-  max-width: 100%;
-}
-
-.source-link span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-link:hover {
-  background: #dbeafe;
-  color: #1d4ed8;
 }
 
 .input-area {
@@ -1684,13 +1363,53 @@ onUnmounted(() => {
   color: #94a3b8;
 }
 
+.input-box-shell {
+  position: relative;
+  border-radius: 26px;
+  padding: 2px;
+  background: transparent;
+  transition: background 0.25s ease;
+}
+
+.input-box-shell--streaming {
+  background: linear-gradient(
+    90deg,
+    #ff6b6b,
+    #feca57,
+    #48dbfb,
+    #a29bfe,
+    #ff9ff3,
+    #ff6b6b
+  );
+  background-size: 300% 100%;
+  animation: rainbow-marquee 2.2s linear infinite;
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.18);
+}
+
+@keyframes rainbow-marquee {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
 .input-box {
+  position: relative;
+  z-index: 1;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 24px;
   padding: 12px 14px 10px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   overflow: visible;
+}
+
+.input-box-shell--streaming .input-box {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .input-box--focused {
@@ -1766,41 +1485,6 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-.tool-call-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.tool-call-item {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.tool-call-item__head {
-  font-size: 12px;
-  font-weight: 600;
-  color: #1677ff;
-  margin-bottom: 4px;
-}
-
-.tool-call-item__body,
-.tool-call-item__result {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.tool-call-item__result {
-  margin-top: 4px;
-  color: #334155;
-}
-
 .send-btn {
   width: 36px;
   height: 36px;
@@ -1824,25 +1508,17 @@ onUnmounted(() => {
   transform: scale(0.96);
 }
 
+.send-btn--stop {
+  background: #ef4444;
+}
+
+.send-btn--stop:hover {
+  background: #dc2626;
+}
+
 .send-btn:disabled {
   background: #e2e8f0;
   color: #94a3b8;
   cursor: not-allowed;
-}
-
-.tech-loader--send {
-  width: 18px;
-  height: 18px;
-}
-
-.tech-loader--send .tech-loader__ring--inner {
-  inset: 3px;
-}
-
-.tech-loader--send .tech-loader__core {
-  width: 10px;
-  height: 10px;
-  color: #fff;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
 }
 </style>

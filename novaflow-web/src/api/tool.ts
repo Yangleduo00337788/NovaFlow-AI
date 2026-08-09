@@ -14,6 +14,9 @@ export interface ToolDefinition {
   bodyTemplate?: string
   headers?: Record<string, string>
   inputSchema?: Record<string, unknown>
+  skillFileName?: string
+  skillContentPreview?: string
+  skillContent?: string
   enabled?: boolean
   createdAt?: string
   updatedAt?: string
@@ -41,7 +44,7 @@ export interface ToolTestResult {
   error?: string
 }
 
-export function fetchTools(params?: { page?: number; pageSize?: number; keyword?: string }) {
+export function fetchTools(params?: { page?: number; pageSize?: number; keyword?: string; toolType?: string }) {
   return request.get<ApiResult<{ list: ToolDefinition[]; total: number }>>('/v1/tools', { params })
 }
 
@@ -67,4 +70,24 @@ export function deleteTool(id: number) {
 
 export function testTool(id: number, data?: ToolTestRequest) {
   return request.post<ApiResult<ToolTestResult>>(`/v1/tools/${id}/test`, data || {})
+}
+
+export function uploadSkill(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post<ApiResult<ToolDefinition>>('/v1/skills/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export function reuploadSkill(id: number, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post<ApiResult<ToolDefinition>>(`/v1/skills/${id}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export function fetchSkillOptions(keyword?: string) {
+  return request.get<ApiResult<ToolDefinition[]>>('/v1/skills/options', { params: { keyword } })
 }

@@ -3,6 +3,7 @@
     :items="items"
     :query="query"
     :loading="loading"
+    :hide-icon="hideIcon"
   />
 </template>
 
@@ -19,6 +20,7 @@ const props = defineProps<{
   name: string
   args?: string
   result?: string
+  hideIcon?: boolean
 }>()
 
 const parsed = computed(() => parseSearchToolResult(props.result))

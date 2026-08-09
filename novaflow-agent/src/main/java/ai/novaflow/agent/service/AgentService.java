@@ -5,10 +5,12 @@ import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.entity.AgentConfigEntity;
 import ai.novaflow.agent.entity.AgentEntity;
 import ai.novaflow.agent.entity.AgentKnowledgeEntity;
+import ai.novaflow.agent.entity.AgentSkillEntity;
 import ai.novaflow.agent.entity.AgentToolEntity;
 import ai.novaflow.agent.mapper.AgentConfigMapper;
 import ai.novaflow.agent.mapper.AgentKnowledgeMapper;
 import ai.novaflow.agent.mapper.AgentMapper;
+import ai.novaflow.agent.mapper.AgentSkillMapper;
 import ai.novaflow.agent.mapper.AgentToolMapper;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
@@ -45,6 +47,7 @@ public class AgentService {
     private final AgentConfigMapper agentConfigMapper;
     private final AgentKnowledgeMapper agentKnowledgeMapper;
     private final AgentToolMapper agentToolMapper;
+    private final AgentSkillMapper agentSkillMapper;
     private final ToolDefinitionService toolDefinitionService;
     private final PromptTemplateService promptTemplateService;
     private final RecentAccessService recentAccessService;
@@ -114,6 +117,7 @@ public class AgentService {
         agentConfigMapper.insert(config);
         saveKnowledgeBindings(agent.getId(), tenantId, request.getKnowledgeBaseIds());
         saveToolBindings(agent.getId(), tenantId, request.getToolIds());
+        saveSkillBindings(agent.getId(), tenantId, request.getSkillIds());
 
         return toDetailVO(agent, config);
     }
@@ -142,6 +146,7 @@ public class AgentService {
         }
         saveKnowledgeBindings(id, agent.getTenantId(), request.getKnowledgeBaseIds());
         saveToolBindings(id, agent.getTenantId(), request.getToolIds());
+        saveSkillBindings(id, agent.getTenantId(), request.getSkillIds());
         return toDetailVO(agent, config);
     }
 
@@ -174,7 +179,7 @@ public class AgentService {
         LocalDateTime now = LocalDateTime.now();
         int sortOrder = 0;
         for (Long toolId : uniqueIds) {
-            toolDefinitionService.getToolOrThrow(toolId);
+            toolDefinitionService.ensureCallableTool(toolId);
             AgentToolEntity binding = new AgentToolEntity();
             binding.setAgentId(agentId);
             binding.setTenantId(tenantId);
@@ -192,6 +197,39 @@ public class AgentService {
                         .eq("tenant_id", tenantId)
                         .orderBy("sort_order", true)
         ).stream().map(AgentToolEntity::getToolId).toList();
+    }
+
+    private void saveSkillBindings(Long agentId, Long tenantId, List<Long> skillIds) {
+        agentSkillMapper.deleteByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+        );
+        if (skillIds == null || skillIds.isEmpty()) {
+            return;
+        }
+        List<Long> uniqueIds = skillIds.stream().distinct().toList();
+        LocalDateTime now = LocalDateTime.now();
+        int sortOrder = 0;
+        for (Long skillId : uniqueIds) {
+            toolDefinitionService.ensureSkill(skillId);
+            AgentSkillEntity binding = new AgentSkillEntity();
+            binding.setAgentId(agentId);
+            binding.setTenantId(tenantId);
+            binding.setSkillId(skillId);
+            binding.setSortOrder(sortOrder++);
+            binding.setCreatedAt(now);
+            agentSkillMapper.insert(binding);
+        }
+    }
+
+    private List<Long> loadSkillIds(Long agentId, Long tenantId) {
+        return agentSkillMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .eq("agent_id", agentId)
+                        .eq("tenant_id", tenantId)
+                        .orderBy("sort_order", true)
+        ).stream().map(AgentSkillEntity::getSkillId).toList();
     }
 
     private List<HttpToolDefinition> resolveAgentTools(Long agentId, Long tenantId, String extraConfig) {
@@ -392,6 +430,21 @@ public class AgentService {
         return null;
     }
 
+    public String resolveFullSystemPrompt(AgentVO agent, Long tenantId) {
+        String basePrompt = resolveRuntimeSystemPrompt(agent, tenantId);
+        String skillBlock = toolDefinitionService.buildSkillSystemPromptBlock(
+                tenantId,
+                agent != null ? agent.getSkillIds() : null
+        );
+        if (!StringUtils.hasText(skillBlock)) {
+            return basePrompt;
+        }
+        if (!StringUtils.hasText(basePrompt)) {
+            return skillBlock;
+        }
+        return basePrompt.trim() + "\n\n" + skillBlock.trim();
+    }
+
     private RetrievalConfig toRetrievalConfig(AgentSaveRequest request) {
         return RetrievalConfig.builder()
                 .topK(request.getRetrievalTopK())
@@ -489,6 +542,7 @@ public class AgentService {
         }
         vo.setKnowledgeBaseIds(loadKnowledgeBaseIds(agent.getId(), agent.getTenantId()));
         vo.setToolIds(loadToolIds(agent.getId(), agent.getTenantId()));
+        vo.setSkillIds(loadSkillIds(agent.getId(), agent.getTenantId()));
         return vo;
     }
 }

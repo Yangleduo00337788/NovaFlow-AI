@@ -74,6 +74,7 @@ public class OpenAiCompatibleChatClient {
         JsonNode message = root.path("choices").path(0).path("message");
         ChatCompletionResponse result = new ChatCompletionResponse();
         result.setContent(message.path("content").asText(""));
+        result.setReasoningContent(message.path("reasoning_content").asText(""));
         result.setFinishReason(root.path("choices").path(0).path("finish_reason").asText(""));
 
         JsonNode toolCalls = message.path("tool_calls");
@@ -115,6 +116,7 @@ public class OpenAiCompatibleChatClient {
     @Data
     public static class ChatCompletionResponse {
         private String content;
+        private String reasoningContent;
         private String finishReason;
         private List<ToolCallItem> toolCalls = List.of();
         private OpenAiCompatibleStreamClient.TokenUsageSummary usage;
