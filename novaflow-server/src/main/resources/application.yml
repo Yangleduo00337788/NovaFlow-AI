@@ -92,3 +92,7 @@ novaflow:
     use-tls: false
     # 本地 Docker 默认无鉴权；生产启用 Qdrant API Key 时配置
     api-key: ${QDRANT_API_KEY:}
+
+  # MCP stdio 模式：Node.js 安装目录（Windows 下 IDE 启动常读不到用户 PATH）
+  mcp:
+    node-path: ${NOVAFLOW_NODE_PATH:}

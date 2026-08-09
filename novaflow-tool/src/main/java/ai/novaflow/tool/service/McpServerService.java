@@ -4,10 +4,18 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.tool.domain.dto.McpServerSaveRequest;
+import ai.novaflow.tool.domain.vo.McpConnectResultVO;
+import ai.novaflow.tool.domain.vo.McpDiscoveredToolVO;
 import ai.novaflow.tool.domain.vo.McpServerVO;
 import ai.novaflow.tool.entity.McpServerEntity;
 import ai.novaflow.tool.mapper.McpServerMapper;
+import ai.novaflow.tool.mcp.McpClient;
+import ai.novaflow.tool.mcp.McpConnectResult;
+import ai.novaflow.tool.mcp.McpDiscoveredTool;
+import ai.novaflow.tool.mcp.McpServerConfig;
 import cn.dev33.satoken.stp.StpUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -17,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +34,7 @@ import java.util.Map;
 public class McpServerService {
 
     private final McpServerMapper mcpServerMapper;
+    private final McpClient mcpClient;
     private final ObjectMapper objectMapper;
 
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
@@ -42,17 +52,47 @@ public class McpServerService {
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
+    public McpServerVO detail(Long id) {
+        McpServerEntity entity = getOrThrow(id);
+        McpServerVO vo = toVO(entity);
+        vo.setTools(parseDiscoveredTools(entity.getDiscoveredTools()));
+        return vo;
+    }
+
+    @Transactional
+    public McpConnectResultVO connect(Long id) {
+        McpServerEntity entity = getOrThrow(id);
+        McpServerConfig config = parseStoredConfig(entity.getServerName(), entity.getServerConfig());
+        McpConnectResult result = mcpClient.discoverTools(config);
+        LocalDateTime now = LocalDateTime.now();
+        entity.setUpdatedAt(now);
+        entity.setLastConnectedAt(now);
+        if (result.isSuccess()) {
+            entity.setStatus(1);
+            try {
+                entity.setDiscoveredTools(objectMapper.writeValueAsString(result.getTools()));
+            } catch (Exception e) {
+                throw new BusinessException("保存 MCP 工具列表失败");
+            }
+        } else {
+            entity.setStatus(2);
+        }
+        mcpServerMapper.update(entity);
+        return toConnectResultVO(entity, result);
+    }
+
     @Transactional
     public McpServerVO create(McpServerSaveRequest request) {
         Long tenantId = requireTenantId();
         ensureNameUnique(tenantId, request.getServerName(), null);
+        McpServerConfig config = McpServerConfig.parse(objectMapper, request.getServerName(), request.getServerConfig());
         LocalDateTime now = LocalDateTime.now();
         McpServerEntity entity = new McpServerEntity();
         entity.setTenantId(tenantId);
         entity.setServerName(request.getServerName().trim());
         entity.setDescription(StringUtils.hasText(request.getDescription()) ? request.getDescription().trim() : null);
-        entity.setTransportType(request.getTransportType().trim());
-        entity.setServerConfig(buildConfig(request));
+        entity.setTransportType(config.getTransportType());
+        entity.setServerConfig(config.toStorageJson(objectMapper));
         entity.setStatus(0);
         entity.setCreatedBy(StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null);
         entity.setCreatedAt(now);
@@ -93,19 +133,76 @@ public class McpServerService {
         }
     }
 
-    private String buildConfig(McpServerSaveRequest request) {
+    private McpServerConfig parseStoredConfig(String serverName, String serverConfig) {
+        return McpServerConfig.parse(objectMapper, serverName, serverConfig);
+    }
+
+    private McpConnectResultVO toConnectResultVO(McpServerEntity entity, McpConnectResult result) {
+        List<McpDiscoveredToolVO> tools = result.getTools() != null
+                ? result.getTools().stream().map(this::toToolVO).toList()
+                : List.of();
+        int status = entity.getStatus() != null ? entity.getStatus() : 0;
+        return McpConnectResultVO.builder()
+                .id(entity.getId())
+                .serverName(entity.getServerName())
+                .status(status)
+                .statusLabel(statusLabel(status))
+                .toolCount(tools.size())
+                .message(result.getMessage())
+                .lastConnectedAt(entity.getLastConnectedAt())
+                .tools(tools)
+                .build();
+    }
+
+    private McpDiscoveredToolVO toToolVO(McpDiscoveredTool tool) {
+        return McpDiscoveredToolVO.builder()
+                .name(tool.getName())
+                .description(tool.getDescription())
+                .inputSchema(tool.getInputSchema())
+                .build();
+    }
+
+    private List<McpDiscoveredToolVO> parseDiscoveredTools(String json) {
+        if (!StringUtils.hasText(json)) {
+            return List.of();
+        }
         try {
-            return objectMapper.writeValueAsString(Map.of(
-                    "transportType", request.getTransportType().trim(),
-                    "endpoint", request.getEndpoint().trim()
-            ));
+            JsonNode root = objectMapper.readTree(json);
+            if (!root.isArray()) {
+                return List.of();
+            }
+            List<McpDiscoveredToolVO> tools = new ArrayList<>();
+            for (JsonNode node : root) {
+                String name = node.path("name").asText("");
+                if (!StringUtils.hasText(name)) {
+                    continue;
+                }
+                Map<String, Object> inputSchema = null;
+                JsonNode schemaNode = node.get("inputSchema");
+                if (schemaNode == null || schemaNode.isNull()) {
+                    schemaNode = node.get("input_schema");
+                }
+                if (schemaNode != null && !schemaNode.isNull()) {
+                    inputSchema = objectMapper.convertValue(schemaNode, new TypeReference<Map<String, Object>>() {});
+                }
+                String description = node.path("description").asText(null);
+                if (description != null && description.isBlank()) {
+                    description = null;
+                }
+                tools.add(McpDiscoveredToolVO.builder()
+                        .name(name)
+                        .description(description)
+                        .inputSchema(inputSchema)
+                        .build());
+            }
+            return tools;
         } catch (Exception e) {
-            throw new BusinessException("MCP 服务配置无效");
+            return List.of();
         }
     }
 
     private McpServerVO toVO(McpServerEntity entity) {
-        String endpoint = extractEndpoint(entity.getServerConfig());
+        McpServerConfig config = parseStoredConfig(entity.getServerName(), entity.getServerConfig());
         int toolCount = 0;
         if (StringUtils.hasText(entity.getDiscoveredTools())) {
             try {
@@ -122,27 +219,15 @@ public class McpServerService {
                 .id(entity.getId())
                 .serverName(entity.getServerName())
                 .description(entity.getDescription())
-                .transportType(entity.getTransportType())
-                .endpoint(endpoint)
+                .transportType(config.getTransportType())
+                .commandSummary(config.commandSummary())
+                .serverConfig(entity.getServerConfig())
                 .status(status)
                 .statusLabel(statusLabel(status))
                 .toolCount(toolCount)
                 .lastConnectedAt(entity.getLastConnectedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
-    }
-
-    private String extractEndpoint(String serverConfig) {
-        if (!StringUtils.hasText(serverConfig)) {
-            return "";
-        }
-        try {
-            Map<?, ?> config = objectMapper.readValue(serverConfig, Map.class);
-            Object endpoint = config.get("endpoint");
-            return endpoint != null ? String.valueOf(endpoint) : "";
-        } catch (Exception e) {
-            return "";
-        }
     }
 
     private String statusLabel(int status) {

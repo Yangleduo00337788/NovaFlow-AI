@@ -3,6 +3,7 @@ package ai.novaflow.tool.controller;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.tool.domain.dto.McpServerSaveRequest;
+import ai.novaflow.tool.domain.vo.McpConnectResultVO;
 import ai.novaflow.tool.domain.vo.McpServerVO;
 import ai.novaflow.tool.service.McpServerService;
 import jakarta.validation.Valid;
@@ -29,6 +30,16 @@ public class McpServerController {
             @RequestParam(defaultValue = "12") int pageSize,
             @RequestParam(required = false) String keyword) {
         return ApiResult.ok(mcpServerService.page(page, pageSize, keyword));
+    }
+
+    @GetMapping("/{id}")
+    public ApiResult<McpServerVO> detail(@PathVariable Long id) {
+        return ApiResult.ok(mcpServerService.detail(id));
+    }
+
+    @PostMapping("/{id}/connect")
+    public ApiResult<McpConnectResultVO> connect(@PathVariable Long id) {
+        return ApiResult.ok(mcpServerService.connect(id));
     }
 
     @PostMapping

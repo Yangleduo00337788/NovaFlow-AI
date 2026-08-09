@@ -8,18 +8,14 @@ import java.util.List;
 
 @Data
 @Builder
-public class McpServerVO {
+public class McpConnectResultVO {
 
     private Long id;
     private String serverName;
-    private String description;
-    private String transportType;
-    private String commandSummary;
-    private String serverConfig;
     private Integer status;
     private String statusLabel;
     private Integer toolCount;
+    private String message;
     private LocalDateTime lastConnectedAt;
-    private LocalDateTime updatedAt;
     private List<McpDiscoveredToolVO> tools;
 }

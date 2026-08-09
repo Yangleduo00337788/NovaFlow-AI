@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1>工具市场</h1>
-        <p>{{ activeTab === 'http' ? '注册可复用的 HTTP 工具，供多个 Agent 共享调用' : '注册 MCP Server，后续可自动发现并接入工具' }}</p>
+        <p>{{ activeTab === 'http' ? '注册可复用的 HTTP 工具，供多个 Agent 共享调用' : '注册 MCP Server（command/args/env），连接后自动发现工具' }}</p>
       </div>
       <a-button type="primary" data-testid="create-tool-btn" @click="onCreateClick">
         <PlusOutlined />
@@ -101,12 +101,18 @@
                 <a-tag :color="item.status === 1 ? 'success' : item.status === 2 ? 'error' : 'default'">
                   {{ item.statusLabel }}
                 </a-tag>
-                <span class="tool-url" :title="item.endpoint">{{ item.endpoint }}</span>
+                <span class="tool-url" :title="item.commandSummary">{{ item.commandSummary }}</span>
               </div>
               <div class="tool-footer">
                 <span class="tool-time">工具 {{ item.toolCount }} 个 · {{ formatDateTime(item.updatedAt) }}</span>
               </div>
               <div class="tool-actions">
+                <a-button type="link" size="small" :loading="mcpConnectingId === item.id" @click="onMcpConnect(item)">
+                  连接测试
+                </a-button>
+                <a-button type="link" size="small" :disabled="!item.toolCount" @click="openMcpTools(item)">
+                  工具列表
+                </a-button>
                 <a-popconfirm title="确认删除该 MCP 服务？" @confirm="onMcpDelete(item.id)">
                   <a-button type="link" size="small" danger>删除</a-button>
                 </a-popconfirm>
@@ -204,22 +210,47 @@
       </div>
     </a-modal>
 
-    <a-drawer v-model:open="mcpDrawerOpen" title="注册 MCP 服务" :width="520" @close="resetMcpForm">
+    <a-drawer v-model:open="mcpDrawerOpen" title="注册 MCP 服务" :width="640" @close="resetMcpForm">
       <a-form layout="vertical" :model="mcpForm">
         <a-form-item label="服务名称" required>
-          <a-input v-model:value="mcpForm.serverName" placeholder="github-mcp" />
+          <a-input v-model:value="mcpForm.serverName" placeholder="example-server" />
+          <div class="form-hint">若使用 mcpServers 完整配置，名称需与 JSON 中的 key 一致</div>
         </a-form-item>
         <a-form-item label="描述">
-          <a-textarea v-model:value="mcpForm.description" :rows="2" placeholder="GitHub 仓库操作工具集" />
+          <a-textarea v-model:value="mcpForm.description" :rows="2" placeholder="图像生成 MCP 服务" />
         </a-form-item>
-        <a-form-item label="传输类型" required>
-          <a-select v-model:value="mcpForm.transportType" :options="transportOptions" />
-        </a-form-item>
-        <a-form-item label="服务地址" required>
-          <a-input v-model:value="mcpForm.endpoint" placeholder="http://localhost:3001/sse" />
+        <a-form-item label="服务配置（JSON）" required>
+          <a-textarea
+            v-model:value="mcpConfigJson"
+            :rows="14"
+            placeholder="粘贴 mcpServers 配置"
+          />
+          <div class="form-hint">
+            支持 Cursor 风格配置，例如 command / args / env；也可直接粘贴 mcpServers 包裹格式
+          </div>
         </a-form-item>
         <a-button type="primary" block :loading="mcpSaving" @click="onMcpSave">保存</a-button>
       </a-form>
+    </a-drawer>
+
+    <a-drawer
+      v-model:open="mcpToolsDrawerOpen"
+      :title="mcpToolsServer ? `${mcpToolsServer.serverName} · 工具列表` : '工具列表'"
+      :width="640"
+      @close="resetMcpTools"
+    >
+      <a-spin :spinning="mcpToolsLoading">
+        <a-empty v-if="!mcpTools.length" description="暂无已发现工具，请先执行连接测试" />
+        <div v-else class="mcp-tools-list">
+          <div v-for="tool in mcpTools" :key="tool.name" class="mcp-tool-item page-card">
+            <div class="mcp-tool-head">
+              <h4>{{ tool.name }}</h4>
+              <p>{{ tool.description || '暂无描述' }}</p>
+            </div>
+            <pre v-if="tool.inputSchema" class="mcp-tool-schema">{{ formatSchema(tool.inputSchema) }}</pre>
+          </div>
+        </div>
+      </a-spin>
     </a-drawer>
   </div>
 </template>
@@ -237,7 +268,15 @@ import {
   type ToolDefinition,
   type ToolSaveRequest,
 } from '@/api/tool'
-import { createMcpServer, deleteMcpServer, fetchMcpServers, type McpServer } from '@/api/mcp'
+import {
+  connectMcpServer,
+  createMcpServer,
+  deleteMcpServer,
+  fetchMcpServerDetail,
+  fetchMcpServers,
+  type McpDiscoveredTool,
+  type McpServer,
+} from '@/api/mcp'
 import { formatDateTime } from '@/utils/datetime'
 
 const activeTab = ref('http')
@@ -282,17 +321,27 @@ const mcpKeyword = ref('')
 const mcpPage = ref(1)
 const mcpTotal = ref(0)
 const mcpDrawerOpen = ref(false)
+const mcpConnectingId = ref<number | null>(null)
+const mcpToolsDrawerOpen = ref(false)
+const mcpToolsLoading = ref(false)
+const mcpToolsServer = ref<McpServer | null>(null)
+const mcpTools = ref<McpDiscoveredTool[]>([])
+const mcpToolsCache = ref<Record<number, McpDiscoveredTool[]>>({})
 const mcpForm = reactive({
   serverName: '',
   description: '',
-  transportType: 'sse',
-  endpoint: '',
 })
-const transportOptions = [
-  { value: 'sse', label: 'SSE' },
-  { value: 'http', label: 'HTTP' },
-  { value: 'stdio', label: 'Stdio' },
-]
+const mcpConfigJson = ref(`{
+  "mcpServers": {
+    "example-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-example"
+      ]
+    }
+  }
+}`)
 
 function onCreateClick() {
   if (activeTab.value === 'mcp') {
@@ -313,9 +362,18 @@ function resetMcpForm() {
   Object.assign(mcpForm, {
     serverName: '',
     description: '',
-    transportType: 'sse',
-    endpoint: '',
   })
+  mcpConfigJson.value = `{
+  "mcpServers": {
+    "example-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-example"
+      ]
+    }
+  }
+}`
 }
 
 async function loadMcpData() {
@@ -333,9 +391,71 @@ async function loadMcpData() {
   }
 }
 
+async function onMcpConnect(item: McpServer) {
+  mcpConnectingId.value = item.id
+  try {
+    const res = await connectMcpServer(item.id)
+    const result = res.data.data
+    if (result.status === 1) {
+      if (result.tools?.length) {
+        mcpToolsCache.value[item.id] = result.tools
+      }
+      message.success(result.message || `连接成功，发现 ${result.toolCount} 个工具`)
+    } else {
+      message.error(result.message || '连接失败')
+    }
+    loadMcpData()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '连接失败')
+    loadMcpData()
+  } finally {
+    mcpConnectingId.value = null
+  }
+}
+
+async function openMcpTools(item: McpServer) {
+  mcpToolsServer.value = item
+  mcpToolsDrawerOpen.value = true
+  mcpTools.value = mcpToolsCache.value[item.id] || []
+  mcpToolsLoading.value = true
+  try {
+    const res = await fetchMcpServerDetail(item.id)
+    mcpToolsServer.value = res.data.data
+    const tools = res.data.data.tools || []
+    mcpTools.value = tools
+    if (tools.length) {
+      mcpToolsCache.value[item.id] = tools
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载工具列表失败')
+    mcpTools.value = []
+  } finally {
+    mcpToolsLoading.value = false
+  }
+}
+
+function resetMcpTools() {
+  mcpToolsServer.value = null
+  mcpTools.value = []
+}
+
+function formatSchema(schema: Record<string, unknown>) {
+  return JSON.stringify(schema, null, 2)
+}
+
 async function onMcpSave() {
-  if (!mcpForm.serverName.trim() || !mcpForm.endpoint.trim()) {
-    message.warning('请填写服务名称和服务地址')
+  if (!mcpForm.serverName.trim()) {
+    message.warning('请填写服务名称')
+    return
+  }
+  if (!mcpConfigJson.value.trim()) {
+    message.warning('请填写 MCP 服务配置')
+    return
+  }
+  try {
+    JSON.parse(mcpConfigJson.value)
+  } catch {
+    message.error('服务配置 JSON 格式不正确')
     return
   }
   mcpSaving.value = true
@@ -343,8 +463,7 @@ async function onMcpSave() {
     await createMcpServer({
       serverName: mcpForm.serverName.trim(),
       description: mcpForm.description.trim() || undefined,
-      transportType: mcpForm.transportType,
-      endpoint: mcpForm.endpoint.trim(),
+      serverConfig: mcpConfigJson.value.trim(),
     })
     message.success('MCP 服务已注册')
     mcpDrawerOpen.value = false
@@ -523,6 +642,13 @@ onMounted(loadData)
   color: var(--text-secondary);
 }
 
+.form-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -657,5 +783,41 @@ onMounted(loadData)
   max-height: 320px;
   overflow: auto;
   font-size: 12px;
+}
+
+.mcp-tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-tool-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-tool-head h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-family: monospace;
+}
+
+.mcp-tool-head p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.mcp-tool-schema {
+  margin: 0;
+  padding: 10px;
+  background: var(--bg-muted, #f8fafc);
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
 }
 </style>
