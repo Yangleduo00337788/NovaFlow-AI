@@ -42,6 +42,16 @@ export interface BillingQuota {
   maxKnowledge?: number
 }
 
+export interface BillingAlert {
+  id: number
+  alertName: string
+  alertType: string
+  thresholdPercent: number
+  enabled: boolean
+  notifyChannels: string[]
+  lastTriggeredAt?: string
+}
+
 export interface BillingOverview {
   periodLabel: string
   totalCalls: number
@@ -62,6 +72,32 @@ export function fetchBillingOverview(month?: string) {
 
 export function fetchBillingQuota() {
   return request.get<ApiResult<BillingQuota>>('/v1/billing/quota')
+}
+
+export function updateBillingQuota(monthlyTokenQuota: number) {
+  return request.put<ApiResult<BillingQuota>>('/v1/billing/quota', { monthlyTokenQuota })
+}
+
+export function fetchBillingAlerts() {
+  return request.get<ApiResult<BillingAlert[]>>('/v1/billing/alerts')
+}
+
+export function saveBillingAlert(payload: {
+  id?: number
+  alertName: string
+  thresholdPercent: number
+  enabled: boolean
+  notifyChannels?: string[]
+}) {
+  return request.put<ApiResult<BillingAlert>>('/v1/billing/alerts', payload)
+}
+
+export async function downloadBillingExport(month: string, format: 'excel' | 'pdf') {
+  const response = await request.get('/v1/billing/export', {
+    params: { month, format },
+    responseType: 'blob',
+  })
+  return response.data as Blob
 }
 
 export function fetchBillingRecords(params?: {

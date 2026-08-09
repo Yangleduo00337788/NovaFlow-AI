@@ -1,5 +1,6 @@
 package ai.novaflow.model.service;
 
+import ai.novaflow.common.event.TokenUsageRecordedEvent;
 import ai.novaflow.model.domain.BillingCurrency;
 import ai.novaflow.model.domain.ModelPriceCatalog;
 import ai.novaflow.model.domain.ModelUsageAggregate;
@@ -15,6 +16,7 @@ import ai.novaflow.model.mapper.ModelProviderMapper;
 import ai.novaflow.model.mapper.TokenUsageMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -33,6 +35,7 @@ public class ModelUsageService {
     private final TokenUsageMapper tokenUsageMapper;
     private final ModelConfigMapper modelConfigMapper;
     private final ModelProviderMapper modelProviderMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void record(ModelUsageRecordRequest request) {
@@ -65,6 +68,7 @@ public class ModelUsageService {
         entity.setUsageDate(LocalDate.now());
         entity.setCreatedAt(LocalDateTime.now());
         tokenUsageMapper.insert(entity);
+        eventPublisher.publishEvent(new TokenUsageRecordedEvent(request.getTenantId()));
     }
 
     public ModelUsageStatsVO getUsageStats(Long tenantId) {

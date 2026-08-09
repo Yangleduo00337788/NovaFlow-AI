@@ -27,9 +27,49 @@
     <div class="right">
       <ThemeToggle />
       <a-button type="text" class="icon-btn" title="帮助"><QuestionCircleOutlined /></a-button>
-      <a-badge :count="12" :offset="[-2, 2]">
-        <a-button type="text" class="icon-btn" title="通知"><BellOutlined /></a-button>
-      </a-badge>
+      <a-dropdown
+        v-model:open="notificationOpen"
+        :trigger="['click']"
+        placement="bottomRight"
+        overlay-class-name="notification-dropdown"
+        @open-change="onNotificationOpenChange"
+      >
+        <a-badge :count="displayUnreadCount" :overflow-count="99" :offset="[-2, 2]">
+          <a-button type="text" class="icon-btn" title="通知"><BellOutlined /></a-button>
+        </a-badge>
+        <template #overlay>
+          <div class="notification-panel" @click.stop>
+            <div class="notification-header">
+              <span>通知</span>
+              <a-button
+                type="link"
+                size="small"
+                :disabled="!hasUnread"
+                :loading="markAllLoading"
+                @click.stop="markAllRead"
+              >
+                全部已读
+              </a-button>
+            </div>
+            <a-spin :spinning="notificationsLoading">
+              <a-empty v-if="!notifications.length" description="暂无通知" />
+              <div v-else class="notification-list">
+                <div
+                  v-for="item in notifications"
+                  :key="item.id"
+                  class="notification-item"
+                  :class="{ unread: !item.read }"
+                  @click="openNotification(item)"
+                >
+                  <div class="notification-title">{{ item.title }}</div>
+                  <div class="notification-content">{{ item.content }}</div>
+                  <div class="notification-time">{{ formatDateTime(item.createdAt) }}</div>
+                </div>
+              </div>
+            </a-spin>
+          </div>
+        </template>
+      </a-dropdown>
       <div class="user-profile">
         <div class="user-meta">
           <span class="user-name">{{ displayName }}</span>
@@ -56,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   MenuFoldOutlined,
@@ -68,8 +108,16 @@ import {
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { logout } from '@/api/auth'
+import {
+  fetchNotifications,
+  fetchUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type UserNotification,
+} from '@/api/notification'
 import { getBreadcrumbByPath } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
+import { formatDateTime } from '@/utils/datetime'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 defineProps<{ collapsed: boolean }>()
@@ -88,6 +136,79 @@ const roleName = computed(() => {
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchKeyword = ref('')
 const userMenuOpen = ref(false)
+const notificationOpen = ref(false)
+const notificationsLoading = ref(false)
+const markAllLoading = ref(false)
+const unreadCount = ref(0)
+const notifications = ref<UserNotification[]>([])
+let notificationTimer: number | undefined
+
+const hasUnread = computed(
+  () => unreadCount.value > 0 || notifications.value.some((item) => !item.read),
+)
+
+const displayUnreadCount = computed(() => {
+  const listUnread = notifications.value.filter((item) => !item.read).length
+  return Math.max(unreadCount.value, listUnread)
+})
+
+async function loadUnreadCount() {
+  try {
+    const res = await fetchUnreadNotificationCount()
+    unreadCount.value = Number(res.data.data) || 0
+  } catch {
+    unreadCount.value = 0
+  }
+}
+
+async function loadNotifications() {
+  notificationsLoading.value = true
+  try {
+    const [listRes] = await Promise.all([
+      fetchNotifications({ page: 1, pageSize: 10 }),
+      loadUnreadCount(),
+    ])
+    notifications.value = listRes.data.data.list
+  } catch {
+    notifications.value = []
+  } finally {
+    notificationsLoading.value = false
+  }
+}
+
+function onNotificationOpenChange(open: boolean) {
+  if (open) {
+    loadNotifications()
+  } else {
+    loadUnreadCount()
+  }
+}
+
+async function openNotification(item: UserNotification) {
+  if (!item.read) {
+    await markNotificationRead(item.id)
+    item.read = true
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  }
+  notificationOpen.value = false
+  if (item.linkUrl) {
+    router.push(item.linkUrl)
+  }
+}
+
+async function markAllRead() {
+  if (!hasUnread.value || markAllLoading.value) return
+  markAllLoading.value = true
+  try {
+    await markAllNotificationsRead()
+    notifications.value = notifications.value.map((item) => ({ ...item, read: true }))
+    unreadCount.value = 0
+  } catch {
+    await loadNotifications()
+  } finally {
+    markAllLoading.value = false
+  }
+}
 
 function onGlobalKeydown(event: KeyboardEvent) {
   const target = event.target as HTMLElement
@@ -98,8 +219,23 @@ function onGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  loadUnreadCount()
+  notificationTimer = window.setInterval(loadUnreadCount, 30000)
+})
+watch(
+  () => route.path,
+  () => {
+    loadUnreadCount()
+  },
+)
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  if (notificationTimer) {
+    window.clearInterval(notificationTimer)
+  }
+})
 
 async function onLogout() {
   try {
@@ -223,6 +359,11 @@ async function onLogout() {
   background: var(--hover-bg);
 }
 
+.right :deep(.ant-badge-count) {
+  z-index: 2;
+  box-shadow: 0 0 0 1px var(--header-bg, #fff);
+}
+
 .user-profile {
   display: flex;
   align-items: center;
@@ -278,5 +419,67 @@ async function onLogout() {
 
 .user-toggle:hover {
   background: var(--user-toggle-hover-bg);
+}
+</style>
+
+<style>
+.notification-dropdown .notification-panel {
+  width: 320px;
+  background: var(--card-bg, #fff);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.notification-dropdown .notification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  font-weight: 600;
+}
+
+.notification-dropdown .notification-header .ant-btn-link {
+  pointer-events: auto;
+  padding: 0;
+  height: auto;
+}
+
+.notification-dropdown .notification-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notification-dropdown .notification-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  cursor: pointer;
+}
+
+.notification-dropdown .notification-item:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.notification-dropdown .notification-item.unread {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.notification-dropdown .notification-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notification-dropdown .notification-content {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.5;
+}
+
+.notification-dropdown .notification-time {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
 }
 </style>

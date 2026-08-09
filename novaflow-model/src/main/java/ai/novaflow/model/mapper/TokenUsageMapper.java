@@ -140,6 +140,23 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
 
     @Select("""
             <script>
+            SELECT tu.id, tu.agent_id, a.agent_name, mc.model_name, mc.display_name,
+                   tu.usage_type, tu.input_tokens, tu.output_tokens, tu.total_tokens,
+                   tu.cost, tu.currency, tu.latency_ms, tu.user_id, tu.created_at
+            FROM token_usage tu
+            LEFT JOIN agent a ON tu.agent_id = a.id
+            LEFT JOIN model_config mc ON tu.model_config_id = mc.id
+            WHERE tu.tenant_id = #{tenantId}
+            <if test="startDate != null">AND tu.usage_date &gt;= #{startDate}</if>
+            <if test="endDate != null">AND tu.usage_date &lt;= #{endDate}</if>
+            ORDER BY tu.created_at DESC
+            LIMIT #{limit}
+            </script>
+            """)
+    List<TokenUsageLogRow> exportLogs(Long tenantId, LocalDate startDate, LocalDate endDate, int limit);
+
+    @Select("""
+            <script>
             SELECT COUNT(*)
             FROM token_usage tu
             LEFT JOIN agent a ON tu.agent_id = a.id

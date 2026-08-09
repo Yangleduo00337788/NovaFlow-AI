@@ -26,6 +26,9 @@ request.interceptors.request.use((config) => {
 
 request.interceptors.response.use(
   (response) => {
+    if (response.config.responseType === 'blob') {
+      return response
+    }
     const result = response.data as ApiResult<unknown>
     if (result.code !== 0) {
       if (AUTH_ERROR_CODES.has(result.code)) {

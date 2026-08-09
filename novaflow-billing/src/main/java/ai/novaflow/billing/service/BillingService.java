@@ -1,5 +1,6 @@
 package ai.novaflow.billing.service;
 
+import ai.novaflow.billing.domain.dto.BillingQuotaUpdateRequest;
 import ai.novaflow.billing.domain.vo.BillingMetricVO;
 import ai.novaflow.billing.domain.vo.BillingModelUsageVO;
 import ai.novaflow.billing.domain.vo.BillingOverviewVO;
@@ -24,11 +25,13 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,10 +42,13 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class BillingService {
 
+    private static final int EXPORT_LIMIT = 10_000;
+
     private final TokenUsageMapper tokenUsageMapper;
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
     private final PermissionService permissionService;
+    private final BillingAlertService billingAlertService;
 
     public BillingOverviewVO getOverview(String month) {
         requireBillingViewPermission();
@@ -80,7 +86,7 @@ public class BillingService {
                 .map(this::toModelUsageVO)
                 .toList();
 
-        return BillingOverviewVO.builder()
+        BillingOverviewVO overview = BillingOverviewVO.builder()
                 .periodLabel(current.format(DateTimeFormatter.ofPattern("yyyy年M月", Locale.CHINA)))
                 .totalCalls(totalCalls)
                 .totalTokens(totalTokens)
@@ -93,6 +99,8 @@ public class BillingService {
                 .topModels(topModels)
                 .quota(buildQuota(tenantId, currentStart, currentEnd))
                 .build();
+        billingAlertService.checkAlerts(tenantId);
+        return overview;
     }
 
     public BillingQuotaVO getQuota() {
@@ -100,6 +108,29 @@ public class BillingService {
         Long tenantId = requireTenantId();
         YearMonth current = YearMonth.now();
         return buildQuota(tenantId, current.atDay(1), current.atEndOfMonth());
+    }
+
+    @Transactional
+    public BillingQuotaVO updateQuota(BillingQuotaUpdateRequest request) {
+        requireBillingManagePermission();
+        Long tenantId = requireTenantId();
+        TenantEntity tenant = getTenantOrThrow(tenantId);
+        tenant.setMonthlyTokenQuota(request.getMonthlyTokenQuota());
+        tenant.setUpdatedAt(LocalDateTime.now());
+        tenantMapper.update(tenant);
+        billingAlertService.checkAlerts(tenantId);
+        YearMonth current = YearMonth.now();
+        return buildQuota(tenantId, current.atDay(1), current.atEndOfMonth());
+    }
+
+    public List<TokenUsageLogRow> listExportRecords(Long tenantId, String month) {
+        requireBillingViewPermission();
+        YearMonth period = resolveMonth(month);
+        return tokenUsageMapper.exportLogs(
+                tenantId,
+                period.atDay(1),
+                period.atEndOfMonth(),
+                EXPORT_LIMIT);
     }
 
     public PageResult<TokenUsageLogVO> pageRecords(
@@ -320,6 +351,14 @@ public class BillingService {
                 StpUtil.getLoginIdAsLong(),
                 requireTenantId(),
                 "billing:view",
+                "billing:manage"
+        );
+    }
+
+    private void requireBillingManagePermission() {
+        permissionService.requireAnyPermission(
+                StpUtil.getLoginIdAsLong(),
+                requireTenantId(),
                 "billing:manage"
         );
     }
