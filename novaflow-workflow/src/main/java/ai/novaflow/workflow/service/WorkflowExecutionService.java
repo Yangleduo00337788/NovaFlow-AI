@@ -12,8 +12,9 @@ import ai.novaflow.model.service.ModelUsageService;
 import ai.novaflow.rag.domain.RetrievedChunk;
 import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
-import ai.novaflow.tool.executor.HttpToolExecutor;
+import ai.novaflow.tool.executor.ToolExecutorRouter;
 import ai.novaflow.tool.service.ToolDefinitionService;
+import com.fasterxml.jackson.core.type.TypeReference;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
 import ai.novaflow.workflow.domain.WorkflowNodeType;
 import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
@@ -58,7 +59,7 @@ public class WorkflowExecutionService {
     private final ModelResolutionService modelResolutionService;
     private final ChatAgentExecutor chatAgentExecutor;
     private final ToolDefinitionService toolDefinitionService;
-    private final HttpToolExecutor httpToolExecutor;
+    private final ToolExecutorRouter toolExecutorRouter;
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final ModelUsageService modelUsageService;
     private final ObjectMapper objectMapper;
@@ -283,13 +284,50 @@ public class WorkflowExecutionService {
             if (tools.isEmpty()) {
                 return StepResult.fail("工具不存在或未启用");
             }
-            Map<String, Object> arguments = new HashMap<>();
-            arguments.put("input", input != null ? input : "");
-            arguments.put("query", input != null ? input : "");
-            String result = httpToolExecutor.execute(tools.get(0), arguments);
+            HttpToolDefinition tool = tools.get(0);
+            if ("skill".equalsIgnoreCase(tool.getToolType())) {
+                return StepResult.fail("Skill 技能不能作为工作流工具节点执行，请使用 MCP 或 HTTP 工具");
+            }
+            String result = toolExecutorRouter.execute(tool, buildToolArguments(input, config));
             return StepResult.ok(result);
         } catch (Exception e) {
             return StepResult.fail("工具节点执行失败: " + rootMessage(e));
+        }
+    }
+
+    private Map<String, Object> buildToolArguments(String input, Map<String, Object> config) {
+        Map<String, Object> arguments = new HashMap<>();
+        Object configuredArguments = config.get("arguments");
+        if (configuredArguments instanceof Map<?, ?> configuredMap) {
+            configuredMap.forEach((key, value) -> {
+                if (key != null) {
+                    arguments.put(String.valueOf(key), value);
+                }
+            });
+        } else if (configuredArguments instanceof String configuredJson
+                && StringUtils.hasText(configuredJson.trim())) {
+            mergeJsonArguments(arguments, configuredJson.trim());
+        }
+
+        if (StringUtils.hasText(input)) {
+            String trimmed = input.trim();
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                mergeJsonArguments(arguments, trimmed);
+            }
+        }
+
+        String fallback = input != null ? input : "";
+        arguments.putIfAbsent("input", fallback);
+        arguments.putIfAbsent("query", fallback);
+        return arguments;
+    }
+
+    private void mergeJsonArguments(Map<String, Object> arguments, String json) {
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            arguments.putAll(parsed);
+        } catch (Exception ignored) {
+            // 非 JSON 输入时保留默认参数
         }
     }
 

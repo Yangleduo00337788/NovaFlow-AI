@@ -100,12 +100,25 @@
               <a-form-item label="工具">
                 <a-select
                   v-model:value="toolId"
-                  placeholder="选择工具市场 HTTP 工具"
+                  placeholder="选择 HTTP / MCP 插件工具"
                   :options="toolOptions"
                   :loading="toolsLoading"
                   allow-clear
                 />
               </a-form-item>
+              <a-form-item label="固定参数（JSON，可选）">
+                <a-textarea
+                  v-model:value="toolArgumentsJson"
+                  :rows="4"
+                  placeholder='{"message":"hello"}；留空则使用上游节点输出作为 input/query'
+                />
+              </a-form-item>
+              <a-alert
+                type="info"
+                show-icon
+                message="MCP 工具说明"
+                description="上游输出为 JSON 对象时会自动解析为工具参数；也可在此填写固定参数，与上游输出合并（上游优先）。"
+              />
             </template>
             <template v-else-if="selectedNode.type === 'knowledge'">
               <a-form-item label="知识库">
@@ -281,6 +294,30 @@ const toolId = computed({
   },
 })
 
+const toolArgumentsJson = computed({
+  get: () => {
+    const value = selectedNode.value?.data?.config?.arguments
+    if (value == null) return ''
+    if (typeof value === 'string') return value
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return ''
+    }
+  },
+  set: (value: string) => {
+    if (!selectedNode.value) return
+    const trimmed = value?.trim() ?? ''
+    const config = { ...(selectedNode.value.data.config || {}) }
+    if (!trimmed) {
+      delete config.arguments
+    } else {
+      config.arguments = trimmed
+    }
+    selectedNode.value.data.config = config
+  },
+})
+
 const knowledgeBaseId = computed({
   get: () => (selectedNode.value?.data?.config?.knowledgeBaseId as number | undefined) ?? undefined,
   set: (value) => {
@@ -410,7 +447,9 @@ async function loadTools() {
   try {
     const res = await fetchToolOptions()
     toolOptions.value = res.data.data.map((item) => ({
-      label: `${item.displayName}（${item.toolName}）`,
+      label: item.toolType === 'mcp'
+        ? `${item.displayName}（MCP · ${item.mcpToolName || item.toolName}）`
+        : `${item.displayName}（${item.toolName}）`,
       value: item.id,
     }))
   } finally {
