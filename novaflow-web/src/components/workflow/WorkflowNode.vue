@@ -3,7 +3,11 @@
     <Handle v-if="type !== 'start'" type="target" :position="Position.Left" />
     <div class="node-icon">{{ icon }}</div>
     <div class="node-label">{{ data.label || type }}</div>
-    <Handle v-if="type !== 'end'" type="source" :position="Position.Right" />
+    <template v-if="type === 'condition'">
+      <Handle id="true" type="source" :position="Position.Right" class="handle-true" />
+      <Handle id="false" type="source" :position="Position.Right" class="handle-false" />
+    </template>
+    <Handle v-else-if="type !== 'end'" type="source" :position="Position.Right" />
   </div>
 </template>
 
@@ -86,5 +90,13 @@ const icon = computed(() => {
   font-size: 13px;
   font-weight: 600;
   color: #111827;
+}
+
+.handle-true {
+  top: 35%;
+}
+
+.handle-false {
+  top: 65%;
 }
 </style>

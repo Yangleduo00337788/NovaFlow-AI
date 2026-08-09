@@ -51,6 +51,9 @@
           fit-view-on-init
           @node-click="onNodeClick"
           @pane-click="selectedNodeId = null"
+          @connect="onConnect"
+          @nodes-change="onNodesChange"
+          @edges-change="onEdgesChange"
         >
           <Background />
           <Controls />
@@ -166,10 +169,10 @@ import {
   PlayCircleOutlined,
   SaveOutlined,
 } from '@ant-design/icons-vue'
-import { VueFlow } from '@vue-flow/core'
+import { VueFlow, addEdge, applyEdgeChanges, applyNodeChanges } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import type { NodeTypesObject } from '@vue-flow/core'
+import type { Connection, EdgeChange, NodeChange, NodeTypesObject } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
@@ -300,6 +303,24 @@ function goBack() {
 
 function onNodeClick({ node }: { node: WorkflowFlowNode }) {
   selectedNodeId.value = node.id
+}
+
+function onConnect(connection: Connection) {
+  edges.value = addEdge(
+    {
+      ...connection,
+      id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    },
+    edges.value as Parameters<typeof addEdge>[1],
+  ) as WorkflowFlowEdge[]
+}
+
+function onNodesChange(changes: NodeChange[]) {
+  nodes.value = applyNodeChanges(changes, nodes.value as Parameters<typeof applyNodeChanges>[1]) as WorkflowFlowNode[]
+}
+
+function onEdgesChange(changes: EdgeChange[]) {
+  edges.value = applyEdgeChanges(changes, edges.value as Parameters<typeof applyEdgeChanges>[1]) as WorkflowFlowEdge[]
 }
 
 function addNode(type: string, label: string) {
@@ -591,6 +612,27 @@ watch(
   width: 100%;
   height: 100%;
   min-height: 520px;
+}
+
+.canvas-wrap :deep(.vue-flow__handle) {
+  width: 10px;
+  height: 10px;
+  background: #94a3b8;
+  border: 2px solid #fff;
+  z-index: 2;
+}
+
+.canvas-wrap :deep(.vue-flow__handle:hover) {
+  background: #6366f1;
+}
+
+.canvas-wrap :deep(.vue-flow__edge-path) {
+  stroke: #94a3b8;
+  stroke-width: 2;
+}
+
+.canvas-wrap :deep(.vue-flow__edge.selected .vue-flow__edge-path) {
+  stroke: #6366f1;
 }
 
 .run-result {

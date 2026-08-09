@@ -35,10 +35,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class WorkflowService {
+
+    private static final int MAX_EDGE_ID_LENGTH = 64;
 
     private final WorkflowMapper workflowMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
@@ -239,10 +242,12 @@ public class WorkflowService {
                 if (!StringUtils.hasText(edge.getId()) || !StringUtils.hasText(edge.getSource()) || !StringUtils.hasText(edge.getTarget())) {
                     continue;
                 }
+                String edgeId = normalizeEdgeId(edge.getId());
+                edge.setId(edgeId);
                 WorkflowEdgeEntity edgeEntity = new WorkflowEdgeEntity();
                 edgeEntity.setTenantId(entity.getTenantId());
                 edgeEntity.setWorkflowId(entity.getId());
-                edgeEntity.setEdgeId(edge.getId());
+                edgeEntity.setEdgeId(edgeId);
                 edgeEntity.setSourceNodeId(edge.getSource());
                 edgeEntity.setTargetNodeId(edge.getTarget());
                 edgeEntity.setSourceHandle(edge.getSourceHandle());
@@ -469,6 +474,16 @@ public class WorkflowService {
         } catch (Exception e) {
             return Map.of();
         }
+    }
+
+    private String normalizeEdgeId(String edgeId) {
+        String trimmed = edgeId.trim();
+        if (trimmed.length() <= MAX_EDGE_ID_LENGTH) {
+            return trimmed;
+        }
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String generated = "e-" + System.currentTimeMillis() + "-" + suffix;
+        return generated.length() <= MAX_EDGE_ID_LENGTH ? generated : generated.substring(0, MAX_EDGE_ID_LENGTH);
     }
 
     private String trimToNull(String value) {
