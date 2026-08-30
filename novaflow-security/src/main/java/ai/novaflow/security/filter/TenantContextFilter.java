@@ -16,8 +16,6 @@ import java.io.IOException;
 @Order(1)
 public class TenantContextFilter extends OncePerRequestFilter {
 
-    private static final String TENANT_HEADER = "X-Tenant-Id";
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -28,11 +26,6 @@ public class TenantContextFilter extends OncePerRequestFilter {
                     TenantContext.setTenantId(id);
                 } else if (tenantId instanceof Integer id) {
                     TenantContext.setTenantId(id.longValue());
-                }
-            } else {
-                String tenantHeader = request.getHeader(TENANT_HEADER);
-                if (tenantHeader != null && !tenantHeader.isBlank()) {
-                    TenantContext.setTenantId(Long.parseLong(tenantHeader));
                 }
             }
             filterChain.doFilter(request, response);
