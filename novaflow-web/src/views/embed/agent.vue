@@ -123,7 +123,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { ArrowUpOutlined } from '@ant-design/icons-vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   fetchOpenAgentWelcome,
   streamOpenAgentChat,
@@ -141,8 +141,25 @@ interface ChatMessage {
 const TYPEWRITER_INTERVAL_MS = 18
 
 const route = useRoute()
+const router = useRouter()
 const agentId = Number(route.params.id)
-const apiKey = String(route.query.apiKey || route.query.key || '')
+const storageKey = `novaflow_embed_key_${agentId}`
+
+function resolveApiKey(): string {
+  const fromQuery = String(route.query.apiKey || route.query.key || '')
+  const fromStorage = sessionStorage.getItem(storageKey) || ''
+  const key = fromQuery || fromStorage
+  if (fromQuery) {
+    sessionStorage.setItem(storageKey, fromQuery)
+    const nextQuery = { ...route.query }
+    delete nextQuery.apiKey
+    delete nextQuery.key
+    router.replace({ query: nextQuery })
+  }
+  return key
+}
+
+const apiKey = ref(resolveApiKey())
 const subtitle = route.query.subtitle ? String(route.query.subtitle) : ''
 
 const agentName = ref('')
@@ -228,14 +245,14 @@ function formatMeta(tokens?: number, latencyMs?: number) {
 }
 
 async function loadWelcome() {
-  if (!agentId || !apiKey) {
+  if (!agentId || !apiKey.value) {
     errorMessage.value = '缺少 agentId 或 apiKey 参数'
     return
   }
   loadingWelcome.value = true
   errorMessage.value = ''
   try {
-    const res = await fetchOpenAgentWelcome(agentId, apiKey)
+    const res = await fetchOpenAgentWelcome(agentId, apiKey.value)
     agentName.value = res.data.data.agentName
     if (res.data.data.reply) {
       messages.value.push({ id: seq++, role: 'assistant', content: res.data.data.reply })
@@ -275,7 +292,7 @@ async function onSend() {
   try {
     await streamOpenAgentChat(
       agentId,
-      apiKey,
+      apiKey.value,
       text,
       conversationId.value,
       {

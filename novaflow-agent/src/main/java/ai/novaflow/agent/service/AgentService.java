@@ -95,7 +95,10 @@ public class AgentService {
     public AgentVO create(AgentSaveRequest request) {
         Long tenantId = requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
-        Long applicationId = request.getApplicationId() != null ? request.getApplicationId() : 1L;
+        if (request.getApplicationId() == null) {
+            throw new BusinessException("请选择所属应用");
+        }
+        Long applicationId = request.getApplicationId();
 
         AgentEntity agent = new AgentEntity();
         agent.setTenantId(tenantId);
