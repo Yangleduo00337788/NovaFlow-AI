@@ -13,6 +13,8 @@ import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.vo.TokenUsageLogVO;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import cn.dev33.satoken.stp.StpUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,26 +43,31 @@ public class BillingController {
     private final BillingAlertService billingAlertService;
     private final BillingExportService billingExportService;
 
+    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
     @GetMapping("/overview")
     public ApiResult<BillingOverviewVO> overview(@RequestParam(required = false) String month) {
         return ApiResult.ok(billingService.getOverview(month));
     }
 
+    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
     @GetMapping("/quota")
     public ApiResult<BillingQuotaVO> quota() {
         return ApiResult.ok(billingService.getQuota());
     }
 
+    @SaCheckPermission("billing:manage")
     @PutMapping("/quota")
     public ApiResult<BillingQuotaVO> updateQuota(@Valid @RequestBody BillingQuotaUpdateRequest request) {
         return ApiResult.ok(billingService.updateQuota(request));
     }
 
+    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
     @GetMapping("/alerts")
     public ApiResult<List<BillingAlertVO>> alerts() {
         return ApiResult.ok(billingAlertService.listAlerts(requireTenantId()));
     }
 
+    @SaCheckPermission("billing:manage")
     @PutMapping("/alerts")
     public ApiResult<BillingAlertVO> saveAlert(@Valid @RequestBody BillingAlertSaveRequest request) {
         return ApiResult.ok(billingAlertService.saveAlert(
@@ -69,6 +76,7 @@ public class BillingController {
                 request));
     }
 
+    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
     @GetMapping("/records")
     public ApiResult<PageResult<TokenUsageLogVO>> records(
             @RequestParam(defaultValue = "1") int page,
@@ -80,6 +88,7 @@ public class BillingController {
         return ApiResult.ok(billingService.pageRecords(page, pageSize, agentId, usageType, month, keyword));
     }
 
+    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(
             @RequestParam(required = false) String month,

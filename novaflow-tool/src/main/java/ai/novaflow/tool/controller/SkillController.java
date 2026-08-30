@@ -3,6 +3,7 @@ package ai.novaflow.tool.controller;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.tool.domain.vo.ToolDefinitionVO;
 import ai.novaflow.tool.service.ToolDefinitionService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
+@SaCheckPermission("agent:edit")
 @RequestMapping("/api/v1/skills")
 @RequiredArgsConstructor
 public class SkillController {

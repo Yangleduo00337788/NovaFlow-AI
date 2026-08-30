@@ -10,6 +10,8 @@ import ai.novaflow.workflow.domain.vo.WorkflowRunResultVO;
 import ai.novaflow.workflow.domain.vo.WorkflowVO;
 import ai.novaflow.workflow.service.WorkflowExecutionService;
 import ai.novaflow.workflow.service.WorkflowService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import cn.dev33.satoken.stp.StpUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class WorkflowController {
     private final WorkflowService workflowService;
     private final WorkflowExecutionService workflowExecutionService;
 
+    @SaCheckPermission(value = {"workflow:create", "workflow:edit"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<WorkflowVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -42,21 +45,25 @@ public class WorkflowController {
         return ApiResult.ok(workflowService.page(page, pageSize, keyword, applicationId));
     }
 
+    @SaCheckPermission(value = {"workflow:create", "workflow:edit", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<WorkflowVO>> options(@RequestParam(required = false) Long applicationId) {
         return ApiResult.ok(workflowService.listPublishedOptions(applicationId));
     }
 
+    @SaCheckPermission(value = {"workflow:create", "workflow:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<WorkflowDetailVO> detail(@PathVariable Long id) {
         return ApiResult.ok(workflowService.detail(id));
     }
 
+    @SaCheckPermission("workflow:create")
     @PostMapping
     public ApiResult<WorkflowDetailVO> create(@Valid @RequestBody WorkflowSaveRequest request) {
         return ApiResult.ok(workflowService.create(request));
     }
 
+    @SaCheckPermission("workflow:edit")
     @PutMapping("/{id}")
     public ApiResult<WorkflowDetailVO> update(
             @PathVariable Long id,
@@ -64,11 +71,13 @@ public class WorkflowController {
         return ApiResult.ok(workflowService.update(id, request));
     }
 
+    @SaCheckPermission("workflow:edit")
     @PostMapping("/{id}/publish")
     public ApiResult<WorkflowDetailVO> publish(@PathVariable Long id) {
         return ApiResult.ok(workflowService.publish(id));
     }
 
+    @SaCheckPermission(value = {"workflow:create", "workflow:edit"}, mode = SaMode.OR)
     @PostMapping("/{id}/run")
     public ApiResult<WorkflowRunResultVO> run(
             @PathVariable Long id,
@@ -84,6 +93,7 @@ public class WorkflowController {
         return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
     }
 
+    @SaCheckPermission("workflow:edit")
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         workflowService.delete(id);

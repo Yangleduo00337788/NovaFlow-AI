@@ -7,6 +7,7 @@ import ai.novaflow.agent.domain.vo.ConversationVO;
 import ai.novaflow.agent.service.AgentOpenService;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.security.ratelimit.OpenApiRateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +30,12 @@ import java.util.List;
 public class AgentOpenController {
 
     private final AgentOpenService agentOpenService;
+    private final OpenApiRateLimiter openApiRateLimiter;
 
     @GetMapping("/{id}/welcome")
     public ApiResult<AgentDebugChatVO> welcome(@PathVariable Long id, HttpServletRequest request) {
-        return ApiResult.ok(agentOpenService.welcome(id, resolveApiKey(request)));
+        String apiKey = resolveApiKey(request);
+        return ApiResult.ok(agentOpenService.welcome(id, apiKey));
     }
 
     @PostMapping("/{id}/chat")
@@ -40,7 +43,8 @@ public class AgentOpenController {
             @PathVariable Long id,
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
-        return ApiResult.ok(agentOpenService.chat(id, resolveApiKey(httpRequest), request));
+        String apiKey = resolveApiKey(httpRequest);
+        return ApiResult.ok(agentOpenService.chat(id, apiKey, request));
     }
 
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -48,7 +52,8 @@ public class AgentOpenController {
             @PathVariable Long id,
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
-        return agentOpenService.streamChat(id, resolveApiKey(httpRequest), request);
+        String apiKey = resolveApiKey(httpRequest);
+        return agentOpenService.streamChat(id, apiKey, request);
     }
 
     @GetMapping("/{id}/conversations")
@@ -57,7 +62,8 @@ public class AgentOpenController {
             HttpServletRequest request,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
-        return ApiResult.ok(agentOpenService.listConversations(id, resolveApiKey(request), page, pageSize));
+        String apiKey = resolveApiKey(request);
+        return ApiResult.ok(agentOpenService.listConversations(id, apiKey, page, pageSize));
     }
 
     @GetMapping("/{id}/conversations/messages")
@@ -65,18 +71,23 @@ public class AgentOpenController {
             @PathVariable Long id,
             @RequestParam String conversationKey,
             HttpServletRequest request) {
-        return ApiResult.ok(agentOpenService.listMessages(id, resolveApiKey(request), conversationKey));
+        String apiKey = resolveApiKey(request);
+        return ApiResult.ok(agentOpenService.listMessages(id, apiKey, conversationKey));
     }
 
     private String resolveApiKey(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
+        String apiKey = null;
         if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
-            return authorization.substring(7).trim();
+            apiKey = authorization.substring(7).trim();
         }
-        String apiKey = request.getHeader("X-API-Key");
-        if (StringUtils.hasText(apiKey)) {
-            return apiKey.trim();
+        if (!StringUtils.hasText(apiKey)) {
+            String headerKey = request.getHeader("X-API-Key");
+            if (StringUtils.hasText(headerKey)) {
+                apiKey = headerKey.trim();
+            }
         }
-        return null;
+        openApiRateLimiter.check(apiKey, request.getRemoteAddr());
+        return apiKey;
     }
 }

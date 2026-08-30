@@ -6,6 +6,7 @@ import ai.novaflow.monitor.domain.vo.TraceDetailVO;
 import ai.novaflow.monitor.domain.vo.TraceNodeVO;
 import ai.novaflow.monitor.domain.vo.TraceSpanVO;
 import ai.novaflow.monitor.service.TraceService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
+@SaCheckPermission("trace:view")
 @RequestMapping("/api/v1/trace")
 @RequiredArgsConstructor
 public class TraceController {

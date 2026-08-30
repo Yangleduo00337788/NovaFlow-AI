@@ -12,6 +12,7 @@ import ai.novaflow.model.domain.vo.ModelProviderVO;
 import ai.novaflow.model.domain.vo.ModelSyncResultVO;
 import ai.novaflow.model.service.ModelConfigService;
 import ai.novaflow.model.service.ModelProviderService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
+@SaCheckPermission("model:config")
 @RequestMapping("/api/v1/models")
 @RequiredArgsConstructor
 public class ModelController {

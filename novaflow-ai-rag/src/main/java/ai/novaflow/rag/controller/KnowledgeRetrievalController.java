@@ -6,6 +6,8 @@ import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.rag.domain.dto.RetrievalTestRequest;
 import ai.novaflow.rag.domain.vo.RetrievalTestResultVO;
 import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +23,7 @@ public class KnowledgeRetrievalController {
 
     private final KnowledgeRetrievalService knowledgeRetrievalService;
 
+    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @PostMapping("/{id}/retrieve")
     public ApiResult<RetrievalTestResultVO> retrieve(
             @PathVariable Long id,

@@ -7,6 +7,8 @@ import ai.novaflow.knowledge.domain.vo.DocumentVO;
 import ai.novaflow.knowledge.domain.vo.KnowledgeBaseVO;
 import ai.novaflow.knowledge.service.DocumentService;
 import ai.novaflow.knowledge.service.KnowledgeBaseService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +30,7 @@ public class KnowledgeBaseController {
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentService documentService;
 
+    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<KnowledgeBaseVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -36,16 +39,19 @@ public class KnowledgeBaseController {
         return ApiResult.ok(knowledgeBaseService.page(page, pageSize, keyword));
     }
 
+    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<KnowledgeBaseVO> detail(@PathVariable Long id) {
         return ApiResult.ok(knowledgeBaseService.detail(id));
     }
 
+    @SaCheckPermission("knowledge:create")
     @PostMapping
     public ApiResult<KnowledgeBaseVO> create(@Valid @RequestBody KnowledgeBaseSaveRequest request) {
         return ApiResult.ok(knowledgeBaseService.create(request));
     }
 
+    @SaCheckPermission("knowledge:create")
     @PutMapping("/{id}")
     public ApiResult<KnowledgeBaseVO> update(
             @PathVariable Long id,
@@ -53,12 +59,14 @@ public class KnowledgeBaseController {
         return ApiResult.ok(knowledgeBaseService.update(id, request));
     }
 
+    @SaCheckPermission("knowledge:create")
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         knowledgeBaseService.delete(id);
         return ApiResult.ok();
     }
 
+    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @GetMapping("/{id}/documents")
     public ApiResult<PageResult<DocumentVO>> pageDocuments(
             @PathVariable Long id,
@@ -68,6 +76,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok(documentService.page(id, page, pageSize, keyword));
     }
 
+    @SaCheckPermission("knowledge:upload")
     @PostMapping("/{id}/documents/upload")
     public ApiResult<DocumentVO> uploadDocument(
             @PathVariable Long id,
@@ -75,6 +84,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok(documentService.upload(id, file));
     }
 
+    @SaCheckPermission("knowledge:upload")
     @PostMapping("/{id}/documents/{documentId}/reprocess")
     public ApiResult<Void> reprocessDocument(
             @PathVariable Long id,
@@ -83,6 +93,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok();
     }
 
+    @SaCheckPermission("knowledge:create")
     @DeleteMapping("/{id}/documents/{documentId}")
     public ApiResult<Void> deleteDocument(
             @PathVariable Long id,

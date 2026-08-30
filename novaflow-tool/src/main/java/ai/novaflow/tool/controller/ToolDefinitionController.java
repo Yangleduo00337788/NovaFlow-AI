@@ -7,6 +7,7 @@ import ai.novaflow.tool.domain.dto.ToolTestRequest;
 import ai.novaflow.tool.domain.vo.ToolDefinitionVO;
 import ai.novaflow.tool.domain.vo.ToolTestResultVO;
 import ai.novaflow.tool.service.ToolDefinitionService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
+@SaCheckPermission("agent:edit")
 @RequestMapping("/api/v1/tools")
 @RequiredArgsConstructor
 public class ToolDefinitionController {

@@ -6,6 +6,8 @@ import ai.novaflow.application.domain.vo.ApplicationVO;
 import ai.novaflow.application.service.ApplicationService;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +29,7 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
 
+    @SaCheckPermission("application:manage")
     @GetMapping
     public ApiResult<PageResult<ApplicationVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -35,21 +38,25 @@ public class ApplicationController {
         return ApiResult.ok(applicationService.page(page, pageSize, keyword));
     }
 
+    @SaCheckPermission(value = {"application:manage", "agent:create", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<ApplicationVO>> options() {
         return ApiResult.ok(applicationService.listOptions());
     }
 
+    @SaCheckPermission("application:manage")
     @GetMapping("/{id}")
     public ApiResult<ApplicationVO> detail(@PathVariable Long id) {
         return ApiResult.ok(applicationService.detail(id));
     }
 
+    @SaCheckPermission("application:manage")
     @PostMapping
     public ApiResult<ApplicationVO> create(@Valid @RequestBody ApplicationSaveRequest request) {
         return ApiResult.ok(applicationService.create(request));
     }
 
+    @SaCheckPermission("application:manage")
     @PutMapping("/{id}")
     public ApiResult<ApplicationVO> update(
             @PathVariable Long id,
@@ -57,22 +64,26 @@ public class ApplicationController {
         return ApiResult.ok(applicationService.update(id, request));
     }
 
+    @SaCheckPermission("application:manage")
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         applicationService.delete(id);
         return ApiResult.ok();
     }
 
+    @SaCheckPermission("application:manage")
     @GetMapping("/{id}/publish")
     public ApiResult<ApplicationPublishVO> publishInfo(@PathVariable Long id) {
         return ApiResult.ok(applicationService.getPublishInfo(id));
     }
 
+    @SaCheckPermission("application:manage")
     @PostMapping("/{id}/publish")
     public ApiResult<ApplicationPublishVO> publish(@PathVariable Long id) {
         return ApiResult.ok(applicationService.publish(id));
     }
 
+    @SaCheckPermission("application:manage")
     @PostMapping("/{id}/unpublish")
     public ApiResult<ApplicationPublishVO> unpublish(@PathVariable Long id) {
         return ApiResult.ok(applicationService.unpublish(id));

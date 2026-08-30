@@ -7,6 +7,7 @@ import ai.novaflow.tool.domain.vo.McpConnectResultVO;
 import ai.novaflow.tool.domain.vo.McpServerVO;
 import ai.novaflow.tool.domain.vo.McpSyncResultVO;
 import ai.novaflow.tool.service.McpServerService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@SaCheckPermission("agent:edit")
 @RequestMapping("/api/v1/mcp-servers")
 @RequiredArgsConstructor
 public class McpServerController {

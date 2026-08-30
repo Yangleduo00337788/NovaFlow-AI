@@ -4,6 +4,8 @@ import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.model.domain.vo.TokenUsageLogVO;
 import ai.novaflow.model.service.TokenUsageLogService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@SaCheckPermission(value = {"monitor:view", "billing:view"}, mode = SaMode.OR)
 @RequestMapping("/api/v1/token-usage")
 @RequiredArgsConstructor
 public class TokenUsageController {

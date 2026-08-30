@@ -8,6 +8,8 @@ import ai.novaflow.prompt.domain.vo.PromptTemplateVO;
 import ai.novaflow.prompt.domain.vo.PromptTestResultVO;
 import ai.novaflow.prompt.domain.vo.PromptVersionVO;
 import ai.novaflow.prompt.service.PromptTemplateService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
+@SaCheckPermission(value = {"prompt:create", "prompt:edit"}, mode = SaMode.OR)
 @RequestMapping("/api/v1/prompts")
 @RequiredArgsConstructor
 public class PromptTemplateController {
