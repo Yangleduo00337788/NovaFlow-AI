@@ -1,22 +1,10 @@
 package ai.novaflow.workflow.service;
 
-import ai.novaflow.aiengine.agent.ChatAgentExecutor;
-import ai.novaflow.aiengine.agent.ChatExecuteRequest;
-import ai.novaflow.aiengine.agent.ChatExecuteResult;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
-import ai.novaflow.model.domain.ResolvedModelConfig;
-import ai.novaflow.model.service.ModelResolutionService;
 import ai.novaflow.model.domain.dto.ModelUsageRecordRequest;
 import ai.novaflow.model.service.ModelUsageService;
-import ai.novaflow.rag.domain.RetrievedChunk;
-import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
-import ai.novaflow.tool.domain.HttpToolDefinition;
-import ai.novaflow.tool.executor.ToolExecutorRouter;
-import ai.novaflow.tool.service.ToolDefinitionService;
-import com.fasterxml.jackson.core.type.TypeReference;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
-import ai.novaflow.workflow.domain.WorkflowNodeType;
 import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
 import ai.novaflow.workflow.domain.dto.WorkflowRunRequest;
 import ai.novaflow.workflow.domain.vo.WorkflowModelUsageVO;
@@ -32,6 +20,11 @@ import ai.novaflow.workflow.mapper.WorkflowExecutionMapper;
 import ai.novaflow.workflow.mapper.WorkflowMapper;
 import ai.novaflow.workflow.mapper.WorkflowNodeLogMapper;
 import ai.novaflow.workflow.mapper.WorkflowNodeMapper;
+import ai.novaflow.workflow.util.WorkflowElBuilder;
+import ai.novaflow.workflowengine.WorkflowLiteFlowExecutor;
+import ai.novaflow.workflowengine.domain.WorkflowExecutionContext;
+import ai.novaflow.workflowengine.domain.WorkflowNodeDefinition;
+import ai.novaflow.workflowengine.domain.WorkflowStepSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -41,11 +34,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -56,13 +47,10 @@ public class WorkflowExecutionService {
     private final WorkflowEdgeMapper workflowEdgeMapper;
     private final WorkflowExecutionMapper workflowExecutionMapper;
     private final WorkflowNodeLogMapper workflowNodeLogMapper;
-    private final ModelResolutionService modelResolutionService;
-    private final ChatAgentExecutor chatAgentExecutor;
-    private final ToolDefinitionService toolDefinitionService;
-    private final ToolExecutorRouter toolExecutorRouter;
-    private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final ModelUsageService modelUsageService;
     private final ObjectMapper objectMapper;
+    private final WorkflowNodeProcessorImpl workflowNodeProcessor;
+    private final WorkflowLiteFlowExecutor workflowLiteFlowExecutor;
 
     @Transactional
     public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request) {
@@ -86,23 +74,10 @@ public class WorkflowExecutionService {
             throw new BusinessException("工作流没有可执行的节点");
         }
 
-        Map<String, WorkflowNodeEntity> nodeMap = nodes.stream()
-                .collect(Collectors.toMap(WorkflowNodeEntity::getNodeId, node -> node, (a, b) -> a));
-        Map<String, List<WorkflowEdgeEntity>> outgoing = edges.stream()
-                .collect(Collectors.groupingBy(WorkflowEdgeEntity::getSourceNodeId));
-
-        WorkflowNodeEntity start = nodes.stream()
-                .filter(node -> WorkflowNodeType.START.equals(node.getNodeType()))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException("缺少开始节点"));
-
+        String input = request != null && StringUtils.hasText(request.getInput()) ? request.getInput().trim() : "";
         String executionId = UUID.randomUUID().toString().replace("-", "");
         LocalDateTime startedAt = LocalDateTime.now();
         long startedMs = System.currentTimeMillis();
-        String input = request != null && StringUtils.hasText(request.getInput()) ? request.getInput().trim() : "";
-        String currentPayload = input;
-        List<WorkflowRunStepVO> steps = new ArrayList<>();
-        List<WorkflowModelUsageVO> modelUsages = new ArrayList<>();
 
         WorkflowExecutionEntity execution = new WorkflowExecutionEntity();
         execution.setTenantId(tenantId);
@@ -114,307 +89,117 @@ public class WorkflowExecutionService {
         execution.setTriggeredBy(triggeredByUserId);
         workflowExecutionMapper.insert(execution);
 
-        String currentNodeId = start.getNodeId();
-        int guard = 0;
-        Integer finalStatus = WorkflowExecutionStatus.SUCCESS;
-        String finalOutput = null;
-        String errorMessage = null;
-        int totalTokens = 0;
-
-        try {
-            while (currentNodeId != null && guard++ < 64) {
-                WorkflowNodeEntity node = nodeMap.get(currentNodeId);
-                if (node == null) {
-                    throw new BusinessException("节点不存在: " + currentNodeId);
-                }
-
-                long stepStart = System.currentTimeMillis();
-                LocalDateTime stepStartedAt = LocalDateTime.now();
-                StepResult stepResult = executeNode(node, currentPayload, tenantId);
-                int stepDuration = (int) (System.currentTimeMillis() - stepStart);
-                totalTokens += stepResult.tokensUsed();
-                if (stepResult.modelUsage() != null) {
-                    modelUsages.add(stepResult.modelUsage());
-                }
-
-                WorkflowNodeLogEntity logEntity = new WorkflowNodeLogEntity();
-                logEntity.setTenantId(tenantId);
-                logEntity.setExecutionId(executionId);
-                logEntity.setNodeId(node.getNodeId());
-                logEntity.setNodeType(node.getNodeType());
-                logEntity.setStatus(stepResult.success() ? 1 : 2);
-                logEntity.setInputData(writeJson(Map.of("input", currentPayload)));
-                logEntity.setOutputData(writeJson(Map.of("output", stepResult.output())));
-                logEntity.setErrorMessage(stepResult.errorMessage());
-                logEntity.setStartedAt(stepStartedAt);
-                logEntity.setFinishedAt(LocalDateTime.now());
-                logEntity.setDurationMs(stepDuration);
-                workflowNodeLogMapper.insert(logEntity);
-
-                steps.add(WorkflowRunStepVO.builder()
-                        .nodeId(node.getNodeId())
-                        .nodeType(node.getNodeType())
-                        .nodeName(node.getNodeName())
-                        .status(stepResult.success() ? 1 : 2)
-                        .input(currentPayload)
-                        .output(stepResult.output())
-                        .errorMessage(stepResult.errorMessage())
-                        .durationMs(stepDuration)
-                        .build());
-
-                if (!stepResult.success()) {
-                    finalStatus = WorkflowExecutionStatus.FAILED;
-                    errorMessage = stepResult.errorMessage();
-                    break;
-                }
-
-                currentPayload = stepResult.output();
-                if (WorkflowNodeType.END.equals(node.getNodeType())) {
-                    finalOutput = currentPayload;
-                    break;
-                }
-
-                List<WorkflowEdgeEntity> nextEdges = outgoing.getOrDefault(currentNodeId, List.of());
-                if (nextEdges.isEmpty()) {
-                    if (!WorkflowNodeType.END.equals(node.getNodeType())) {
-                        throw new BusinessException("节点「" + node.getNodeName() + "」没有后续连线");
-                    }
-                    break;
-                }
-                currentNodeId = resolveNextNodeId(node, currentPayload, nextEdges);
-            }
-        } catch (BusinessException e) {
-            finalStatus = WorkflowExecutionStatus.FAILED;
-            errorMessage = e.getMessage();
-        }
+        ExecutionOutcome outcome = runWithLiteFlow(nodes, edges, input, tenantId, executionId);
 
         int durationMs = (int) (System.currentTimeMillis() - startedMs);
-        execution.setStatus(finalStatus);
-        execution.setOutputData(writeJson(Map.of("output", finalOutput != null ? finalOutput : currentPayload)));
-        execution.setErrorMessage(errorMessage);
+        execution.setStatus(outcome.status());
+        execution.setOutputData(writeJson(Map.of("output", outcome.output() != null ? outcome.output() : "")));
+        execution.setErrorMessage(outcome.errorMessage());
         execution.setFinishedAt(LocalDateTime.now());
         execution.setDurationMs(durationMs);
         workflowExecutionMapper.update(execution);
 
         if (runOptions.isRecordUsage()) {
-            recordModelUsages(workflow, triggeredByUserId, runOptions.getAgentId(), modelUsages);
+            recordModelUsages(workflow, triggeredByUserId, runOptions.getAgentId(), outcome.modelUsages());
         }
 
         return WorkflowRunResultVO.builder()
                 .executionId(executionId)
-                .status(finalStatus)
-                .output(finalOutput != null ? finalOutput : currentPayload)
-                .errorMessage(errorMessage)
+                .status(outcome.status())
+                .output(outcome.output())
+                .errorMessage(outcome.errorMessage())
                 .durationMs(durationMs)
-                .tokensUsed(totalTokens)
-                .modelUsages(modelUsages)
-                .steps(steps)
+                .tokensUsed(outcome.totalTokens())
+                .modelUsages(outcome.modelUsages())
+                .steps(outcome.steps())
                 .build();
     }
 
-    private StepResult executeNode(WorkflowNodeEntity node, String input, Long tenantId) {
-        return switch (node.getNodeType()) {
-            case WorkflowNodeType.START -> StepResult.ok(input);
-            case WorkflowNodeType.LLM -> executeLlmNode(node, input, tenantId);
-            case WorkflowNodeType.KNOWLEDGE -> executeKnowledgeNode(node, input, tenantId);
-            case WorkflowNodeType.TOOL -> executeToolNode(node, input, tenantId);
-            case WorkflowNodeType.CONDITION -> StepResult.ok(evaluateCondition(node, input));
-            case WorkflowNodeType.END -> StepResult.ok(StringUtils.hasText(input) ? input : "流程结束");
-            default -> StepResult.fail("暂不支持的节点类型: " + node.getNodeType());
-        };
+    private ExecutionOutcome runWithLiteFlow(
+            List<WorkflowNodeEntity> nodes,
+            List<WorkflowEdgeEntity> edges,
+            String input,
+            Long tenantId,
+            String executionId) {
+        String elExpression = WorkflowElBuilder.build(nodes, edges);
+        if (!StringUtils.hasText(elExpression)) {
+            throw new BusinessException("无法生成工作流 EL 表达式");
+        }
+
+        WorkflowExecutionContext context = new WorkflowExecutionContext();
+        context.setTenantId(tenantId);
+        context.setPayload(input);
+        context.setNodeProcessor(workflowNodeProcessor);
+        for (WorkflowNodeEntity node : nodes) {
+            context.getNodeMap().put(node.getNodeId(), toDefinition(node));
+        }
+
+        workflowLiteFlowExecutor.execute(executionId, elExpression, context);
+        persistStepLogs(tenantId, executionId, context.getSteps());
+
+        Integer status = context.isFailed()
+                ? WorkflowExecutionStatus.FAILED
+                : WorkflowExecutionStatus.SUCCESS;
+        List<WorkflowModelUsageVO> modelUsages = extractModelUsages(context.getModelUsages());
+        List<WorkflowRunStepVO> steps = toStepVos(context.getSteps());
+        String output = context.getPayload();
+        return new ExecutionOutcome(status, output, context.getErrorMessage(), context.getTotalTokens(), modelUsages, steps);
     }
 
-    private StepResult executeLlmNode(WorkflowNodeEntity node, String input, Long tenantId) {
-        Map<String, Object> config = parseConfig(node.getNodeConfig());
-        Long modelConfigId = toLong(config.get("modelConfigId"));
-        String prompt = config.get("prompt") != null ? String.valueOf(config.get("prompt")) : "请处理以下输入：{{input}}";
-        String userMessage = prompt.replace("{{input}}", input != null ? input : "");
-
-        try {
-            ResolvedModelConfig modelConfig = modelResolutionService.resolve(modelConfigId, tenantId);
-            ChatExecuteResult result = chatAgentExecutor.execute(ChatExecuteRequest.builder()
-                    .modelConfig(modelConfig)
-                    .systemPrompt("你是工作流中的 LLM 节点，请根据指令完成任务。")
-                    .userMessage(userMessage)
-                    .conversationId("workflow-" + node.getWorkflowId() + "-" + node.getNodeId())
-                    .memoryWindow(1)
-                    .build());
-            int tokensUsed = result.getTokensUsed() != null ? result.getTokensUsed() : 0;
-            int inputTokens = result.getInputTokens() != null ? result.getInputTokens() : 0;
-            int outputTokens = result.getOutputTokens() != null ? result.getOutputTokens() : 0;
-            int total = tokensUsed > 0 ? tokensUsed : inputTokens + outputTokens;
-            WorkflowModelUsageVO usage = WorkflowModelUsageVO.builder()
-                    .nodeId(node.getNodeId())
-                    .nodeName(node.getNodeName())
-                    .modelConfigId(modelConfigId)
-                    .inputTokens(inputTokens)
-                    .outputTokens(outputTokens)
-                    .totalTokens(total)
-                    .latencyMs(result.getLatencyMs() != null ? result.getLatencyMs().intValue() : null)
-                    .build();
-            return StepResult.ok(result.getReply(), total, usage);
-        } catch (Exception e) {
-            return StepResult.fail("LLM 节点执行失败: " + rootMessage(e));
-        }
-    }
-
-    private String evaluateCondition(WorkflowNodeEntity node, String input) {
-        Map<String, Object> config = parseConfig(node.getNodeConfig());
-        String expression = config.get("expression") != null ? String.valueOf(config.get("expression")) : "";
-        if (!StringUtils.hasText(expression)) {
-            return input;
-        }
-        if ("not_empty".equalsIgnoreCase(expression)) {
-            return StringUtils.hasText(input) ? "true" : "false";
-        }
-        if ("contains:success".equalsIgnoreCase(expression)) {
-            return input != null && input.toLowerCase().contains("success") ? "true" : "false";
-        }
-        return input;
-    }
-
-    private StepResult executeToolNode(WorkflowNodeEntity node, String input, Long tenantId) {
-        Map<String, Object> config = parseConfig(node.getNodeConfig());
-        Long toolId = toLong(config.get("toolId"));
-        if (toolId == null) {
-            return StepResult.fail("工具节点未选择工具");
-        }
-        try {
-            List<HttpToolDefinition> tools = toolDefinitionService.resolveTools(tenantId, List.of(toolId));
-            if (tools.isEmpty()) {
-                return StepResult.fail("工具不存在或未启用");
-            }
-            HttpToolDefinition tool = tools.get(0);
-            if ("skill".equalsIgnoreCase(tool.getToolType())) {
-                return StepResult.fail("Skill 技能不能作为工作流工具节点执行，请使用 MCP 或 HTTP 工具");
-            }
-            String result = toolExecutorRouter.execute(tool, buildToolArguments(input, config));
-            return StepResult.ok(result);
-        } catch (Exception e) {
-            return StepResult.fail("工具节点执行失败: " + rootMessage(e));
+    private void persistStepLogs(Long tenantId, String executionId, List<WorkflowStepSnapshot> snapshots) {
+        for (WorkflowStepSnapshot snapshot : snapshots) {
+            LocalDateTime finishedAt = LocalDateTime.now();
+            LocalDateTime startedAt = finishedAt.minusNanos(snapshot.getDurationMs() * 1_000_000L);
+            WorkflowNodeLogEntity logEntity = new WorkflowNodeLogEntity();
+            logEntity.setTenantId(tenantId);
+            logEntity.setExecutionId(executionId);
+            logEntity.setNodeId(snapshot.getNodeId());
+            logEntity.setNodeType(snapshot.getNodeType());
+            logEntity.setStatus(snapshot.getStatus());
+            logEntity.setInputData(writeJson(Map.of("input", snapshot.getInput())));
+            logEntity.setOutputData(writeJson(Map.of("output", snapshot.getOutput())));
+            logEntity.setErrorMessage(snapshot.getErrorMessage());
+            logEntity.setStartedAt(startedAt);
+            logEntity.setFinishedAt(finishedAt);
+            logEntity.setDurationMs(snapshot.getDurationMs());
+            workflowNodeLogMapper.insert(logEntity);
         }
     }
 
-    private Map<String, Object> buildToolArguments(String input, Map<String, Object> config) {
-        Map<String, Object> arguments = new HashMap<>();
-        Object configuredArguments = config.get("arguments");
-        if (configuredArguments instanceof Map<?, ?> configuredMap) {
-            configuredMap.forEach((key, value) -> {
-                if (key != null) {
-                    arguments.put(String.valueOf(key), value);
-                }
-            });
-        } else if (configuredArguments instanceof String configuredJson
-                && StringUtils.hasText(configuredJson.trim())) {
-            mergeJsonArguments(arguments, configuredJson.trim());
-        }
+    private List<WorkflowRunStepVO> toStepVos(List<WorkflowStepSnapshot> snapshots) {
+        return snapshots.stream()
+                .map(snapshot -> WorkflowRunStepVO.builder()
+                        .nodeId(snapshot.getNodeId())
+                        .nodeType(snapshot.getNodeType())
+                        .nodeName(snapshot.getNodeName())
+                        .status(snapshot.getStatus())
+                        .input(snapshot.getInput())
+                        .output(snapshot.getOutput())
+                        .errorMessage(snapshot.getErrorMessage())
+                        .durationMs(snapshot.getDurationMs())
+                        .build())
+                .toList();
+    }
 
-        if (StringUtils.hasText(input)) {
-            String trimmed = input.trim();
-            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-                mergeJsonArguments(arguments, trimmed);
+    @SuppressWarnings("unchecked")
+    private List<WorkflowModelUsageVO> extractModelUsages(List<Object> usages) {
+        List<WorkflowModelUsageVO> result = new ArrayList<>();
+        for (Object usage : usages) {
+            if (usage instanceof WorkflowModelUsageVO modelUsage) {
+                result.add(modelUsage);
             }
         }
-
-        String fallback = input != null ? input : "";
-        arguments.putIfAbsent("input", fallback);
-        arguments.putIfAbsent("query", fallback);
-        return arguments;
+        return result;
     }
 
-    private void mergeJsonArguments(Map<String, Object> arguments, String json) {
-        try {
-            Map<String, Object> parsed = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-            arguments.putAll(parsed);
-        } catch (Exception ignored) {
-            // 非 JSON 输入时保留默认参数
-        }
-    }
-
-    private StepResult executeKnowledgeNode(WorkflowNodeEntity node, String input, Long tenantId) {
-        Map<String, Object> config = parseConfig(node.getNodeConfig());
-        Long knowledgeBaseId = toLong(config.get("knowledgeBaseId"));
-        if (knowledgeBaseId == null) {
-            return StepResult.fail("知识库节点未选择知识库");
-        }
-        if (!StringUtils.hasText(input)) {
-            return StepResult.fail("知识库检索输入不能为空");
-        }
-        int topK = toInt(config.get("topK"), 5);
-        Float scoreThreshold = toFloat(config.get("scoreThreshold"));
-        try {
-            List<RetrievedChunk> chunks = knowledgeRetrievalService.retrieve(
-                    knowledgeBaseId,
-                    tenantId,
-                    input.trim(),
-                    topK,
-                    scoreThreshold
-            );
-            if (chunks.isEmpty()) {
-                return StepResult.ok("未检索到相关内容");
-            }
-            String output = chunks.stream()
-                    .map(RetrievedChunk::getText)
-                    .filter(StringUtils::hasText)
-                    .collect(Collectors.joining("\n\n---\n\n"));
-            return StepResult.ok(StringUtils.hasText(output) ? output : "未检索到相关内容");
-        } catch (Exception e) {
-            return StepResult.fail("知识库节点执行失败: " + rootMessage(e));
-        }
-    }
-
-    private String resolveNextNodeId(
-            WorkflowNodeEntity currentNode,
-            String payload,
-            List<WorkflowEdgeEntity> nextEdges) {
-        if (nextEdges == null || nextEdges.isEmpty()) {
-            return null;
-        }
-        if (WorkflowNodeType.CONDITION.equals(currentNode.getNodeType())) {
-            String branch = payload != null ? payload.trim().toLowerCase() : "";
-            for (WorkflowEdgeEntity edge : nextEdges) {
-                String handle = edge.getSourceHandle() != null ? edge.getSourceHandle().trim().toLowerCase() : "";
-                String condition = edge.getCondition() != null ? edge.getCondition().trim().toLowerCase() : "";
-                if (branch.equals(handle) || branch.equals(condition)) {
-                    return edge.getTargetNodeId();
-                }
-            }
-            if ("true".equals(branch)) {
-                return nextEdges.get(0).getTargetNodeId();
-            }
-            if ("false".equals(branch) && nextEdges.size() > 1) {
-                return nextEdges.get(1).getTargetNodeId();
-            }
-        }
-        return nextEdges.get(0).getTargetNodeId();
-    }
-
-    private int toInt(Object value, int defaultValue) {
-        if (value == null) {
-            return defaultValue;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        try {
-            return Integer.parseInt(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
-
-    private Float toFloat(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.floatValue();
-        }
-        try {
-            return Float.parseFloat(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return null;
-        }
+    private WorkflowNodeDefinition toDefinition(WorkflowNodeEntity node) {
+        return WorkflowNodeDefinition.builder()
+                .nodeId(node.getNodeId())
+                .nodeType(node.getNodeType())
+                .nodeName(node.getNodeName())
+                .nodeConfig(node.getNodeConfig())
+                .workflowId(node.getWorkflowId())
+                .build();
     }
 
     private WorkflowEntity getWorkflowOrThrow(Long workflowId, Long tenantId) {
@@ -445,46 +230,12 @@ public class WorkflowExecutionService {
         );
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseConfig(String json) {
-        if (!StringUtils.hasText(json)) {
-            return new HashMap<>();
-        }
-        try {
-            return objectMapper.readValue(json, Map.class);
-        } catch (Exception e) {
-            return new HashMap<>();
-        }
-    }
-
     private String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
             return "{}";
         }
-    }
-
-    private Long toLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        try {
-            return Long.parseLong(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private String rootMessage(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        return current.getMessage() != null ? current.getMessage() : "未知错误";
     }
 
     private void recordModelUsages(
@@ -526,17 +277,12 @@ public class WorkflowExecutionService {
         return tenantId;
     }
 
-    private record StepResult(boolean success, String output, String errorMessage, int tokensUsed, WorkflowModelUsageVO modelUsage) {
-        static StepResult ok(String output) {
-            return ok(output, 0, null);
-        }
-
-        static StepResult ok(String output, int tokensUsed, WorkflowModelUsageVO modelUsage) {
-            return new StepResult(true, output, null, tokensUsed, modelUsage);
-        }
-
-        static StepResult fail(String errorMessage) {
-            return new StepResult(false, null, errorMessage, 0, null);
-        }
+    private record ExecutionOutcome(
+            Integer status,
+            String output,
+            String errorMessage,
+            int totalTokens,
+            List<WorkflowModelUsageVO> modelUsages,
+            List<WorkflowRunStepVO> steps) {
     }
 }
