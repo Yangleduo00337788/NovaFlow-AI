@@ -1,8 +1,8 @@
 <template>
   <Panel class="zoom-panel" position="bottom-left">
     <div class="zoom-controls">
-      <button type="button" class="zoom-btn" title="放大" @click="zoomIn">+</button>
-      <button type="button" class="zoom-btn" title="缩小" @click="zoomOut">−</button>
+      <button type="button" class="zoom-btn" title="放大" @click="() => zoomIn()">+</button>
+      <button type="button" class="zoom-btn" title="缩小" @click="() => zoomOut()">−</button>
     </div>
   </Panel>
 </template>

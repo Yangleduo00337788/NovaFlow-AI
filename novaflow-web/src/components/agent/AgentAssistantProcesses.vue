@@ -3,7 +3,7 @@
     <AgentProcessBlock
       v-if="showThinking"
       hide-icon
-      :title="thinkingTitle"
+      :title="thinkingTitle ?? '深度思考'"
       :loading="thinkingLoading"
       :expanded="thinkingExpanded"
       @update:expanded="(value) => emit('update:thinkingExpanded', value)"

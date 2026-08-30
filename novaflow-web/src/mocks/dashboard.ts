@@ -16,6 +16,10 @@ export const dashboardMock: DashboardOverview = {
     { name: '数据分析 Agent', type: 'Agent', updatedAt: '2 天前', path: '/agent' },
     { name: '文档助手工作流', type: '工作流', updatedAt: '3 天前', path: '/workflow' },
   ],
+  favoriteItems: [
+    { name: '智能客服 Agent', type: 'Agent', updatedAt: '2 小时前', path: '/agent', favorite: true },
+    { name: '产品知识库', type: '知识库', updatedAt: '1 天前', path: '/knowledge', favorite: true },
+  ],
   recentLogs: [
     { name: '智能客服 Agent', status: '成功', success: true, time: '2 分钟前', duration: '2.3s', tokens: 1256 },
     { name: '合同审查工作流', status: '成功', success: true, time: '5 分钟前', duration: '4.8s', tokens: 3432 },
@@ -57,6 +61,11 @@ export const dashboardMock: DashboardOverview = {
     { key: 'mcp', label: 'MCP 服务', path: '/tool' },
     { key: 'settings', label: '系统设置', path: '/settings' },
     { key: 'users', label: '用户管理', path: '/org' },
+  ],
+  quickStartTiles: [
+    { key: 'agent', label: '创建 Agent', desc: '快速搭建对话助手', path: '/agent', color: '#1677ff' },
+    { key: 'knowledge', label: '上传知识库', desc: '导入文档启用 RAG', path: '/knowledge', color: '#9254de' },
+    { key: 'workflow', label: '编排工作流', desc: '可视化流程编排', path: '/workflow', color: '#13c2c2' },
   ],
   planInfo: {
     planType: '企业版',
