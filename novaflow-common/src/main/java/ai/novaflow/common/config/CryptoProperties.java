@@ -1,16 +1,23 @@
 package ai.novaflow.common.config;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Data
 @Component
 @ConfigurationProperties(prefix = "novaflow.security")
 public class CryptoProperties {
 
-    /**
-     * AES 密钥（开发环境默认值，生产环境请通过环境变量覆盖）
-     */
-    private String cryptoKey = "NovaFlowAI-DevKey-32bytes!!!!";
+    private String cryptoKey;
+
+    @PostConstruct
+    void validate() {
+        if (!StringUtils.hasText(cryptoKey)) {
+            throw new IllegalStateException(
+                    "缺少加密密钥：请设置环境变量 NOVAFLOW_CRYPTO_KEY（参考 .env.example）");
+        }
+    }
 }

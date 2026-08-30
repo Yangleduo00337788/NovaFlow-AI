@@ -9,17 +9,18 @@ spring:
     active: dev
 
 ---
-# 本地开发环境配置（docker compose up -d 启动中间件后使用）
+# 本地开发环境配置（敏感信息通过环境变量或 .env 文件注入，见仓库根目录 .env.example）
 spring:
   config:
     activate:
       on-profile: dev
+    import: optional:file:.env[.properties]
 
   # MySQL：业务数据 + Flyway 迁移
   datasource:
-    url: jdbc:mysql://localhost:3306/novaflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
-    username: root
-    password: root
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/novaflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   # 数据库版本管理，启动时自动执行 db/migration 脚本
@@ -34,7 +35,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:redis123}
+      password: ${REDIS_PASSWORD}
       timeout: 3000ms
 
   # 知识库文档上传大小限制
@@ -66,6 +67,11 @@ logging:
   level:
     ai.novaflow: debug
 
+# LiteFlow 工作流引擎（规则由代码动态注册，不依赖 XML/JSON 规则文件）
+liteflow:
+  enable: true
+  print-execution-log: false
+
 # NovaFlow 业务配置
 novaflow:
   monitor:
@@ -73,26 +79,31 @@ novaflow:
     health-timeout-ms: 3000
 
   security:
-    # 模型 API Key 等敏感字段加密密钥（生产环境请通过环境变量覆盖）
-    crypto-key: ${NOVAFLOW_CRYPTO_KEY:NovaFlowAI-DevKey-32bytes!!!!}
+    crypto-key: ${NOVAFLOW_CRYPTO_KEY}
 
-  # MinIO 对象存储：知识库文档文件
+  cors:
+    allowed-origins:
+      - ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
+
+  auth:
+    login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:20}
+    login-failure-threshold: ${LOGIN_FAILURE_THRESHOLD:5}
+    login-lock-minutes: ${LOGIN_LOCK_MINUTES:15}
+
+  open-api:
+    rate-limit-per-minute: ${OPEN_API_RATE_LIMIT_PER_MINUTE:60}
+
   storage:
-    # API 端口 9000；Web 控制台 http://localhost:9001
     endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-    access-key: ${MINIO_ACCESS_KEY:minioadmin}
-    secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
     bucket: ${MINIO_BUCKET:novaflow}
 
-  # Qdrant 向量库：知识库 RAG 向量写入与检索
   qdrant:
     host: ${QDRANT_HOST:localhost}
-    # gRPC 端口（REST/Dashboard 为 6333）
     port: ${QDRANT_PORT:6334}
     use-tls: false
-    # 本地 Docker 默认无鉴权；生产启用 Qdrant API Key 时配置
     api-key: ${QDRANT_API_KEY:}
 
-  # MCP stdio 模式：Node.js 安装目录（Windows 下 IDE 启动常读不到用户 PATH）
   mcp:
     node-path: ${NOVAFLOW_NODE_PATH:}
