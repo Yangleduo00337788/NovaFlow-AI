@@ -2,6 +2,8 @@ package ai.novaflow.user.service;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.security.ratelimit.AuthRateLimiter;
+import ai.novaflow.security.ratelimit.LoginFailureLockService;
 import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
@@ -42,19 +44,26 @@ public class AuthService {
     private final WorkspaceMapper workspaceMapper;
     private final PermissionService permissionService;
     private final PasswordEncoder passwordEncoder;
+    private final AuthRateLimiter authRateLimiter;
+    private final LoginFailureLockService loginFailureLockService;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
+        String email = request.getEmail();
+        String clientIp = httpRequest.getRemoteAddr();
+        authRateLimiter.checkLogin(email, clientIp);
+        loginFailureLockService.checkLocked(email, clientIp);
+
         UserEntity user = userMapper.selectOneByQuery(
                 QueryWrapper.create()
-                        .eq("email", request.getEmail())
+                        .eq("email", email)
                         .eq("is_deleted", 0)
         );
-        if (user == null || user.getStatus() != 1) {
-            throw new BusinessException("账号不存在或已禁用");
-        }
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (user == null || user.getStatus() != 1
+                || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            loginFailureLockService.recordFailure(email, clientIp);
             throw new BusinessException("邮箱或密码错误");
         }
+        loginFailureLockService.clearFailures(email, clientIp);
 
         TenantMemberEntity member = tenantMemberMapper.selectOneByQuery(
                 QueryWrapper.create().where("user_id = ?", user.getId()).and("is_deleted = 0").limit(1)

@@ -1,6 +1,7 @@
 package ai.novaflow.tool.executor;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.UrlSafetyValidator;
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -24,17 +25,17 @@ public class HttpToolExecutor {
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
     public String execute(HttpToolDefinition tool, Map<String, Object> arguments) {
         if (tool == null || !StringUtils.hasText(tool.getUrl())) {
             throw new BusinessException("HTTP 工具 URL 未配置");
         }
-        validateUrl(tool.getUrl());
 
         String method = StringUtils.hasText(tool.getMethod()) ? tool.getMethod().trim().toUpperCase() : "GET";
         String resolvedUrl = resolveTemplate(tool.getUrl(), arguments);
+        UrlSafetyValidator.validateHttpUrl(resolvedUrl);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(resolvedUrl))
                 .timeout(Duration.ofSeconds(30));
@@ -75,17 +76,6 @@ public class HttpToolExecutor {
         } catch (Exception e) {
             throw new BusinessException("工具调用失败: " + e.getMessage());
         }
-    }
-
-    private void validateUrl(String url) {
-        String lower = url.toLowerCase();
-        if (lower.contains("localhost") || lower.contains("127.0.0.1") || lower.contains("0.0.0.0")) {
-            throw new BusinessException("工具 URL 不允许访问本地地址");
-        }
-        if (lower.startsWith("http://") || lower.startsWith("https://")) {
-            return;
-        }
-        throw new BusinessException("工具 URL 必须使用 http/https 协议");
     }
 
     private String resolveTemplate(String template, Map<String, Object> arguments) {
