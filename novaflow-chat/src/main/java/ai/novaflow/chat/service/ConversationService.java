@@ -1,5 +1,6 @@
 package ai.novaflow.chat.service;
 
+import ai.novaflow.chat.domain.ConversationPreviewRow;
 import ai.novaflow.chat.domain.vo.ConversationMessageVO;
 import ai.novaflow.chat.domain.vo.ConversationVO;
 import ai.novaflow.chat.domain.vo.RetrievalSourceVO;
@@ -22,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -48,7 +51,12 @@ public class ConversationService {
         query.orderBy("last_message_at", false).orderBy("id", false);
 
         Page<ConversationEntity> result = conversationMapper.paginate(Page.of(page, pageSize), query);
-        List<ConversationVO> list = result.getRecords().stream().map(this::toConversationVO).toList();
+        Map<Long, String> previewMap = loadPreviewMap(
+                tenantId,
+                result.getRecords().stream().map(ConversationEntity::getId).toList());
+        List<ConversationVO> list = result.getRecords().stream()
+                .map(entity -> toConversationVO(entity, previewMap.getOrDefault(entity.getId(), "")))
+                .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
@@ -77,8 +85,7 @@ public class ConversationService {
         return conversation;
     }
 
-    private ConversationVO toConversationVO(ConversationEntity entity) {
-        String preview = loadPreview(entity.getId(), entity.getTenantId());
+    private ConversationVO toConversationVO(ConversationEntity entity, String preview) {
         return ConversationVO.builder()
                 .id(entity.getId())
                 .conversationKey(entity.getConversationKey())
@@ -90,20 +97,27 @@ public class ConversationService {
                 .build();
     }
 
-    private String loadPreview(Long conversationId, Long tenantId) {
-        ConversationMessageEntity latest = conversationMessageMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("conversation_id", conversationId)
-                        .eq("tenant_id", tenantId)
-                        .eq("role", "user")
-                        .orderBy("created_at", false)
-                        .limit(1)
-        );
-        if (latest == null || !StringUtils.hasText(latest.getContent())) {
+    private Map<Long, String> loadPreviewMap(Long tenantId, List<Long> conversationIds) {
+        if (conversationIds == null || conversationIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ConversationPreviewRow> rows = conversationMessageMapper.listLatestUserPreviews(tenantId, conversationIds);
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> previewMap = new HashMap<>();
+        for (ConversationPreviewRow row : rows) {
+            previewMap.put(row.getConversationId(), truncatePreview(row.getContent()));
+        }
+        return previewMap;
+    }
+
+    private String truncatePreview(String content) {
+        if (!StringUtils.hasText(content)) {
             return "";
         }
-        String content = latest.getContent().trim();
-        return content.length() > 80 ? content.substring(0, 80) + "..." : content;
+        String trimmed = content.trim();
+        return trimmed.length() > 80 ? trimmed.substring(0, 80) + "..." : trimmed;
     }
 
     private ConversationMessageVO toMessageVO(ConversationMessageEntity entity) {

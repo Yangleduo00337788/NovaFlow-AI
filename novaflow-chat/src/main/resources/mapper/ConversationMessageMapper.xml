@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ai.novaflow.chat.mapper.ConversationMessageMapper">
+
+    <select id="listLatestUserPreviews" resultType="ai.novaflow.chat.domain.ConversationPreviewRow">
+        SELECT conversation_id, content
+        FROM (
+            SELECT conversation_id,
+                   content,
+                   ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at DESC) AS row_num
+            FROM conversation_message
+            WHERE tenant_id = #{tenantId}
+              AND role = 'user'
+              AND conversation_id IN
+              <foreach collection="conversationIds" item="conversationId" open="(" separator="," close=")">
+                  #{conversationId}
+              </foreach>
+        ) ranked
+        WHERE row_num = 1
+    </select>
+
+</mapper>
