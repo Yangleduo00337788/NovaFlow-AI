@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ai.novaflow.monitor.mapper.MonitorStatsMapper">
+
+    <select id="countCallsToday" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM token_usage
+        WHERE tenant_id = #{tenantId}
+          AND usage_date = CURDATE()
+    </select>
+
+    <select id="sumTokensToday" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(total_tokens), 0) FROM token_usage
+        WHERE tenant_id = #{tenantId}
+          AND usage_date = CURDATE()
+    </select>
+
+    <select id="countActiveAgents24h" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT agent_id) FROM token_usage
+        WHERE tenant_id = #{tenantId}
+          AND agent_id IS NOT NULL
+          AND created_at &gt;= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    </select>
+
+    <select id="avgLatencyToday" resultType="java.lang.Long">
+        SELECT COALESCE(AVG(latency_ms), 0) FROM token_usage
+        WHERE tenant_id = #{tenantId}
+          AND usage_date = CURDATE()
+          AND latency_ms IS NOT NULL
+    </select>
+
+    <select id="countPublishedAgents" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM agent
+        WHERE tenant_id = #{tenantId}
+          AND is_deleted = 0
+          AND status = 1
+    </select>
+
+    <select id="topAgents" resultType="ai.novaflow.monitor.domain.NamedCountRow">
+        SELECT COALESCE(a.agent_name, '未知 Agent') AS name,
+               COUNT(*) AS value
+        FROM token_usage tu
+        LEFT JOIN agent a ON tu.agent_id = a.id
+        WHERE tu.tenant_id = #{tenantId}
+          AND tu.usage_date &gt;= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        GROUP BY tu.agent_id, a.agent_name
+        ORDER BY value DESC
+        LIMIT 8
+    </select>
+
+    <select id="topApplications" resultType="ai.novaflow.monitor.domain.NamedCountRow">
+        SELECT COALESCE(app.app_name, '未关联应用') AS name,
+               COUNT(*) AS value
+        FROM token_usage tu
+        LEFT JOIN application app ON tu.application_id = app.id
+        WHERE tu.tenant_id = #{tenantId}
+          AND tu.usage_date &gt;= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        GROUP BY tu.application_id, app.app_name
+        ORDER BY value DESC
+        LIMIT 8
+    </select>
+
+    <select id="hourlyInvocationTrend" resultType="ai.novaflow.monitor.domain.TrendPointRow">
+        SELECT CONCAT(LPAD(HOUR(MIN(created_at)), 2, '0'), ':00') AS time_label,
+               COUNT(*) AS value
+        FROM token_usage
+        WHERE tenant_id = #{tenantId}
+          AND created_at &gt;= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        GROUP BY HOUR(created_at)
+        ORDER BY HOUR(created_at)
+    </select>
+
+    <select id="p95LatencyToday" resultType="java.lang.Long">
+        SELECT COALESCE(latency_ms, 0)
+        FROM (
+            SELECT latency_ms,
+                   ROW_NUMBER() OVER (ORDER BY latency_ms) AS row_num,
+                   COUNT(*) OVER () AS total_count
+            FROM token_usage
+            WHERE tenant_id = #{tenantId}
+              AND usage_date = CURDATE()
+              AND latency_ms IS NOT NULL
+        ) ranked
+        WHERE row_num = GREATEST(1, CEILING(total_count * 0.95))
+        LIMIT 1
+    </select>
+
+    <select id="p99LatencyToday" resultType="java.lang.Long">
+        SELECT COALESCE(latency_ms, 0)
+        FROM (
+            SELECT latency_ms,
+                   ROW_NUMBER() OVER (ORDER BY latency_ms) AS row_num,
+                   COUNT(*) OVER () AS total_count
+            FROM token_usage
+            WHERE tenant_id = #{tenantId}
+              AND usage_date = CURDATE()
+              AND latency_ms IS NOT NULL
+        ) ranked
+        WHERE row_num = GREATEST(1, CEILING(total_count * 0.99))
+        LIMIT 1
+    </select>
+
+    <select id="topErrorAgentsToday" resultType="ai.novaflow.monitor.domain.NamedCountRow">
+        SELECT COALESCE(a.agent_name, '未知 Agent') AS name,
+               COUNT(*) AS value
+        FROM token_usage tu
+        LEFT JOIN agent a ON tu.agent_id = a.id
+        WHERE tu.tenant_id = #{tenantId}
+          AND tu.success = 0
+          AND tu.usage_date = CURDATE()
+        GROUP BY tu.agent_id, a.agent_name
+        ORDER BY value DESC
+        LIMIT 5
+    </select>
+
+</mapper>

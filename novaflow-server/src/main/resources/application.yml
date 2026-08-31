@@ -44,8 +44,9 @@ spring:
       max-file-size: 50MB
       max-request-size: 100MB
 
-# MyBatis-Flex：下划线字段自动映射驼峰
+# MyBatis-Flex：下划线字段自动映射驼峰；手写 SQL 统一放在各模块 resources/mapper/ 下
 mybatis-flex:
+  mapper-locations: classpath*:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
 
