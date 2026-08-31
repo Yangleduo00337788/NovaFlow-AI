@@ -63,6 +63,14 @@ public class AuthService {
         if (user == null || user.getStatus() != 1
                 || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             loginFailureLockService.recordFailure(email, clientIp);
+            auditLogService.record(
+                    "auth.login.failed",
+                    "user",
+                    user != null ? user.getId() : null,
+                    "登录失败",
+                    null,
+                    user != null ? user.getId() : null,
+                    clientIp);
             throw new BusinessException("邮箱或密码错误");
         }
         loginFailureLockService.clearFailures(email, clientIp);
@@ -86,6 +94,15 @@ public class AuthService {
         userMapper.update(user);
 
         TenantContext.setTenantId(tenant.getId());
+
+        auditLogService.record(
+                "auth.login",
+                "user",
+                user.getId(),
+                "用户登录",
+                tenant.getId(),
+                user.getId(),
+                clientIp);
 
         return buildLoginVO(user, tenant, role);
     }
@@ -195,6 +212,11 @@ public class AuthService {
     }
 
     public void logout() {
+        if (StpUtil.isLogin()) {
+            long userId = StpUtil.getLoginIdAsLong();
+            Long tenantId = (Long) StpUtil.getSession().get("tenantId");
+            auditLogService.record("auth.logout", "user", userId, "用户登出", tenantId, userId);
+        }
         StpUtil.logout();
     }
 

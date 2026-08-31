@@ -55,6 +55,7 @@ public class OrganizationService {
     private final PermissionService permissionService;
     private final PasswordEncoder passwordEncoder;
     private final TokenUsageMapper tokenUsageMapper;
+    private final AuditLogService auditLogService;
 
     public TenantVO getTenant() {
         Long tenantId = requireTenantId();
@@ -99,6 +100,7 @@ public class OrganizationService {
         tenant.setContactPhone(trimToNull(request.getContactPhone()));
         tenant.setUpdatedAt(LocalDateTime.now());
         tenantMapper.update(tenant);
+        auditLogService.record("tenant.update", "tenant", tenantId, "更新企业信息: " + tenant.getTenantName());
         return toTenantVO(tenant, countActiveMembers(tenantId));
     }
 
@@ -132,6 +134,7 @@ public class OrganizationService {
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         workspaceMapper.insert(entity);
+        auditLogService.record("workspace.create", "workspace", entity.getId(), "创建工作空间: " + entity.getWorkspaceName());
         return toWorkspaceVO(entity);
     }
 
@@ -145,6 +148,7 @@ public class OrganizationService {
         entity.setDescription(trimToNull(request.getDescription()));
         entity.setUpdatedAt(LocalDateTime.now());
         workspaceMapper.update(entity);
+        auditLogService.record("workspace.update", "workspace", entity.getId(), "更新工作空间: " + entity.getWorkspaceName());
         return toWorkspaceVO(entity);
     }
 
@@ -163,6 +167,7 @@ public class OrganizationService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         workspaceMapper.update(entity);
+        auditLogService.record("workspace.delete", "workspace", entity.getId(), "删除工作空间: " + entity.getWorkspaceName());
     }
 
     public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword) {
@@ -252,6 +257,11 @@ public class OrganizationService {
         member.setCreatedAt(now);
         member.setUpdatedAt(now);
         tenantMemberMapper.insert(member);
+        auditLogService.record(
+                "member.invite",
+                "member",
+                member.getId(),
+                "邀请成员: " + email + "，角色 " + role.getRoleCode());
         return toMemberVO(member, user, role);
     }
 
@@ -298,6 +308,14 @@ public class OrganizationService {
 
         member.setUpdatedAt(LocalDateTime.now());
         tenantMemberMapper.update(member);
+        String detail = "更新成员: " + (user != null ? user.getEmail() : member.getUserId());
+        if (request.getRoleCode() != null) {
+            detail += "，角色 " + request.getRoleCode();
+        }
+        if (request.getStatus() != null) {
+            detail += "，状态 " + request.getStatus();
+        }
+        auditLogService.record("member.update", "member", member.getId(), detail);
         return toMemberVO(member, user, currentRole);
     }
 
@@ -319,6 +337,12 @@ public class OrganizationService {
         member.setIsDeleted(1);
         member.setUpdatedAt(LocalDateTime.now());
         tenantMemberMapper.update(member);
+        UserEntity removedUser = userMapper.selectOneById(member.getUserId());
+        auditLogService.record(
+                "member.remove",
+                "member",
+                member.getId(),
+                "移除成员: " + (removedUser != null ? removedUser.getEmail() : member.getUserId()));
     }
 
     private void ensureAnotherTenantAdminExists(Long tenantId, Long excludeUserId) {
