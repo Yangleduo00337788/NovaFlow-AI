@@ -49,13 +49,44 @@ public class TraceService {
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
         String trimmedType = StringUtils.hasText(spanType) ? spanType.trim() : null;
 
-        Long total = traceMapper.countSpans(tenantId, since, trimmedType, status, trimmedKeyword);
-        List<TraceSpanVO> list = traceMapper.pageSpans(
-                        tenantId, since, trimmedType, status, trimmedKeyword, offset, safePageSize)
-                .stream()
-                .map(this::toSpanVO)
-                .toList();
-        return PageResult.of(list, total != null ? total : 0L, safePage, safePageSize);
+        Long total = countSpans(tenantId, since, trimmedType, status, trimmedKeyword);
+        List<TraceSpanRow> rows = pageSpanRows(
+                tenantId, since, trimmedType, status, trimmedKeyword, offset, safePageSize);
+        List<TraceSpanVO> list = rows.stream().map(this::toSpanVO).toList();
+        return PageResult.of(list, total, safePage, safePageSize);
+    }
+
+    private long countSpans(
+            Long tenantId,
+            LocalDateTime since,
+            String spanType,
+            Integer status,
+            String keyword) {
+        if ("workflow".equals(spanType)) {
+            return safeLong(traceMapper.countWorkflowSpans(tenantId, since, status, keyword));
+        }
+        if ("agent".equals(spanType)) {
+            return safeLong(traceMapper.countAgentSpans(tenantId, since, status, keyword));
+        }
+        return safeLong(traceMapper.countWorkflowSpans(tenantId, since, status, keyword))
+                + safeLong(traceMapper.countAgentSpans(tenantId, since, status, keyword));
+    }
+
+    private List<TraceSpanRow> pageSpanRows(
+            Long tenantId,
+            LocalDateTime since,
+            String spanType,
+            Integer status,
+            String keyword,
+            int offset,
+            int pageSize) {
+        if ("workflow".equals(spanType)) {
+            return traceMapper.pageWorkflowSpans(tenantId, since, status, keyword, offset, pageSize);
+        }
+        if ("agent".equals(spanType)) {
+            return traceMapper.pageAgentSpans(tenantId, since, status, keyword, offset, pageSize);
+        }
+        return traceMapper.pageAllSpans(tenantId, since, status, keyword, offset, pageSize);
     }
 
     public TraceDetailVO getSpanDetail(String traceId) {
@@ -74,7 +105,7 @@ public class TraceService {
             return toDetailVO(workflowSpan, nodes);
         }
 
-        TraceSpanRow agentSpan = traceMapper.findAgentSpan(tenantId, trimmedTraceId);
+        TraceSpanRow agentSpan = resolveAgentSpan(tenantId, trimmedTraceId);
         if (agentSpan == null) {
             throw new BusinessException("未找到对应链路");
         }
@@ -246,6 +277,22 @@ public class TraceService {
                 .finishedAt(row.getFinishedAt())
                 .offsetMs(offsetMs)
                 .build();
+    }
+
+    private TraceSpanRow resolveAgentSpan(Long tenantId, String traceId) {
+        if (traceId.startsWith("agent-")) {
+            String idPart = traceId.substring("agent-".length());
+            try {
+                Long usageId = Long.parseLong(idPart);
+                TraceSpanRow byId = traceMapper.findAgentSpanById(tenantId, usageId);
+                if (byId != null) {
+                    return byId;
+                }
+            } catch (NumberFormatException ignored) {
+                // fall through to trace_id lookup
+            }
+        }
+        return traceMapper.findAgentSpanByTraceId(tenantId, traceId);
     }
 
     private LocalDateTime resolveSince(String timeRange) {

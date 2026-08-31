@@ -452,7 +452,7 @@ public class DashboardService {
         if (workflow == null) {
             return null;
         }
-        List<WorkflowNodeRow> nodes = dashboardStatsMapper.workflowNodes(workflowId);
+        List<WorkflowNodeRow> nodes = dashboardStatsMapper.workflowNodes(tenantId, workflowId);
         WorkflowRuntimeRow execution = dashboardStatsMapper.latestExecutionForWorkflow(tenantId, workflowId);
 
         Map<String, Integer> nodeStatusMap = new HashMap<>();
@@ -494,11 +494,12 @@ public class DashboardService {
                 .running(running)
                 .path("/workflow/" + workflowId)
                 .nodes(runtimeNodes)
-                .canvas(buildWorkflowCanvas(workflowId, nodes, nodeStatusMap, running))
+                .canvas(buildWorkflowCanvas(tenantId, workflowId, nodes, nodeStatusMap, running))
                 .build();
     }
 
     private DashboardOverviewVO.WorkflowCanvasVO buildWorkflowCanvas(
+            Long tenantId,
             Long workflowId,
             List<WorkflowNodeRow> dbNodes,
             Map<String, Integer> nodeStatusMap,
@@ -507,25 +508,26 @@ public class DashboardService {
         for (WorkflowNodeRow node : dbNodes) {
             dbNodeMap.put(node.getNodeId(), node);
         }
-        String canvasJson = dashboardStatsMapper.workflowCanvasData(workflowId);
+        String canvasJson = dashboardStatsMapper.workflowCanvasData(tenantId, workflowId);
         if (StringUtils.hasText(canvasJson)) {
             try {
                 Map<String, Object> payload = objectMapper.readValue(canvasJson, new TypeReference<>() {});
-                return buildCanvasFromPayload(payload, dbNodeMap, nodeStatusMap, executionRunning, workflowId);
+                return buildCanvasFromPayload(tenantId, workflowId, payload, dbNodeMap, nodeStatusMap, executionRunning);
             } catch (Exception ignored) {
                 // fallback to db nodes
             }
         }
-        return buildCanvasFromDbNodes(workflowId, dbNodes, nodeStatusMap, executionRunning);
+        return buildCanvasFromDbNodes(tenantId, workflowId, dbNodes, nodeStatusMap, executionRunning);
     }
 
     @SuppressWarnings("unchecked")
     private DashboardOverviewVO.WorkflowCanvasVO buildCanvasFromPayload(
+            Long tenantId,
+            Long workflowId,
             Map<String, Object> payload,
             Map<String, WorkflowNodeRow> dbNodeMap,
             Map<String, Integer> nodeStatusMap,
-            boolean executionRunning,
-            Long workflowId) {
+            boolean executionRunning) {
         List<Map<String, Object>> rawNodes = (List<Map<String, Object>>) payload.get("nodes");
         List<Map<String, Object>> rawEdges = (List<Map<String, Object>>) payload.get("edges");
         List<DashboardOverviewVO.WorkflowCanvasNodeVO> canvasNodes = new ArrayList<>();
@@ -576,10 +578,10 @@ public class DashboardService {
             }
         }
         if (canvasEdges.isEmpty()) {
-            canvasEdges = buildCanvasEdges(workflowId);
+            canvasEdges = buildCanvasEdges(tenantId, workflowId);
         }
         if (canvasNodes.isEmpty()) {
-            return buildCanvasFromDbNodes(workflowId, new ArrayList<>(dbNodeMap.values()), nodeStatusMap, executionRunning);
+            return buildCanvasFromDbNodes(tenantId, workflowId, new ArrayList<>(dbNodeMap.values()), nodeStatusMap, executionRunning);
         }
         return DashboardOverviewVO.WorkflowCanvasVO.builder()
                 .nodes(canvasNodes)
@@ -588,6 +590,7 @@ public class DashboardService {
     }
 
     private DashboardOverviewVO.WorkflowCanvasVO buildCanvasFromDbNodes(
+            Long tenantId,
             Long workflowId,
             List<WorkflowNodeRow> dbNodes,
             Map<String, Integer> nodeStatusMap,
@@ -603,12 +606,12 @@ public class DashboardService {
         }
         return DashboardOverviewVO.WorkflowCanvasVO.builder()
                 .nodes(canvasNodes)
-                .edges(buildCanvasEdges(workflowId))
+                .edges(buildCanvasEdges(tenantId, workflowId))
                 .build();
     }
 
-    private List<DashboardOverviewVO.WorkflowCanvasEdgeVO> buildCanvasEdges(Long workflowId) {
-        List<WorkflowEdgeRow> edges = dashboardStatsMapper.workflowEdges(workflowId);
+    private List<DashboardOverviewVO.WorkflowCanvasEdgeVO> buildCanvasEdges(Long tenantId, Long workflowId) {
+        List<WorkflowEdgeRow> edges = dashboardStatsMapper.workflowEdges(tenantId, workflowId);
         if (edges == null || edges.isEmpty()) {
             return List.of();
         }
