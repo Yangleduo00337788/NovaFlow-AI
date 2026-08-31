@@ -1,157 +1,193 @@
 <template>
-  <div class="changelog-page">
-    <div class="hero page-card">
-      <div class="hero-content">
-        <span class="version-badge">v1.0</span>
-        <h1>NovaFlow 版本记录</h1>
-        <p>企业级 AI Agent 开发平台首个正式发布版本，覆盖 Agent 编排、工作流、知识库、私有化部署与平台治理能力。</p>
+  <div class="page-shell changelog-page">
+    <div class="page-header">
+      <div>
+        <h1>版本记录</h1>
+        <p>NovaFlow AI 产品发布历史与功能说明</p>
+      </div>
+      <span class="version-badge">v1.0</span>
+    </div>
+
+    <div class="changelog-hero page-card">
+      <h2>NovaFlow v1.0.0</h2>
+      <p class="hero-desc">
+        企业级 AI Agent 开发平台首个正式发布版本，覆盖 Agent 编排、工作流、知识库、私有化部署与平台治理能力。
+      </p>
+      <div class="hero-meta">
+        <span>发布日期 2026-08-31</span>
+        <a-tag color="blue">正式发布</a-tag>
       </div>
     </div>
 
-    <div class="release page-card">
-      <div class="release-header">
-        <h2>v1.0.0</h2>
-        <span class="release-date">2026-08-31</span>
-        <a-tag color="blue">正式发布</a-tag>
+    <div class="page-card release-card">
+      <div class="feature-group">
+        <div class="group-head">
+          <h3>本版本新增</h3>
+        </div>
+        <div class="feature-grid">
+          <div v-for="item in newFeatures" :key="item.title" class="feature-card">
+            <div class="feature-title">{{ item.title }}</div>
+            <div class="feature-desc">{{ item.desc }}</div>
+          </div>
+        </div>
       </div>
 
-      <div class="feature-section">
-        <h3>P0 · 发布阻塞项</h3>
-        <ul>
-          <li><strong>Multi-Agent 工作流节点</strong>：工作流编排器新增 Agent 节点，支持在工作流中调用已发布 Agent，实现多 Agent 协作编排。</li>
-          <li><strong>私有化部署包</strong>：提供 Server / Web Docker 镜像与 <code>docker-compose.prod.yml</code> 一键启动完整栈（MySQL、Redis、MinIO、Qdrant、后端、前端）。</li>
-          <li><strong>OpenTelemetry 基础接入</strong>：Workflow / Agent 执行自动上报 Span；支持 OTLP 与 Langfuse 最小集成（Basic Auth）。</li>
-        </ul>
-      </div>
-
-      <div class="feature-section">
-        <h3>P1 · 企业交付体验</h3>
-        <ul>
-          <li><strong>平台超管后台</strong>：租户 CRUD、套餐配额配置、全局用量统计（仅 super_admin）。</li>
-          <li><strong>审计日志查询</strong>：关键操作留痕，支持按动作、资源类型、时间范围筛选。</li>
-          <li><strong>全局搜索</strong>：顶栏搜索联动应用、Agent、知识库、工作流，快速跳转。</li>
-        </ul>
-      </div>
-
-      <div class="feature-section">
-        <h3>核心能力（MVP 延续）</h3>
+      <div class="feature-group">
+        <div class="group-head">
+          <h3>平台能力</h3>
+        </div>
         <div class="capability-grid">
-          <div v-for="item in coreCapabilities" :key="item.title" class="capability-item">
+          <div v-for="item in platformCapabilities" :key="item.title" class="capability-item">
             <div class="cap-title">{{ item.title }}</div>
             <div class="cap-desc">{{ item.desc }}</div>
           </div>
         </div>
       </div>
 
-      <div class="feature-section muted">
-        <h3>v1.1 规划（未纳入本版本）</h3>
-        <p>SSO 单点登录 · 部门组织架构 · 成本分摊报表 · 外部告警通道（邮件/Webhook）</p>
+      <div class="roadmap-note">
+        <span class="roadmap-label">后续规划</span>
+        <span>单点登录（SSO）· 部门组织架构 · 成本分摊报表 · 外部告警通道（邮件 / Webhook）</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const coreCapabilities = [
-  { title: 'Agent Studio', desc: 'Chat / RAG / Tool / Workflow 四类 Agent，调试、发布、Embed 与 Open API。' },
-  { title: '工作流 Studio', desc: 'LLM、知识库、工具、条件分支、Agent 节点可视化编排与执行追踪。' },
-  { title: '知识库 Hub', desc: '文档上传、混合检索、Rerank、向量存储（Qdrant）。' },
-  { title: '模型与工具', desc: '多模型接入、Prompt 模板、HTTP/MCP 工具市场。' },
-  { title: '运行监控', desc: '调用日志、链路分析、可观测性大盘与配额账单。' },
-  { title: '安全合规', desc: 'RBAC、Embed Token、Caller 隔离、审计日志、会话留存策略。' },
+const newFeatures = [
+  {
+    title: '工作流 Agent 节点',
+    desc: '在工作流中调用已发布的 Agent，支持多 Agent 协作编排与串联执行。',
+  },
+  {
+    title: '私有化部署',
+    desc: '提供服务端与前端 Docker 镜像，配合编排文件一键启动完整环境，适配企业内网部署。',
+  },
+  {
+    title: '链路追踪',
+    desc: '工作流与 Agent 执行过程自动记录追踪信息，支持对接外部监控与观测平台。',
+  },
+  {
+    title: '平台管理后台',
+    desc: '平台管理员可管理租户、配置套餐与配额，并查看全局用量统计。',
+  },
+  {
+    title: '审计日志',
+    desc: '关键操作全程留痕，支持按动作、资源类型与时间范围筛选查询。',
+  },
+  {
+    title: '全局搜索',
+    desc: '顶栏快速检索应用、Agent、知识库与工作流，一键跳转至目标页面。',
+  },
+]
+
+const platformCapabilities = [
+  { title: 'Agent 编排', desc: 'Chat / RAG / Tool / Workflow 四类 Agent，支持调试、发布、嵌入与开放 API。' },
+  { title: '工作流编排', desc: 'LLM、知识库、工具、条件分支与 Agent 节点可视化编排，配套执行追踪。' },
+  { title: '知识库', desc: '文档上传、混合检索、重排序与向量存储，支撑 RAG 场景。' },
+  { title: '模型与工具', desc: '多模型接入、Prompt 模板管理，以及 HTTP / MCP 工具市场。' },
+  { title: '运行监控', desc: '调用日志、链路分析、可观测性大盘与配额账单一览。' },
+  { title: '安全合规', desc: '角色权限、嵌入令牌、调用方隔离、审计日志与会话留存策略。' },
 ]
 </script>
 
 <style scoped>
-.changelog-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-width: 960px;
-}
-
-.hero {
-  padding: 28px 32px;
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(14, 165, 233, 0.06));
-}
-
 .version-badge {
-  display: inline-block;
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
   border-radius: 999px;
-  background: #4f46e5;
+  background: linear-gradient(135deg, #1677ff, #4096ff);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 12px;
 }
 
-.hero h1 {
+.changelog-hero {
+  background: linear-gradient(135deg, rgba(22, 119, 255, 0.06), rgba(14, 165, 233, 0.04));
+}
+
+.changelog-hero h2 {
   margin: 0 0 8px;
-  font-size: 28px;
+  font-size: 20px;
+  font-weight: 700;
 }
 
-.hero p {
-  margin: 0;
+.hero-desc {
+  margin: 0 0 12px;
   color: var(--text-secondary);
   line-height: 1.7;
+  max-width: 720px;
 }
 
-.release {
-  padding: 24px 28px;
-}
-
-.release-header {
+.hero-meta {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 20px;
-}
-
-.release-header h2 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.release-date {
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
-.feature-section {
-  margin-bottom: 24px;
+.release-card {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
-.feature-section h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
+.feature-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.feature-section ul {
+.group-head h3 {
   margin: 0;
-  padding-left: 20px;
-  line-height: 1.8;
+  font-size: 16px;
+  font-weight: 600;
 }
 
-.feature-section.muted {
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.feature-card {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.feature-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.feature-desc {
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--text-secondary);
 }
 
 .capability-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
 .capability-item {
-  border: 1px solid var(--border-color, #e5e7eb);
+  padding: 14px 16px;
   border-radius: 10px;
-  padding: 12px 14px;
-  background: var(--card-bg, #fff);
+  border: 1px solid var(--border);
+  background: var(--card-bg);
 }
 
 .cap-title {
   font-weight: 600;
   margin-bottom: 4px;
+  font-size: 14px;
 }
 
 .cap-desc {
@@ -160,9 +196,42 @@ const coreCapabilities = [
   line-height: 1.6;
 }
 
-@media (max-width: 768px) {
+.roadmap-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border-strong);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.roadmap-label {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1100px) {
+  .feature-grid,
+  .capability-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .feature-grid,
   .capability-grid {
     grid-template-columns: 1fr;
+  }
+
+  .hero-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 </style>

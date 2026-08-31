@@ -296,7 +296,7 @@ onMounted(() => {
 }
 
 .plan-card {
-  padding: 14px 14px 12px;
+  padding: 16px 16px 14px;
   border-radius: 12px;
   background: var(--plan-card-bg);
   border: 1px solid var(--plan-card-border);
@@ -353,7 +353,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .token-row {

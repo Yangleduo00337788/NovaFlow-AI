@@ -1,5 +1,5 @@
 <template>
-  <div class="log-page">
+  <div class="log-page page-shell">
     <div class="page-header">
       <div>
         <h1>调用日志</h1>
@@ -8,7 +8,7 @@
       <a-button :loading="exporting" @click="onExport">导出 CSV</a-button>
     </div>
 
-    <div class="page-card toolbar">
+    <div class="list-toolbar page-card">
       <a-space wrap>
         <a-select
           v-model:value="agentId"
@@ -46,7 +46,7 @@
       <span class="toolbar-meta">共 {{ total }} 条记录</span>
     </div>
 
-    <div class="page-card">
+    <div class="page-card page-table-card">
       <a-table
         :columns="columns"
         :data-source="list"

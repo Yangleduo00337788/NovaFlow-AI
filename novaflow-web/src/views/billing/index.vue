@@ -1,5 +1,5 @@
 <template>
-  <div class="billing-page" data-testid="billing-page">
+  <div class="billing-page page-shell" data-testid="billing-page">
     <div class="page-header">
       <div>
         <h1>账单与用量</h1>

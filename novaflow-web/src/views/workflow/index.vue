@@ -1,5 +1,5 @@
 <template>
-  <div class="workflow-page" data-testid="workflow-page">
+  <div class="workflow-page page-shell" data-testid="workflow-page">
     <div class="page-header">
       <div>
         <h1>工作流 Studio</h1>
@@ -11,7 +11,7 @@
       </a-button>
     </div>
 
-    <div class="toolbar page-card">
+    <div class="list-toolbar page-card">
       <a-input-search
         v-model:value="keyword"
         placeholder="搜索工作流名称"

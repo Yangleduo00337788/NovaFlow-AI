@@ -1,37 +1,41 @@
 <template>
-  <div class="trace-page">
+  <div class="trace-page page-shell">
     <div class="page-header">
-        <div>
-          <h1>链路分析</h1>
-          <p>追踪 Agent 与工作流调用链路，定位性能瓶颈与异常节点</p>
-        </div>
-        <a-space wrap>
-          <a-input-search
-            v-model:value="keyword"
-            placeholder="搜索 Trace ID / 名称"
-            style="width: 260px"
-            allow-clear
-            @search="onSearch"
-          />
-          <a-select v-model:value="spanType" allow-clear placeholder="类型" style="width: 120px" @change="onSearch">
-            <a-select-option value="workflow">工作流</a-select-option>
-            <a-select-option value="agent">Agent</a-select-option>
-          </a-select>
-          <a-select v-model:value="status" allow-clear placeholder="状态" style="width: 120px" @change="onSearch">
-            <a-select-option :value="0">运行中</a-select-option>
-            <a-select-option :value="1">成功</a-select-option>
-            <a-select-option :value="2">失败</a-select-option>
-          </a-select>
-          <a-select v-model:value="timeRange" style="width: 140px" @change="onSearch">
-            <a-select-option value="1h">近 1 小时</a-select-option>
-            <a-select-option value="24h">近 24 小时</a-select-option>
-            <a-select-option value="7d">近 7 天</a-select-option>
-          </a-select>
-        </a-space>
+      <div>
+        <h1>链路分析</h1>
+        <p>追踪 Agent 与工作流调用链路，定位性能瓶颈与异常节点</p>
       </div>
+    </div>
 
-    <div class="page-card trace-card">
-        <a-table
+    <div class="list-toolbar page-card">
+      <a-space wrap>
+        <a-input-search
+          v-model:value="keyword"
+          placeholder="搜索 Trace ID / 名称"
+          style="width: 260px"
+          allow-clear
+          @search="onSearch"
+        />
+        <a-select v-model:value="spanType" allow-clear placeholder="类型" style="width: 120px" @change="onSearch">
+          <a-select-option value="workflow">工作流</a-select-option>
+          <a-select-option value="agent">Agent</a-select-option>
+        </a-select>
+        <a-select v-model:value="status" allow-clear placeholder="状态" style="width: 120px" @change="onSearch">
+          <a-select-option :value="0">运行中</a-select-option>
+          <a-select-option :value="1">成功</a-select-option>
+          <a-select-option :value="2">失败</a-select-option>
+        </a-select>
+        <a-select v-model:value="timeRange" style="width: 140px" @change="onSearch">
+          <a-select-option value="1h">近 1 小时</a-select-option>
+          <a-select-option value="24h">近 24 小时</a-select-option>
+          <a-select-option value="7d">近 7 天</a-select-option>
+        </a-select>
+      </a-space>
+      <span class="list-toolbar-meta">共 {{ total }} 条</span>
+    </div>
+
+    <div class="page-card page-table-card trace-card">
+      <a-table
           :columns="columns"
           :data-source="list"
           :loading="loading"
@@ -213,33 +217,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.trace-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.page-header h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.page-header p {
-  margin: 0;
-  font-size: 13px;
-  color: #64748b;
-}
-
 .trace-card {
   min-height: 0;
 }

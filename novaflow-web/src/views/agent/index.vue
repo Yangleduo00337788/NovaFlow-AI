@@ -1,5 +1,5 @@
 <template>
-  <div class="agent-page" data-testid="agent-page">
+  <div class="agent-page page-shell" data-testid="agent-page">
     <div class="page-header">
       <div>
         <h1>Agent Studio</h1>
@@ -8,8 +8,8 @@
       <a-button type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
     </div>
 
-    <div class="page-card">
-      <a-space style="margin-bottom: 16px">
+    <div class="list-toolbar page-card">
+      <a-space wrap>
         <a-input-search
           v-model:value="keyword"
           placeholder="搜索 Agent"
@@ -24,7 +24,9 @@
           <a-select-option value="workflow">Workflow</a-select-option>
         </a-select>
       </a-space>
+    </div>
 
+    <div class="page-card page-table-card">
       <a-table
         :columns="columns"
         :data-source="list"

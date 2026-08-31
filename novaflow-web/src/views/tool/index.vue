@@ -1,5 +1,5 @@
 <template>
-  <div class="tool-page" data-testid="tool-page">
+  <div class="tool-page page-shell" data-testid="tool-page">
     <div class="page-header">
       <div>
         <h1>工具市场</h1>
@@ -20,7 +20,7 @@
             技能不会作为可调用工具，而是在对话时指导 Agent「怎么做」。
           </p>
         </div>
-    <div class="toolbar page-card">
+    <div class="list-toolbar page-card">
       <a-input-search
         v-model:value="keyword"
         placeholder="搜索技能名称或标识"
@@ -93,7 +93,7 @@
             <h2>插件服务</h2>
             <p>注册并连接 MCP Server，发现工具后可同步到下方插件市场</p>
           </div>
-        <div class="toolbar page-card">
+        <div class="list-toolbar page-card">
           <a-input-search
             v-model:value="mcpKeyword"
             placeholder="搜索 MCP 服务名称"
@@ -161,7 +161,7 @@
             <h2>插件工具</h2>
             <p>从 MCP 插件同步到市场的可调用工具，可在 Agent 中直接选用</p>
           </div>
-          <div class="toolbar page-card">
+          <div class="list-toolbar page-card">
             <a-input-search
               v-model:value="mcpMarketKeyword"
               placeholder="搜索插件工具名称"

@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-page" data-testid="knowledge-page">
+  <div class="knowledge-page page-shell" data-testid="knowledge-page">
     <div class="page-header">
       <div>
         <h1>知识库 Hub</h1>
@@ -11,7 +11,7 @@
       </a-button>
     </div>
 
-    <div class="toolbar page-card">
+    <div class="list-toolbar page-card">
       <a-input-search
         v-model:value="keyword"
         placeholder="搜索知识库"

@@ -1,5 +1,5 @@
 <template>
-  <div class="observability-page">
+  <div class="observability-page page-shell">
     <div class="page-header">
       <div>
         <h1>可观测性</h1>

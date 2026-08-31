@@ -1,5 +1,5 @@
 <template>
-  <div class="permission-page" data-testid="permission-page">
+  <div class="permission-page page-shell" data-testid="permission-page">
     <div class="page-header">
       <div>
         <h1>权限管理</h1>

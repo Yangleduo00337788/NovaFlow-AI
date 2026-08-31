@@ -1,5 +1,5 @@
 <template>
-  <div class="model-page">
+  <div class="model-page page-shell">
     <div class="page-header">
       <div>
         <h1>模型中心</h1>

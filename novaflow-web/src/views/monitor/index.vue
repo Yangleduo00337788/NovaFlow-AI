@@ -1,5 +1,5 @@
 <template>
-  <div class="monitor-page" data-testid="monitor-page">
+  <div class="monitor-page page-shell" data-testid="monitor-page">
     <div class="page-header">
       <div>
         <h1>运行监控</h1>

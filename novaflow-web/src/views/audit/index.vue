@@ -1,5 +1,5 @@
 <template>
-  <div class="audit-page">
+  <div class="audit-page page-shell">
     <div class="page-header">
       <div>
         <h1>审计日志</h1>
@@ -7,7 +7,7 @@
       </div>
     </div>
 
-    <div class="page-card filters">
+    <div class="page-card filter-card">
       <a-row :gutter="12">
         <a-col :span="6">
           <a-input v-model:value="filters.keyword" placeholder="关键词（动作/详情/IP）" allow-clear />
@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div class="page-card table-card">
+    <div class="page-card page-table-card">
       <a-table
         :columns="columns"
         :data-source="logs"
@@ -129,36 +129,6 @@ onMounted(loadLogs)
 </script>
 
 <style scoped>
-.audit-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.page-header h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.filters {
-  padding: 16px;
-}
-
-.filter-actions {
-  margin-top: 12px;
-  display: flex;
-  gap: 8px;
-}
-
-.table-card {
-  padding: 16px;
-}
-
 .detail-cell {
   display: inline-block;
   max-width: 360px;

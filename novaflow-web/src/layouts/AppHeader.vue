@@ -89,27 +89,31 @@
           </div>
         </template>
       </a-dropdown>
-      <div class="user-profile">
-        <div class="user-meta">
-          <span class="user-name">{{ displayName }}</span>
-          <span class="user-role">{{ roleName }}</span>
-        </div>
-        <a-dropdown
-          v-model:open="userMenuOpen"
-          :trigger="['click']"
-          placement="bottomRight"
-          overlay-class-name="user-menu-dropdown"
-        >
-          <span class="user-toggle" :class="{ open: userMenuOpen }">
-            <DownOutlined class="user-toggle-icon" />
+      <a-dropdown
+        v-model:open="userMenuOpen"
+        :trigger="['click']"
+        placement="bottomRight"
+        overlay-class-name="user-menu-dropdown"
+      >
+        <button type="button" class="user-trigger" :class="{ open: userMenuOpen }">
+          <span class="user-avatar">{{ userInitial }}</span>
+          <span class="user-meta">
+            <span class="user-name">{{ displayName }}</span>
+            <span class="user-role">{{ roleName }}</span>
           </span>
-          <template #overlay>
-            <a-menu>
-              <a-menu-item @click="onLogout">退出登录</a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
-      </div>
+          <DownOutlined class="user-chevron" />
+        </button>
+        <template #overlay>
+          <a-menu>
+            <a-menu-item key="profile" disabled class="user-menu-profile">
+              <div class="menu-profile-name">{{ displayName }}</div>
+              <div class="menu-profile-role">{{ roleName }}</div>
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="logout" @click="onLogout">退出登录</a-menu-item>
+          </a-menu>
+        </template>
+      </a-dropdown>
     </div>
   </a-layout-header>
 </template>
@@ -149,9 +153,10 @@ const auth = useAuthStore()
 const breadcrumb = computed(() => getBreadcrumbByPath(route.path))
 const breadcrumbIcon = computed(() => getMenuIcon(breadcrumb.value.icon))
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
-const roleName = computed(() => {
-  const name = auth.user?.roleName || '超级管理员'
-  return name === '企业管理员' ? '超级管理员' : name
+const roleName = computed(() => auth.user?.roleName || '用户')
+const userInitial = computed(() => {
+  const name = displayName.value.trim()
+  return name ? name.charAt(0).toUpperCase() : 'U'
 })
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchKeyword = ref('')
@@ -338,25 +343,38 @@ async function onLogout() {
 
 <style scoped>
 .header {
-  display: grid;
-  grid-template-columns: 200px 1fr 340px;
+  display: flex;
   align-items: center;
+  gap: 16px;
   background: var(--header-bg);
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
   height: 56px;
 }
 
-.right {
+.left {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 240px;
 }
 
 .center {
   display: flex;
   justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .global-search {
@@ -465,6 +483,8 @@ async function onLogout() {
   gap: 6px;
   color: var(--primary);
   transition: color 0.15s;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .breadcrumb:hover,
@@ -477,18 +497,16 @@ async function onLogout() {
   color: var(--primary);
   font-size: 14px;
   transition: color 0.15s;
+  flex-shrink: 0;
 }
 
 .page-title {
   font-size: 14px;
   font-weight: 500;
   color: var(--primary);
-}
-
-.left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .icon-btn {
@@ -511,11 +529,42 @@ async function onLogout() {
   box-shadow: 0 0 0 1px var(--header-bg, #fff);
 }
 
-.user-profile {
-  display: flex;
+.user-trigger {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  margin-left: 18px;
+  gap: 10px;
+  height: 40px;
+  padding: 4px 10px 4px 4px;
+  margin-left: 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.user-trigger:hover,
+.user-trigger.open {
+  background: var(--hover-bg);
+  border-color: var(--border);
+}
+
+.user-trigger.open {
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.08);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .user-meta {
@@ -523,49 +572,49 @@ async function onLogout() {
   flex-direction: column;
   align-items: flex-start;
   line-height: 1.25;
+  min-width: 0;
+  max-width: 120px;
 }
 
 .user-name {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .user-role {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.user-toggle {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--user-toggle-bg);
-  color: #1677ff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.user-toggle-icon {
   font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.user-chevron {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
   transition: transform 0.2s ease;
 }
 
-.user-toggle.open {
-  background: var(--user-toggle-open-bg);
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
-}
-
-.user-toggle.open .user-toggle-icon {
+.user-trigger.open .user-chevron {
   transform: rotate(180deg);
 }
 
-.user-toggle:hover {
-  background: var(--user-toggle-hover-bg);
+@media (max-width: 900px) {
+  .user-meta {
+    display: none;
+  }
+
+  .user-trigger {
+    padding: 4px;
+    margin-left: 4px;
+  }
 }
 </style>
 

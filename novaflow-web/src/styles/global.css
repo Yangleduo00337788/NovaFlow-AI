@@ -176,22 +176,106 @@ a {
 .page-card {
   background: var(--card-bg);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 16px 20px;
   box-shadow: var(--card-shadow);
   border: 1px solid var(--card-border);
 }
 
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 10px;
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.page-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.section-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.section-block + .section-block {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.info-grid-item {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.info-grid-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.info-grid-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
 }
 
 /* 顶栏用户下拉菜单弹出动画 */
 .user-menu-dropdown .ant-dropdown-menu {
   animation: user-menu-in 0.22s cubic-bezier(0.23, 1, 0.32, 1) both;
   transform-origin: top right;
+  min-width: 180px;
+  padding: 6px;
+}
+
+.user-menu-dropdown .user-menu-profile {
+  cursor: default;
+  opacity: 1 !important;
+  color: var(--text-primary) !important;
+  padding: 8px 12px !important;
+}
+
+.user-menu-dropdown .menu-profile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-menu-dropdown .menu-profile-role {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 @keyframes user-menu-in {
@@ -221,4 +305,68 @@ a {
 .header .theme-toggle svg {
   color: inherit !important;
   display: block;
+}
+
+/* 列表页通用：筛选栏、面板标题、表格卡片 */
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+}
+
+.list-toolbar-meta,
+.toolbar-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.filter-card {
+  padding: 16px 20px;
+}
+
+.filter-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.page-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.page-table-card > .ant-table-wrapper .ant-table {
+  border-radius: 0;
+}
+
+.page-table-card .ant-table-thead > tr > th:first-child {
+  border-radius: 0;
+}
+
+.page-table-card .ant-table-thead > tr > th:last-child {
+  border-radius: 0;
+}
+
+.page-shell .ant-tabs > .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.page-shell .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+  border-radius: 8px 8px 0 0;
+}
+
+.page-shell .ant-empty {
+  margin: 24px 0;
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="org-page" data-testid="org-page">
+  <div class="org-page page-shell" data-testid="org-page">
     <div class="page-header">
       <div>
         <h1>组织管理</h1>
@@ -7,65 +7,69 @@
       </div>
     </div>
 
-    <a-tabs v-model:activeKey="activeTab">
+    <a-tabs v-model:activeKey="activeTab" type="card">
       <a-tab-pane key="tenant" tab="企业信息">
         <div class="page-card tenant-card">
           <a-spin :spinning="tenantLoading">
             <a-form layout="vertical" :model="tenantForm" class="tenant-form">
-              <a-row :gutter="16">
-                <a-col :span="12">
-                  <a-form-item label="企业名称" required>
-                    <a-input v-model:value="tenantForm.tenantName" placeholder="企业名称" />
-                  </a-form-item>
-                </a-col>
-                <a-col :span="12">
-                  <a-form-item label="企业编码">
-                    <a-input :value="tenantInfo?.tenantCode" disabled />
-                  </a-form-item>
-                </a-col>
-              </a-row>
-              <a-row :gutter="16">
-                <a-col :span="8">
-                  <a-form-item label="联系人">
-                    <a-input v-model:value="tenantForm.contactName" placeholder="联系人姓名" />
-                  </a-form-item>
-                </a-col>
-                <a-col :span="8">
-                  <a-form-item label="联系邮箱">
-                    <a-input v-model:value="tenantForm.contactEmail" placeholder="contact@company.com" />
-                  </a-form-item>
-                </a-col>
-                <a-col :span="8">
-                  <a-form-item label="联系电话">
-                    <a-input v-model:value="tenantForm.contactPhone" placeholder="联系电话" />
-                  </a-form-item>
-                </a-col>
-              </a-row>
+              <div class="section-block">
+                <h3 class="section-title">基本信息</h3>
+                <a-row :gutter="[16, 0]">
+                  <a-col :xs="24" :sm="12" :lg="8">
+                    <a-form-item label="企业名称" required>
+                      <a-input v-model:value="tenantForm.tenantName" placeholder="企业名称" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :sm="12" :lg="8">
+                    <a-form-item label="企业编码">
+                      <a-input :value="tenantInfo?.tenantCode" disabled />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :sm="12" :lg="8">
+                    <a-form-item label="联系人">
+                      <a-input v-model:value="tenantForm.contactName" placeholder="联系人姓名" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :sm="12" :lg="8">
+                    <a-form-item label="联系邮箱">
+                      <a-input v-model:value="tenantForm.contactEmail" placeholder="contact@company.com" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :sm="12" :lg="8">
+                    <a-form-item label="联系电话">
+                      <a-input v-model:value="tenantForm.contactPhone" placeholder="联系电话" />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+              </div>
 
-              <div class="quota-grid">
-                <div class="quota-item">
-                  <span class="quota-label">套餐类型</span>
-                  <strong>{{ tenantInfo?.planTypeLabel || '-' }}</strong>
-                </div>
-                <div class="quota-item">
-                  <span class="quota-label">到期时间</span>
-                  <strong>{{ formatDate(tenantInfo?.expireAt) }}</strong>
-                </div>
-                <div class="quota-item">
-                  <span class="quota-label">成员席位</span>
-                  <strong>{{ tenantInfo?.memberCount || 0 }} / {{ tenantInfo?.maxMembers || 0 }}</strong>
-                </div>
-                <div class="quota-item">
-                  <span class="quota-label">Agent 配额</span>
-                  <strong>{{ tenantInfo?.maxAgents || 0 }}</strong>
-                </div>
-                <div class="quota-item">
-                  <span class="quota-label">知识库配额</span>
-                  <strong>{{ tenantInfo?.maxKnowledge || 0 }}</strong>
-                </div>
-                <div class="quota-item">
-                  <span class="quota-label">月 Token 配额</span>
-                  <strong>{{ formatNumber(tenantInfo?.monthlyTokenQuota) }}</strong>
+              <div class="section-block">
+                <h3 class="section-title">套餐与配额</h3>
+                <div class="info-grid">
+                  <div class="info-grid-item">
+                    <span class="info-grid-label">套餐类型</span>
+                    <strong class="info-grid-value">{{ tenantInfo?.planTypeLabel || '-' }}</strong>
+                  </div>
+                  <div class="info-grid-item">
+                    <span class="info-grid-label">到期时间</span>
+                    <strong class="info-grid-value">{{ formatDate(tenantInfo?.expireAt) }}</strong>
+                  </div>
+                  <div class="info-grid-item">
+                    <span class="info-grid-label">成员席位</span>
+                    <strong class="info-grid-value">{{ tenantInfo?.memberCount || 0 }} / {{ tenantInfo?.maxMembers || 0 }}</strong>
+                  </div>
+                  <div class="info-grid-item">
+                    <span class="info-grid-label">Agent 配额</span>
+                    <strong class="info-grid-value">{{ tenantInfo?.maxAgents || 0 }}</strong>
+                  </div>
+                  <div class="info-grid-item">
+                    <span class="info-grid-label">知识库配额</span>
+                    <strong class="info-grid-value">{{ tenantInfo?.maxKnowledge || 0 }}</strong>
+                  </div>
+                  <div class="info-grid-item">
+                    <span class="info-grid-label">月 Token 配额</span>
+                    <strong class="info-grid-value">{{ formatNumber(tenantInfo?.monthlyTokenQuota) }}</strong>
+                  </div>
                 </div>
               </div>
 
@@ -529,40 +533,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.org-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.org-page :deep(.ant-tabs-nav) {
+  margin-bottom: 12px;
 }
 
-.tenant-card {
-  max-width: 960px;
-}
-
-.quota-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 8px 0 20px;
-}
-
-.quota-item {
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card-bg);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.quota-label {
-  color: var(--text-secondary);
-  font-size: 12px;
+.tenant-form {
+  max-width: none;
 }
 
 .form-actions {
   margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
 }
 
 .section-toolbar {

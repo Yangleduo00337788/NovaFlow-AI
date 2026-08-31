@@ -1,5 +1,5 @@
 <template>
-  <div class="application-page" data-testid="application-page">
+  <div class="application-page page-shell" data-testid="application-page">
     <div class="page-header">
       <div>
         <h1>应用管理</h1>
@@ -11,7 +11,7 @@
       </a-button>
     </div>
 
-    <div class="toolbar page-card">
+    <div class="list-toolbar page-card">
       <a-input-search
         v-model:value="keyword"
         placeholder="搜索应用名称"

@@ -1,5 +1,5 @@
 <template>
-  <div class="platform-page">
+  <div class="platform-page page-shell">
     <div class="page-header">
       <div>
         <h1>平台超管</h1>
@@ -35,16 +35,18 @@
       </div>
     </div>
 
-    <div class="page-card table-card">
-      <div class="toolbar">
-        <a-input-search
-          v-model:value="keyword"
-          placeholder="搜索企业名称、编码、邮箱"
-          allow-clear
-          style="max-width: 320px"
-          @search="loadTenants"
-        />
-      </div>
+    <div class="list-toolbar page-card">
+      <a-input-search
+        v-model:value="keyword"
+        placeholder="搜索企业名称、编码、邮箱"
+        allow-clear
+        style="max-width: 320px"
+        @search="loadTenants"
+      />
+      <span class="list-toolbar-meta">共 {{ total }} 个租户</span>
+    </div>
+
+    <div class="page-card page-table-card">
       <a-table
         :columns="columns"
         :data-source="tenants"
@@ -276,28 +278,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.platform-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.page-header h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -318,14 +298,6 @@ onMounted(async () => {
 
 .stat-item strong {
   font-size: 20px;
-}
-
-.table-card {
-  padding: 16px;
-}
-
-.toolbar {
-  margin-bottom: 12px;
 }
 
 @media (max-width: 1200px) {

@@ -1,5 +1,5 @@
 <template>
-  <div class="prompt-page" data-testid="prompt-page">
+  <div class="prompt-page page-shell" data-testid="prompt-page">
     <div class="page-header">
       <div>
         <h1>Prompt 管理</h1>
@@ -11,7 +11,7 @@
       </a-button>
     </div>
 
-    <div class="toolbar page-card">
+    <div class="list-toolbar page-card">
       <a-space wrap>
         <a-input-search
           v-model:value="keyword"

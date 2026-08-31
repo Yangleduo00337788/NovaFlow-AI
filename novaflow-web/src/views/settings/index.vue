@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page">
+  <div class="settings-page page-shell">
     <div class="page-header">
       <div>
         <h1>系统设置</h1>
@@ -45,22 +45,6 @@ const settingItems = [
 </script>
 
 <style scoped>
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.page-header h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
