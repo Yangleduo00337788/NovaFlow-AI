@@ -5,6 +5,7 @@ import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.domain.vo.ModelCapabilitiesVO;
+import ai.novaflow.chat.service.ConversationService;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.ModelCapabilityResolver;

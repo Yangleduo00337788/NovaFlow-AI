@@ -1,5 +1,6 @@
 package ai.novaflow.agent.domain.vo;
 
+import ai.novaflow.chat.domain.vo.RetrievalSourceVO;
 import lombok.Builder;
 import lombok.Data;
 

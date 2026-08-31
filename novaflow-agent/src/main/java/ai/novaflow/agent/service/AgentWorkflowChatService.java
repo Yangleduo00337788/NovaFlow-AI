@@ -4,6 +4,7 @@ import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.chat.service.ConversationService;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
 import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;

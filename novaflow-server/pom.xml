@@ -57,6 +57,10 @@
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>
+            <artifactId>novaflow-observability</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.novaflow</groupId>
             <artifactId>novaflow-workflow</artifactId>
         </dependency>
         <dependency>

@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>
-            <artifactId>novaflow-user</artifactId>
+            <artifactId>novaflow-tenant</artifactId>
         </dependency>
         <dependency>
             <groupId>ai.novaflow</groupId>

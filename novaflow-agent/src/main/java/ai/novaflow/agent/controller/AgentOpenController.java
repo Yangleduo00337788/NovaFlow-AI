@@ -2,8 +2,8 @@ package ai.novaflow.agent.controller;
 
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
-import ai.novaflow.agent.domain.vo.ConversationMessageVO;
-import ai.novaflow.agent.domain.vo.ConversationVO;
+import ai.novaflow.chat.domain.vo.ConversationMessageVO;
+import ai.novaflow.chat.domain.vo.ConversationVO;
 import ai.novaflow.agent.service.AgentOpenService;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;

@@ -12,15 +12,15 @@ import ai.novaflow.user.domain.vo.TenantPlanSummaryVO;
 import ai.novaflow.user.domain.vo.TenantVO;
 import ai.novaflow.user.domain.vo.WorkspaceVO;
 import ai.novaflow.user.entity.RoleEntity;
-import ai.novaflow.user.entity.TenantEntity;
-import ai.novaflow.user.entity.TenantMemberEntity;
+import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.user.entity.UserEntity;
-import ai.novaflow.user.entity.WorkspaceEntity;
-import ai.novaflow.user.mapper.TenantMapper;
-import ai.novaflow.user.mapper.TenantMemberMapper;
+import ai.novaflow.tenant.entity.WorkspaceEntity;
+import ai.novaflow.tenant.mapper.TenantMapper;
+import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
-import ai.novaflow.user.mapper.WorkspaceMapper;
-import ai.novaflow.user.mapper.ApplicationMapper;
+import ai.novaflow.tenant.mapper.WorkspaceMapper;
+import ai.novaflow.common.application.ApplicationWorkspaceChecker;
 import ai.novaflow.model.mapper.TokenUsageMapper;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
@@ -50,7 +50,7 @@ public class OrganizationService {
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
     private final WorkspaceMapper workspaceMapper;
-    private final ApplicationMapper applicationMapper;
+    private final ApplicationWorkspaceChecker applicationWorkspaceChecker;
     private final UserMapper userMapper;
     private final PermissionService permissionService;
     private final PasswordEncoder passwordEncoder;
@@ -156,7 +156,7 @@ public class OrganizationService {
         if (Objects.equals(entity.getIsDefault(), 1)) {
             throw new BusinessException("默认工作空间不能删除");
         }
-        long appCount = countApplicationsByWorkspace(id);
+        long appCount = applicationWorkspaceChecker.countByWorkspace(id);
         if (appCount > 0) {
             throw new BusinessException("工作空间下仍有应用，无法删除");
         }
@@ -361,15 +361,6 @@ public class OrganizationService {
             throw new BusinessException("工作空间名称已存在");
         }
     }
-
-    private long countApplicationsByWorkspace(Long workspaceId) {
-        return applicationMapper.selectCountByQuery(
-                QueryWrapper.create()
-                        .eq("workspace_id", workspaceId)
-                        .eq("is_deleted", 0)
-        );
-    }
-
     private int countActiveMembers(Long tenantId) {
         return (int) tenantMemberMapper.selectCountByQuery(
                 QueryWrapper.create()

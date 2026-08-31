@@ -1,31 +1,60 @@
+# --- Maven / Java build ---
 target/
+dependency-reduced-pom.xml
 !.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
-.idea/
-*.iml
-*.class
-*.log
-.DS_Store
 
-# Node
+*.class
+
+# --- Logs ---
+*.log
+logs/
+
+# --- IDE ---
+.idea/
+.cursor/
+*.iml
+.classpath
+.project
+.settings/
+*.swp
+*~
+
+# VS Code（保留推荐扩展列表）
+**/.vscode/*
+!**/.vscode/extensions.json
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Node / Frontend ---
 node_modules/
 dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Vite / 本地覆盖配置
 *.local
 
-# Env
+# --- Env / secrets ---
 .env
 .env.*
+!.env.example
 
-# Docker volumes
+# --- Docker 本地数据卷 ---
 data/
 
-# Local dev prompts (not for version control)
+# --- 本地开发笔记（不入库）---
 开发提示词.md
 
-# Playwright / debug artifacts
+# --- E2E / 调试产物 ---
 .playwright-mcp/
 test-results/
+playwright-report/
 brand-center-check.png
 sidebar-brand-check.png
-*.tsbuildinfo
+
+# --- JVM 崩溃转储 ---
+hs_err_pid*
+replay_pid*

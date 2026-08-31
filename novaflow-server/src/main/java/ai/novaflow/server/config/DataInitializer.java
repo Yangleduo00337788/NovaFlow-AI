@@ -1,17 +1,17 @@
 package ai.novaflow.server.config;
 
-import ai.novaflow.user.entity.ApplicationEntity;
+import ai.novaflow.application.entity.ApplicationEntity;
 import ai.novaflow.user.entity.RoleEntity;
-import ai.novaflow.user.entity.TenantEntity;
-import ai.novaflow.user.entity.TenantMemberEntity;
+import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.user.entity.UserEntity;
-import ai.novaflow.user.entity.WorkspaceEntity;
-import ai.novaflow.user.mapper.ApplicationMapper;
+import ai.novaflow.tenant.entity.WorkspaceEntity;
+import ai.novaflow.application.mapper.ApplicationMapper;
 import ai.novaflow.user.mapper.RoleMapper;
-import ai.novaflow.user.mapper.TenantMapper;
-import ai.novaflow.user.mapper.TenantMemberMapper;
+import ai.novaflow.tenant.mapper.TenantMapper;
+import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
-import ai.novaflow.user.mapper.WorkspaceMapper;
+import ai.novaflow.tenant.mapper.WorkspaceMapper;
 import ai.novaflow.agent.entity.AgentConfigEntity;
 import ai.novaflow.agent.entity.AgentEntity;
 import ai.novaflow.agent.mapper.AgentConfigMapper;

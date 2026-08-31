@@ -1,7 +1,6 @@
 package ai.novaflow.workflow.service;
 
-import ai.novaflow.user.entity.ApplicationEntity;
-import ai.novaflow.user.mapper.ApplicationMapper;
+import ai.novaflow.common.application.ApplicationLookup;
 import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
@@ -47,7 +46,7 @@ public class WorkflowService {
     private final WorkflowMapper workflowMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
     private final WorkflowEdgeMapper workflowEdgeMapper;
-    private final ApplicationMapper applicationMapper;
+    private final ApplicationLookup applicationLookup;
     private final RecentAccessService recentAccessService;
     private final ObjectMapper objectMapper;
 
@@ -345,18 +344,7 @@ public class WorkflowService {
     }
 
     private void ensureApplicationExists(Long applicationId) {
-        if (applicationId == null) {
-            throw new BusinessException("所属应用不能为空");
-        }
-        ApplicationEntity application = applicationMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("id", applicationId)
-                        .eq("tenant_id", requireTenantId())
-                        .eq("is_deleted", 0)
-        );
-        if (application == null) {
-            throw new BusinessException("应用不存在");
-        }
+        applicationLookup.requireExists(requireTenantId(), applicationId);
     }
 
     private void ensureNameUnique(Long tenantId, String workflowName, Long excludeId) {
@@ -373,20 +361,7 @@ public class WorkflowService {
     }
 
     private Map<Long, String> buildApplicationNameMap(List<Long> applicationIds) {
-        Map<Long, String> map = new HashMap<>();
-        if (applicationIds == null || applicationIds.isEmpty()) {
-            return map;
-        }
-        List<Long> ids = applicationIds.stream().filter(Objects::nonNull).distinct().toList();
-        if (ids.isEmpty()) {
-            return map;
-        }
-        applicationMapper.selectListByQuery(QueryWrapper.create().in("id", ids))
-                .forEach(app -> map.put(app.getId(), app.getAppName()));
-        for (Long applicationId : ids) {
-            map.putIfAbsent(applicationId, "未知应用");
-        }
-        return map;
+        return applicationLookup.getApplicationNameMap(applicationIds);
     }
 
     private String resolveApplicationName(Long applicationId) {
