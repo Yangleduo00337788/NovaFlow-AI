@@ -8,25 +8,24 @@
       <a-button type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
     </div>
 
-    <div class="list-toolbar page-card">
-      <a-space wrap>
-        <a-input-search
-          v-model:value="keyword"
-          placeholder="搜索 Agent"
-          style="width: 240px"
-          data-testid="agent-search"
-          @search="loadData"
-        />
-        <a-select v-model:value="agentType" allow-clear placeholder="类型" style="width: 140px" @change="loadData">
-          <a-select-option value="chat">Chat</a-select-option>
-          <a-select-option value="rag">RAG</a-select-option>
-          <a-select-option value="tool">Tool</a-select-option>
-          <a-select-option value="workflow">Workflow</a-select-option>
-        </a-select>
-      </a-space>
-    </div>
-
-    <div class="page-card page-table-card">
+    <div class="list-panel page-card">
+      <div class="list-toolbar">
+        <div class="list-toolbar-filters">
+          <a-input-search
+            v-model:value="keyword"
+            placeholder="搜索 Agent"
+            style="width: 220px"
+            data-testid="agent-search"
+            @search="loadData"
+          />
+          <a-select v-model:value="agentType" allow-clear placeholder="类型" style="width: 120px" @change="loadData">
+            <a-select-option value="chat">Chat</a-select-option>
+            <a-select-option value="rag">RAG</a-select-option>
+            <a-select-option value="tool">Tool</a-select-option>
+            <a-select-option value="workflow">Workflow</a-select-option>
+          </a-select>
+        </div>
+      </div>
       <a-table
         :columns="columns"
         :data-source="list"

@@ -13,26 +13,29 @@
 
     <a-tabs v-model:activeKey="activeTab" @change="onTabChange">
       <a-tab-pane key="skill" tab="Skill 技能">
-        <div class="concept-banner page-card">
+        <div class="concept-banner">
           <div class="concept-banner__title">Skill = 流程与知识</div>
           <p>
             上传符合 Agent Skills 标准的 <code>SKILL.md</code> 文件，为 Agent 注入流程与领域知识。
             技能不会作为可调用工具，而是在对话时指导 Agent「怎么做」。
           </p>
         </div>
-    <div class="list-toolbar page-card">
-      <a-input-search
-        v-model:value="keyword"
-        placeholder="搜索技能名称或标识"
-        style="width: 280px"
-        allow-clear
-        @search="loadData"
-      />
-      <span class="toolbar-meta">共 {{ total }} 个技能</span>
-    </div>
-
-    <a-spin :spinning="loading">
-      <div v-if="list.length" class="tool-grid">
+        <div class="list-panel page-card">
+          <div class="list-toolbar">
+            <div class="list-toolbar-filters">
+              <a-input-search
+                v-model:value="keyword"
+                placeholder="搜索技能名称或标识"
+                style="width: 240px"
+                allow-clear
+                @search="loadData"
+              />
+            </div>
+            <span class="list-toolbar-meta">共 {{ total }} 个技能</span>
+          </div>
+          <div class="list-body">
+            <a-spin :spinning="loading">
+              <div v-if="list.length" class="tool-grid">
         <div
           v-for="item in list"
           :key="item.id"
@@ -66,22 +69,24 @@
           </div>
         </div>
       </div>
-      <a-empty v-else description="暂无技能，点击右上角上传 SKILL.md" />
-    </a-spin>
+              <a-empty v-else description="暂无技能，点击右上角上传 SKILL.md" />
+            </a-spin>
 
-    <div v-if="total > pageSize" class="pagination-wrap">
-      <a-pagination
-        v-model:current="page"
-        :total="total"
-        :page-size="pageSize"
-        show-less-items
-        @change="loadData"
-      />
-    </div>
+            <div v-if="total > pageSize" class="pagination-wrap">
+              <a-pagination
+                v-model:current="page"
+                :total="total"
+                :page-size="pageSize"
+                show-less-items
+                @change="loadData"
+              />
+            </div>
+          </div>
+        </div>
       </a-tab-pane>
 
       <a-tab-pane key="mcp" tab="MCP 插件">
-        <div class="concept-banner page-card">
+        <div class="concept-banner">
           <div class="concept-banner__title">MCP = 插件与连接</div>
           <p>
             插件让 Agent「能连上外部系统」：通过 Model Context Protocol 连接数据库、API、文件系统等，
@@ -93,19 +98,22 @@
             <h2>插件服务</h2>
             <p>注册并连接 MCP Server，发现工具后可同步到下方插件市场</p>
           </div>
-        <div class="list-toolbar page-card">
-          <a-input-search
-            v-model:value="mcpKeyword"
-            placeholder="搜索 MCP 服务名称"
-            style="width: 280px"
-            allow-clear
-            @search="loadMcpData"
-          />
-          <span class="toolbar-meta">共 {{ mcpTotal }} 个服务</span>
-        </div>
-
-        <a-spin :spinning="mcpLoading">
-          <div v-if="mcpList.length" class="tool-grid">
+          <div class="list-panel page-card">
+            <div class="list-toolbar">
+              <div class="list-toolbar-filters">
+                <a-input-search
+                  v-model:value="mcpKeyword"
+                  placeholder="搜索 MCP 服务名称"
+                  style="width: 240px"
+                  allow-clear
+                  @search="loadMcpData"
+                />
+              </div>
+              <span class="list-toolbar-meta">共 {{ mcpTotal }} 个服务</span>
+            </div>
+            <div class="list-body">
+              <a-spin :spinning="mcpLoading">
+                <div v-if="mcpList.length" class="tool-grid">
             <div v-for="item in mcpList" :key="item.id" class="tool-card page-card">
               <div class="tool-card-head">
                 <div class="tool-icon mcp">
@@ -152,8 +160,10 @@
               </div>
             </div>
           </div>
-          <a-empty v-else description="暂无 MCP 插件，点击右上角配置" />
-        </a-spin>
+                <a-empty v-else description="暂无 MCP 插件，点击右上角配置" />
+              </a-spin>
+            </div>
+          </div>
         </div>
 
         <div class="section-block">
@@ -161,19 +171,22 @@
             <h2>插件工具</h2>
             <p>从 MCP 插件同步到市场的可调用工具，可在 Agent 中直接选用</p>
           </div>
-          <div class="list-toolbar page-card">
-            <a-input-search
-              v-model:value="mcpMarketKeyword"
-              placeholder="搜索插件工具名称"
-              style="width: 280px"
-              allow-clear
-              @search="loadMcpMarketData"
-            />
-            <span class="toolbar-meta">共 {{ mcpMarketTotal }} 个插件工具</span>
-          </div>
-
-          <a-spin :spinning="mcpMarketLoading">
-            <div v-if="mcpMarketList.length" class="tool-grid">
+          <div class="list-panel page-card">
+            <div class="list-toolbar">
+              <div class="list-toolbar-filters">
+                <a-input-search
+                  v-model:value="mcpMarketKeyword"
+                  placeholder="搜索插件工具名称"
+                  style="width: 240px"
+                  allow-clear
+                  @search="loadMcpMarketData"
+                />
+              </div>
+              <span class="list-toolbar-meta">共 {{ mcpMarketTotal }} 个插件工具</span>
+            </div>
+            <div class="list-body">
+              <a-spin :spinning="mcpMarketLoading">
+                <div v-if="mcpMarketList.length" class="tool-grid">
               <div
                 v-for="item in mcpMarketList"
                 :key="item.id"
@@ -206,17 +219,19 @@
                 </div>
               </div>
             </div>
-            <a-empty v-else description="暂无插件工具，请先在上方插件服务中执行「同步市场」" />
-          </a-spin>
+                <a-empty v-else description="暂无插件工具，请先在上方插件服务中执行「同步市场」" />
+              </a-spin>
 
-          <div v-if="mcpMarketTotal > mcpMarketPageSize" class="pagination-wrap">
-            <a-pagination
-              v-model:current="mcpMarketPage"
-              :total="mcpMarketTotal"
-              :page-size="mcpMarketPageSize"
-              show-less-items
-              @change="loadMcpMarketData"
-            />
+              <div v-if="mcpMarketTotal > mcpMarketPageSize" class="pagination-wrap">
+                <a-pagination
+                  v-model:current="mcpMarketPage"
+                  :total="mcpMarketTotal"
+                  :page-size="mcpMarketPageSize"
+                  show-less-items
+                  @change="loadMcpMarketData"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </a-tab-pane>
@@ -702,29 +717,15 @@ onMounted(loadData)
 
 <style scoped>
 .tool-page {
-  min-height: 100%;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.page-header h1 {
-  margin: 0 0 6px;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--text-secondary);
+  min-height: auto;
 }
 
 .concept-banner {
-  margin-bottom: 16px;
-  padding: 14px 16px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
 }
 
 .concept-banner__title {
@@ -742,7 +743,7 @@ onMounted(loadData)
 }
 
 .section-block + .section-block {
-  margin-top: 28px;
+  margin-top: 20px;
 }
 
 .section-header {
@@ -775,15 +776,10 @@ onMounted(loadData)
   margin-bottom: 16px;
 }
 
-.toolbar-meta {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .tool-card {

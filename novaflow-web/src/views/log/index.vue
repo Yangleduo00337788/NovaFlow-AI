@@ -8,45 +8,44 @@
       <a-button :loading="exporting" @click="onExport">导出 CSV</a-button>
     </div>
 
-    <div class="list-toolbar page-card">
-      <a-space wrap>
-        <a-select
-          v-model:value="agentId"
-          allow-clear
-          placeholder="筛选 Agent"
-          style="width: 220px"
-          :loading="agentsLoading"
-          :options="agentOptions"
-          @change="onSearch"
-        />
-        <a-select
-          v-model:value="usageType"
-          allow-clear
-          placeholder="调用类型"
-          style="width: 140px"
-          :options="usageTypeOptions"
-          @change="onSearch"
-        />
-        <a-select
-          v-model:value="successFilter"
-          allow-clear
-          placeholder="调用状态"
-          style="width: 140px"
-          :options="successOptions"
-          @change="onSearch"
-        />
-        <a-input-search
-          v-model:value="keyword"
-          placeholder="搜索 Agent / 模型"
-          style="width: 260px"
-          allow-clear
-          @search="onSearch"
-        />
-      </a-space>
-      <span class="toolbar-meta">共 {{ total }} 条记录</span>
-    </div>
-
-    <div class="page-card page-table-card">
+    <div class="list-panel page-card">
+      <div class="list-toolbar">
+        <div class="list-toolbar-filters">
+          <a-select
+            v-model:value="agentId"
+            allow-clear
+            placeholder="筛选 Agent"
+            style="width: 200px"
+            :loading="agentsLoading"
+            :options="agentOptions"
+            @change="onSearch"
+          />
+          <a-select
+            v-model:value="usageType"
+            allow-clear
+            placeholder="调用类型"
+            style="width: 120px"
+            :options="usageTypeOptions"
+            @change="onSearch"
+          />
+          <a-select
+            v-model:value="successFilter"
+            allow-clear
+            placeholder="调用状态"
+            style="width: 120px"
+            :options="successOptions"
+            @change="onSearch"
+          />
+          <a-input-search
+            v-model:value="keyword"
+            placeholder="搜索 Agent / 模型"
+            style="width: 220px"
+            allow-clear
+            @search="onSearch"
+          />
+        </div>
+        <span class="list-toolbar-meta">共 {{ total }} 条记录</span>
+      </div>
       <a-table
         :columns="columns"
         :data-source="list"
@@ -287,37 +286,8 @@ onMounted(async () => {
 .log-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-header h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.toolbar-meta {
-  color: var(--text-muted);
-  font-size: 13px;
-  white-space: nowrap;
+  gap: 12px;
+  min-height: auto;
 }
 
 .agent-name {

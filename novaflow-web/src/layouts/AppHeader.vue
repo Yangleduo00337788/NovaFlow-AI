@@ -45,7 +45,7 @@
 
     <div class="right">
       <ThemeToggle />
-      <a-button type="text" class="icon-btn" title="版本记录" @click="router.push('/changelog')"><QuestionCircleOutlined /></a-button>
+      <a-button type="text" class="icon-btn" title="关于" @click="router.push('/about')"><QuestionCircleOutlined /></a-button>
       <a-dropdown
         v-model:open="notificationOpen"
         :trigger="['click']"

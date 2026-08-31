@@ -5,7 +5,7 @@
         <h1>账单与用量</h1>
         <p>查看本月 Token 消耗、预估费用与配额使用情况</p>
       </div>
-      <a-space>
+      <div class="page-header-actions">
         <a-date-picker
           v-model:value="selectedMonth"
           picker="month"
@@ -38,10 +38,11 @@
           <PrinterOutlined />
           打印小票
         </a-button>
-      </a-space>
+      </div>
     </div>
 
     <a-spin :spinning="loading">
+      <div class="billing-body">
       <div class="metrics-grid">
         <div v-for="item in overview.metrics" :key="item.key" class="metric-card page-card">
           <div class="metric-label">{{ item.label }}</div>
@@ -131,15 +132,14 @@
         </div>
       </div>
 
-      <div class="page-card records-card">
-        <div class="section-title">费用明细</div>
-        <div class="toolbar">
-          <a-space wrap>
+      <div class="page-card records-card list-panel">
+        <div class="list-toolbar">
+          <div class="list-toolbar-filters">
             <a-select
               v-model:value="agentId"
               allow-clear
               placeholder="筛选 Agent"
-              style="width: 220px"
+              style="width: 200px"
               :options="agentOptions"
               @change="onSearch"
             />
@@ -147,19 +147,19 @@
               v-model:value="usageType"
               allow-clear
               placeholder="调用类型"
-              style="width: 140px"
+              style="width: 120px"
               :options="usageTypeOptions"
               @change="onSearch"
             />
             <a-input-search
               v-model:value="keyword"
               placeholder="搜索 Agent / 模型"
-              style="width: 260px"
+              style="width: 220px"
               allow-clear
               @search="onSearch"
             />
-          </a-space>
-          <span class="toolbar-meta">共 {{ total }} 条记录</span>
+          </div>
+          <span class="list-toolbar-meta">共 {{ total }} 条记录</span>
         </div>
         <a-table
           :columns="columns"
@@ -181,6 +181,7 @@
             </template>
           </template>
         </a-table>
+      </div>
       </div>
     </a-spin>
 
@@ -553,19 +554,27 @@ onMounted(async () => {
 .billing-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  min-height: auto;
 }
 
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .page-header h1 {
   margin: 0 0 4px;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .page-header p {
@@ -576,21 +585,27 @@ onMounted(async () => {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
+}
+
+.billing-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .metric-card {
-  padding: 18px;
+  padding: 14px 16px;
 }
 
 .metric-label {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .metric-value {
-  margin-top: 8px;
-  font-size: 28px;
+  margin-top: 6px;
+  font-size: 24px;
   font-weight: 700;
 }
 
@@ -604,13 +619,16 @@ onMounted(async () => {
 .content-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 
 .quota-card,
-.trend-card,
+.trend-card {
+  padding: 14px 16px;
+}
+
 .records-card {
-  padding: 18px;
+  padding: 0;
 }
 
 .section-title {
@@ -691,7 +709,7 @@ onMounted(async () => {
 }
 
 .trend-chart {
-  height: 260px;
+  height: 220px;
 }
 
 .usage-type-list,

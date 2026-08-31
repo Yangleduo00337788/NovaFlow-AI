@@ -7,34 +7,33 @@
       </div>
     </div>
 
-    <div class="list-toolbar page-card">
-      <a-space wrap>
-        <a-input-search
-          v-model:value="keyword"
-          placeholder="搜索 Trace ID / 名称"
-          style="width: 260px"
-          allow-clear
-          @search="onSearch"
-        />
-        <a-select v-model:value="spanType" allow-clear placeholder="类型" style="width: 120px" @change="onSearch">
-          <a-select-option value="workflow">工作流</a-select-option>
-          <a-select-option value="agent">Agent</a-select-option>
-        </a-select>
-        <a-select v-model:value="status" allow-clear placeholder="状态" style="width: 120px" @change="onSearch">
-          <a-select-option :value="0">运行中</a-select-option>
-          <a-select-option :value="1">成功</a-select-option>
-          <a-select-option :value="2">失败</a-select-option>
-        </a-select>
-        <a-select v-model:value="timeRange" style="width: 140px" @change="onSearch">
-          <a-select-option value="1h">近 1 小时</a-select-option>
-          <a-select-option value="24h">近 24 小时</a-select-option>
-          <a-select-option value="7d">近 7 天</a-select-option>
-        </a-select>
-      </a-space>
-      <span class="list-toolbar-meta">共 {{ total }} 条</span>
-    </div>
-
-    <div class="page-card page-table-card trace-card">
+    <div class="list-panel page-card">
+      <div class="list-toolbar">
+        <div class="list-toolbar-filters">
+          <a-input-search
+            v-model:value="keyword"
+            placeholder="搜索 Trace ID / 名称"
+            style="width: 220px"
+            allow-clear
+            @search="onSearch"
+          />
+          <a-select v-model:value="spanType" allow-clear placeholder="类型" style="width: 110px" @change="onSearch">
+            <a-select-option value="workflow">工作流</a-select-option>
+            <a-select-option value="agent">Agent</a-select-option>
+          </a-select>
+          <a-select v-model:value="status" allow-clear placeholder="状态" style="width: 110px" @change="onSearch">
+            <a-select-option :value="0">运行中</a-select-option>
+            <a-select-option :value="1">成功</a-select-option>
+            <a-select-option :value="2">失败</a-select-option>
+          </a-select>
+          <a-select v-model:value="timeRange" style="width: 120px" @change="onSearch">
+            <a-select-option value="1h">近 1 小时</a-select-option>
+            <a-select-option value="24h">近 24 小时</a-select-option>
+            <a-select-option value="7d">近 7 天</a-select-option>
+          </a-select>
+        </div>
+        <span class="list-toolbar-meta">共 {{ total }} 条</span>
+      </div>
       <a-table
           :columns="columns"
           :data-source="list"

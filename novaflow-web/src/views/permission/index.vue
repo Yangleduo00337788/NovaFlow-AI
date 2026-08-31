@@ -7,13 +7,14 @@
       </div>
     </div>
 
-    <div class="permission-layout">
-      <div class="page-card role-panel">
-        <div class="panel-title">系统角色</div>
+    <div class="permission-panel page-card">
+      <aside class="role-nav">
+        <div class="nav-title">系统角色</div>
         <a-spin :spinning="rolesLoading">
-          <div
+          <button
             v-for="role in roles"
             :key="role.id"
+            type="button"
             class="role-item"
             :class="{ active: selectedRoleId === role.id }"
             @click="selectRole(role)"
@@ -23,73 +24,73 @@
               <a-tag>{{ role.memberCount || 0 }} 人</a-tag>
             </div>
             <p class="role-desc">{{ role.description }}</p>
-          </div>
+          </button>
         </a-spin>
-      </div>
+      </aside>
 
-      <div class="detail-panel">
-        <div class="page-card">
-          <div class="panel-title">权限矩阵</div>
-          <a-empty v-if="!selectedRole" description="请选择角色" />
-          <template v-else>
-            <div class="selected-role-bar">
-              <div>
-                <h3>{{ selectedRole.roleName }}</h3>
-                <p>{{ selectedRole.description }}</p>
-              </div>
-              <a-tag color="blue">系统内置角色（只读）</a-tag>
+      <main class="role-detail">
+        <a-empty v-if="!selectedRole" description="请选择角色" />
+        <template v-else>
+          <div class="detail-header">
+            <div>
+              <h3>{{ selectedRole.roleName }}</h3>
+              <p>{{ selectedRole.description }}</p>
             </div>
-            <a-spin :spinning="permissionsLoading">
-              <div v-for="(items, module) in groupedPermissions" :key="module" class="perm-module">
-                <div class="perm-module-title">{{ MODULE_LABELS[module] || module }}</div>
-                <div class="perm-grid">
-                  <div
-                    v-for="perm in items"
-                    :key="perm.id"
-                    class="perm-item"
-                    :class="{ granted: hasPermission(perm.permissionCode) }"
-                  >
-                    <span class="perm-name">{{ perm.permissionName }}</span>
-                    <span class="perm-code">{{ perm.permissionCode }}</span>
+            <a-tag color="blue">系统内置角色（只读）</a-tag>
+          </div>
+
+          <a-tabs v-model:activeKey="activeTab" class="detail-tabs">
+            <a-tab-pane key="permissions" tab="权限矩阵">
+              <a-spin :spinning="permissionsLoading">
+                <div v-for="(items, module) in groupedPermissions" :key="module" class="perm-module">
+                  <div class="perm-module-title">{{ MODULE_LABELS[module] || module }}</div>
+                  <div class="perm-tags">
+                    <span
+                      v-for="perm in items"
+                      :key="perm.id"
+                      class="perm-tag"
+                      :class="{ granted: hasPermission(perm.permissionCode) }"
+                      :title="perm.permissionCode"
+                    >
+                      <CheckOutlined v-if="hasPermission(perm.permissionCode)" class="perm-check" />
+                      {{ perm.permissionName }}
+                    </span>
                   </div>
                 </div>
-              </div>
-            </a-spin>
-          </template>
-        </div>
+              </a-spin>
+            </a-tab-pane>
 
-        <div class="page-card">
-          <div class="panel-title">角色成员</div>
-          <a-spin :spinning="membersLoading">
-            <a-empty v-if="!selectedRole" description="请选择角色" />
-            <a-table
-              v-else
-              :columns="memberColumns"
-              :data-source="roleMembers"
-              row-key="id"
-              :pagination="false"
-              size="small"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'member'">
-                  <div class="member-cell">
-                    <strong>{{ record.nickname || record.username }}</strong>
-                    <span class="member-email">{{ record.email }}</span>
-                  </div>
-                </template>
-                <template v-else-if="column.key === 'status'">
-                  <a-tag :color="record.status === 1 ? 'success' : 'default'">
-                    {{ record.status === 1 ? '正常' : '已禁用' }}
-                  </a-tag>
-                </template>
-                <template v-else-if="column.key === 'joinedAt'">
-                  {{ formatDateTime(record.joinedAt) }}
-                </template>
-              </template>
-            </a-table>
-          </a-spin>
-        </div>
-      </div>
+            <a-tab-pane key="members" :tab="`角色成员 (${roleMembers.length})`">
+              <a-spin :spinning="membersLoading">
+                <a-table
+                  :columns="memberColumns"
+                  :data-source="roleMembers"
+                  row-key="id"
+                  :pagination="false"
+                  size="small"
+                >
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'member'">
+                      <div class="member-cell">
+                        <strong>{{ record.nickname || record.username }}</strong>
+                        <span class="member-email">{{ record.email }}</span>
+                      </div>
+                    </template>
+                    <template v-else-if="column.key === 'status'">
+                      <a-tag :color="record.status === 1 ? 'success' : 'default'">
+                        {{ record.status === 1 ? '正常' : '已禁用' }}
+                      </a-tag>
+                    </template>
+                    <template v-else-if="column.key === 'joinedAt'">
+                      {{ formatDateTime(record.joinedAt) }}
+                    </template>
+                  </template>
+                </a-table>
+              </a-spin>
+            </a-tab-pane>
+          </a-tabs>
+        </template>
+      </main>
     </div>
   </div>
 </template>
@@ -97,6 +98,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { CheckOutlined } from '@ant-design/icons-vue'
 import type { MemberItem } from '@/api/org'
 import {
   MODULE_LABELS,
@@ -115,6 +117,7 @@ const roles = ref<RoleItem[]>([])
 const selectedRoleId = ref<number | null>(null)
 const groupedPermissions = ref<Record<string, PermissionItem[]>>({})
 const roleMembers = ref<MemberItem[]>([])
+const activeTab = ref('permissions')
 
 const selectedRole = computed(() => roles.value.find((item) => item.id === selectedRoleId.value) || null)
 
@@ -169,6 +172,7 @@ async function loadRoleMembers(roleId: number) {
 
 function selectRole(role: RoleItem) {
   selectedRoleId.value = role.id
+  activeTab.value = 'permissions'
   loadRoleMembers(role.id)
 }
 
@@ -180,41 +184,52 @@ onMounted(() => {
 
 <style scoped>
 .permission-page {
+  min-height: auto;
+}
+
+.permission-panel {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
 }
 
-.permission-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 12px;
-  align-items: start;
+.role-nav {
+  width: 240px;
+  flex-shrink: 0;
+  padding: 16px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-subtle);
 }
 
-.panel-title {
+.nav-title {
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 14px;
-}
-
-.role-panel {
-  position: sticky;
-  top: 0;
+  color: var(--text-muted);
+  padding: 0 8px 10px;
 }
 
 .role-item {
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 10px;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  margin-bottom: 6px;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  background: transparent;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.role-item:hover,
+.role-item:hover {
+  background: var(--hover-bg);
+}
+
 .role-item.active {
-  border-color: #1677ff;
-  background: rgba(22, 119, 255, 0.04);
+  border-color: rgba(22, 119, 255, 0.35);
+  background: var(--card-bg);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .role-head {
@@ -225,76 +240,80 @@ onMounted(() => {
 }
 
 .role-desc {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.detail-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.role-detail {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 20px;
 }
 
-.selected-role-bar {
+.detail-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 
-.selected-role-bar h3 {
+.detail-header h3 {
   margin: 0 0 4px;
+  font-size: 16px;
 }
 
-.selected-role-bar p {
+.detail-header p {
   margin: 0;
   color: var(--text-secondary);
   font-size: 13px;
 }
 
+.detail-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 12px;
+}
+
 .perm-module {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .perm-module-title {
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
 }
 
-.perm-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+.perm-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.perm-item {
-  padding: 10px 12px;
+.perm-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card-bg);
-  opacity: 0.55;
-}
-
-.perm-item.granted {
-  opacity: 1;
-  border-color: rgba(22, 119, 255, 0.35);
-  background: rgba(22, 119, 255, 0.05);
-}
-
-.perm-name {
-  display: block;
-  font-weight: 500;
-}
-
-.perm-code {
-  display: block;
-  margin-top: 4px;
-  color: var(--text-secondary);
+  background: var(--bg-subtle);
   font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.perm-tag.granted {
+  border-color: rgba(22, 119, 255, 0.3);
+  background: rgba(22, 119, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.perm-check {
+  font-size: 11px;
+  color: #1677ff;
 }
 
 .member-cell {
@@ -306,5 +325,17 @@ onMounted(() => {
 .member-email {
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .permission-panel {
+    flex-direction: column;
+  }
+
+  .role-nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
 }
 </style>

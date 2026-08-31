@@ -11,29 +11,31 @@
       </a-button>
     </div>
 
-    <div class="list-toolbar page-card">
-      <a-space wrap>
-        <a-input-search
-          v-model:value="keyword"
-          placeholder="搜索模板名称"
-          style="width: 260px"
-          allow-clear
-          @search="loadData"
-        />
-        <a-select
-          v-model:value="category"
-          allow-clear
-          placeholder="全部分类"
-          style="width: 140px"
-          :options="PROMPT_CATEGORIES"
-          @change="loadData"
-        />
-      </a-space>
-      <span class="toolbar-meta">共 {{ total }} 个模板</span>
-    </div>
+    <div class="list-panel page-card">
+      <div class="list-toolbar">
+        <div class="list-toolbar-filters">
+          <a-input-search
+            v-model:value="keyword"
+            placeholder="搜索模板名称"
+            style="width: 220px"
+            allow-clear
+            @search="loadData"
+          />
+          <a-select
+            v-model:value="category"
+            allow-clear
+            placeholder="全部分类"
+            style="width: 130px"
+            :options="PROMPT_CATEGORIES"
+            @change="loadData"
+          />
+        </div>
+        <span class="list-toolbar-meta">共 {{ total }} 个模板</span>
+      </div>
 
-    <a-spin :spinning="loading">
-      <div v-if="list.length" class="prompt-grid">
+      <div class="list-body">
+        <a-spin :spinning="loading">
+          <div v-if="list.length" class="prompt-grid">
         <div
           v-for="item in list"
           :key="item.id"
@@ -67,17 +69,19 @@
           </div>
         </div>
       </div>
-      <a-empty v-else description="暂无模板，点击右上角创建" />
-    </a-spin>
+          <a-empty v-else description="暂无模板，点击右上角创建" />
+        </a-spin>
 
-    <div v-if="total > pageSize" class="pagination-wrap">
-      <a-pagination
-        v-model:current="page"
-        :total="total"
-        :page-size="pageSize"
-        show-less-items
-        @change="loadData"
-      />
+        <div v-if="total > pageSize" class="pagination-wrap">
+          <a-pagination
+            v-model:current="page"
+            :total="total"
+            :page-size="pageSize"
+            show-less-items
+            @change="loadData"
+          />
+        </div>
+      </div>
     </div>
 
     <a-drawer
@@ -441,42 +445,13 @@ onMounted(loadData)
 
 <style scoped>
 .prompt-page {
-  min-height: 100%;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.page-header h1 {
-  margin: 0 0 6px;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.toolbar-meta {
-  color: var(--text-secondary);
-  font-size: 13px;
+  min-height: auto;
 }
 
 .prompt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .prompt-card {

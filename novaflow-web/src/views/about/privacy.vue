@@ -1,23 +1,12 @@
 <template>
-  <div class="page-shell privacy-page">
-    <div class="page-header">
-      <div>
-        <h1>安全与隐私说明</h1>
-        <p>数据存储、留存周期、第三方观测与集成建议</p>
-      </div>
-      <span class="doc-badge">v1.0.0</span>
-    </div>
+  <div class="about-body">
+    <p class="about-block-note">更新日期 2026-08-31 · 供部署方与集成方参考，具体合规义务请结合所在地区法规及企业政策执行。</p>
 
-    <div class="page-card intro-card">
-      <p>
-        本文说明 NovaFlow AI 在数据存储、留存周期与第三方观测方面的基本做法，供部署方与集成方参考。
-        具体合规义务请结合所在地区法规及企业政策执行。
+    <section class="privacy-section">
+      <h3 class="about-block-title">数据分类与存储</h3>
+      <p class="about-block-lead">
+        本文说明 NovaFlow AI 在数据存储、留存周期与第三方观测方面的基本做法。
       </p>
-      <div class="intro-meta">更新日期 2026-08-31</div>
-    </div>
-
-    <div class="page-card section-card">
-      <h2 class="section-title">数据分类与存储</h2>
       <div class="data-table-wrap">
         <table class="data-table">
           <thead>
@@ -36,13 +25,11 @@
           </tbody>
         </table>
       </div>
-      <p class="section-note">
-        私有化部署时，上述组件均可部署在客户内网，数据不出客户网络（未启用第三方观测的前提下）。
-      </p>
-    </div>
+      <p class="section-note">私有化部署时，上述组件均可部署在客户内网，数据不出客户网络（未启用第三方观测的前提下）。</p>
+    </section>
 
-    <div class="page-card section-card">
-      <h2 class="section-title">数据留存周期</h2>
+    <section class="privacy-section">
+      <h3 class="about-block-title">数据留存周期</h3>
       <div class="info-grid">
         <div v-for="item in retentionItems" :key="item.label" class="info-grid-item">
           <span class="info-grid-label">{{ item.label }}</span>
@@ -53,11 +40,11 @@
       <p class="section-note">
         会话清理任务每日凌晨执行，可通过 <code>novaflow.conversation.retention-enabled=false</code> 关闭自动清理。
       </p>
-    </div>
+    </section>
 
-    <div class="page-card section-card">
-      <h2 class="section-title">第三方观测（可选）</h2>
-      <p class="section-lead">
+    <section class="privacy-section">
+      <h3 class="about-block-title">第三方观测（可选）</h3>
+      <p class="about-block-lead">
         平台支持通过 OpenTelemetry 上报工作流与 Agent 执行的 Span，可选对接 Langfuse 或任意兼容 OTLP HTTP 的采集端。
       </p>
       <div class="bullet-list">
@@ -66,14 +53,14 @@
           <span>{{ item.desc }}</span>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="page-card section-card">
-      <h2 class="section-title">Open API 与终端用户数据</h2>
-      <div class="feature-grid">
-        <div v-for="item in openApiItems" :key="item.title" class="feature-card">
-          <div class="feature-title">{{ item.title }}</div>
-          <div class="feature-desc">{{ item.desc }}</div>
+    <section class="privacy-section">
+      <h3 class="about-block-title">Open API 与终端用户数据</h3>
+      <div class="about-card-grid">
+        <div v-for="item in openApiItems" :key="item.title" class="mini-card">
+          <div class="mini-card-title">{{ item.title }}</div>
+          <div class="mini-card-desc">{{ item.desc }}</div>
         </div>
       </div>
       <div class="tips-box">
@@ -83,23 +70,23 @@
           <li>Embed Token 应通过服务端下发或短期授权，避免硬编码在前端公开仓库中。</li>
         </ul>
       </div>
-    </div>
+    </section>
 
-    <div class="page-card section-card">
-      <h2 class="section-title">审计日志范围</h2>
-      <p class="section-lead">以下操作会写入审计日志，可在「审计日志」页面查询：</p>
+    <section class="privacy-section">
+      <h3 class="about-block-title">审计日志范围</h3>
+      <p class="about-block-lead">以下操作会写入审计日志，可在「审计日志」页面查询：</p>
       <ul class="plain-list">
         <li v-for="item in auditScopes" :key="item">{{ item }}</li>
       </ul>
       <p class="section-note">审计记录包含：时间、租户、用户、动作、资源类型、资源 ID、摘要、客户端 IP。</p>
-    </div>
+    </section>
 
-    <div class="page-card section-card">
-      <h2 class="section-title">部署方安全建议</h2>
+    <section class="privacy-section">
+      <h3 class="about-block-title">部署方安全建议</h3>
       <ol class="numbered-list">
         <li v-for="item in securityTips" :key="item">{{ item }}</li>
       </ol>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -155,48 +142,16 @@ const securityTips = [
 </script>
 
 <style scoped>
-.doc-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #1677ff, #4096ff);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-}
+@import './doc-styles.css';
 
-.intro-card p {
-  margin: 0 0 10px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-}
-
-.intro-meta {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.section-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.section-card .section-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.section-lead {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.7;
+.privacy-section + .privacy-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
 }
 
 .section-note {
-  margin: 0;
+  margin: 10px 0 0;
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.6;
@@ -204,6 +159,7 @@ const securityTips = [
 
 .data-table-wrap {
   overflow-x: auto;
+  margin-top: 10px;
 }
 
 .data-table {
@@ -225,6 +181,10 @@ const securityTips = [
   font-weight: 600;
 }
 
+.info-grid {
+  margin-top: 10px;
+}
+
 .info-grid-hint {
   font-size: 12px;
   color: var(--text-muted);
@@ -234,7 +194,8 @@ const securityTips = [
 .bullet-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .bullet-item {
@@ -257,32 +218,27 @@ const securityTips = [
   line-height: 1.6;
 }
 
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.feature-card {
+.mini-card {
   padding: 14px 16px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-subtle);
 }
 
-.feature-title {
+.mini-card-title {
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 6px;
 }
 
-.feature-desc {
+.mini-card-desc {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary);
 }
 
 .tips-box {
+  margin-top: 12px;
   padding: 14px 16px;
   border-radius: 10px;
   border: 1px dashed var(--border-strong);
@@ -304,7 +260,7 @@ const securityTips = [
 }
 
 .numbered-list {
-  margin: 0;
+  margin: 10px 0 0;
   padding-left: 20px;
   color: var(--text-secondary);
   line-height: 1.8;
@@ -316,11 +272,5 @@ code {
   border-radius: 4px;
   background: var(--bg-subtle);
   font-size: 12px;
-}
-
-@media (max-width: 900px) {
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

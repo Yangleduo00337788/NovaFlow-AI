@@ -1,5 +1,6 @@
-export interface MenuItem {
-  key: string
+import { aboutNavItems, getAboutPageMeta } from '@/views/about/about-config'
+
+export interface MenuItem {  key: string
   label: string
   path: string
   icon: string
@@ -49,8 +50,6 @@ export const menuGroups: MenuGroup[] = [
       { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing', permissions: ['billing:view', 'billing:manage'] },
       { key: 'platform', label: '平台超管', path: '/platform', icon: 'settings', permissions: ['platform:manage'] },
       { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view', 'platform:manage'] },
-      { key: 'changelog', label: '版本记录', path: '/changelog', icon: 'settings' },
-      { key: 'privacy', label: '安全与隐私', path: '/privacy', icon: 'settings' },
     ],
   },
 ]
@@ -74,8 +73,7 @@ const routePermissionMap: Record<string, string[]> = {
   '/billing': ['billing:view', 'billing:manage'],
   '/platform': ['platform:manage'],
   '/audit': ['audit:view', 'platform:manage'],
-  '/changelog': [],
-  '/privacy': [],
+  '/about': [],
 }
 
 export function filterMenuGroups(hasAnyPermission: (codes?: string[]) => boolean): MenuGroup[] {
@@ -97,6 +95,14 @@ export function getRoutePermissions(path: string): string[] | undefined {
 export function getBreadcrumbByPath(path: string): BreadcrumbInfo {
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {
     return { title: '工作台', path: '/dashboard', icon: 'dashboard' }
+  }
+
+  if (path === '/about' || path.startsWith('/about/')) {
+    const meta = getAboutPageMeta(path)
+    const matched = path === '/about' || path === '/about/'
+      ? '/about'
+      : aboutNavItems.find((item) => path === item.path || path.startsWith(`${item.path}/`))?.path
+    return { title: meta.title, path: matched || '/about', icon: 'settings' }
   }
 
   for (const group of menuGroups) {

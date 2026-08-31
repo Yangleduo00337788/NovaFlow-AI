@@ -307,21 +307,59 @@ a {
   display: block;
 }
 
-/* 列表页通用：筛选栏、面板标题、表格卡片 */
+/* 列表页通用：筛选栏、面板、表格 */
+.list-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.list-panel > .list-toolbar {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.list-panel > .list-body {
+  padding: 16px;
+}
+
+.list-panel > .ant-table-wrapper,
+.list-panel > .ant-spin-nested-loading {
+  padding: 0;
+}
+
+.list-panel .ant-table-thead > tr > th:first-child {
+  border-radius: 0;
+}
+
+.list-panel .ant-table-thead > tr > th:last-child {
+  border-radius: 0;
+}
+
 .list-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 12px 20px;
+  padding: 10px 16px;
+}
+
+.list-toolbar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 280px;
 }
 
 .list-toolbar-meta,
 .toolbar-meta {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   flex-shrink: 0;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .panel-title {

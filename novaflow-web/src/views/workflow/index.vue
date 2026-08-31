@@ -11,19 +11,22 @@
       </a-button>
     </div>
 
-    <div class="list-toolbar page-card">
-      <a-input-search
-        v-model:value="keyword"
-        placeholder="搜索工作流名称"
-        style="width: 280px"
-        allow-clear
-        @search="loadData"
-      />
-      <span class="toolbar-meta">共 {{ total }} 个工作流</span>
-    </div>
-
-    <a-spin :spinning="loading">
-      <div v-if="list.length" class="workflow-grid">
+    <div class="list-panel page-card">
+      <div class="list-toolbar">
+        <div class="list-toolbar-filters">
+          <a-input-search
+            v-model:value="keyword"
+            placeholder="搜索工作流名称"
+            style="width: 240px"
+            allow-clear
+            @search="loadData"
+          />
+        </div>
+        <span class="list-toolbar-meta">共 {{ total }} 个工作流</span>
+      </div>
+      <div class="list-body">
+        <a-spin :spinning="loading">
+          <div v-if="list.length" class="workflow-grid">
         <div
           v-for="item in list"
           :key="item.id"
@@ -61,16 +64,18 @@
         </div>
       </div>
       <a-empty v-else description="暂无工作流，点击右上角创建" />
-    </a-spin>
+        </a-spin>
 
-    <div v-if="total > pageSize" class="pagination-wrap">
-      <a-pagination
-        v-model:current="page"
-        :total="total"
-        :page-size="pageSize"
-        show-less-items
-        @change="loadData"
-      />
+        <div v-if="total > pageSize" class="pagination-wrap">
+          <a-pagination
+            v-model:current="page"
+            :total="total"
+            :page-size="pageSize"
+            show-less-items
+            @change="loadData"
+          />
+        </div>
+      </div>
     </div>
 
     <a-modal

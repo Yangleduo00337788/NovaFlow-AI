@@ -35,18 +35,19 @@
       </div>
     </div>
 
-    <div class="list-toolbar page-card">
-      <a-input-search
-        v-model:value="keyword"
-        placeholder="搜索企业名称、编码、邮箱"
-        allow-clear
-        style="max-width: 320px"
-        @search="loadTenants"
-      />
-      <span class="list-toolbar-meta">共 {{ total }} 个租户</span>
-    </div>
-
-    <div class="page-card page-table-card">
+    <div class="list-panel page-card">
+      <div class="list-toolbar">
+        <div class="list-toolbar-filters">
+          <a-input-search
+            v-model:value="keyword"
+            placeholder="搜索企业名称、编码、邮箱"
+            allow-clear
+            style="width: 280px"
+            @search="loadTenants"
+          />
+        </div>
+        <span class="list-toolbar-meta">共 {{ total }} 个租户</span>
+      </div>
       <a-table
         :columns="columns"
         :data-source="tenants"
