@@ -75,8 +75,6 @@ public class ModelUsageService {
     }
 
     public ModelUsageStatsVO getUsageStats(Long tenantId) {
-        backfillMissingCosts(tenantId);
-
         Long totalCalls = tokenUsageMapper.countCallsByTenant(tenantId);
         Long totalTokens = tokenUsageMapper.sumTokensByTenant(tenantId);
         List<ModelCostSummaryVO> costSummaries = buildCostSummaries(tenantId);
@@ -185,10 +183,10 @@ public class ModelUsageService {
         return new CostCalculation(cost, currency);
     }
 
-    private void backfillMissingCosts(Long tenantId) {
-        List<TokenUsageEntity> records = tokenUsageMapper.selectListByQuery(
-                QueryWrapper.create().eq("tenant_id", tenantId)
-        );
+    @Transactional
+    public void backfillMissingCosts(Long tenantId, int limit) {
+        int batchSize = Math.min(Math.max(limit, 1), 500);
+        List<TokenUsageEntity> records = tokenUsageMapper.listNeedingCostBackfill(tenantId, batchSize);
         for (TokenUsageEntity record : records) {
             CostCalculation calculation = calculateCostWithCurrency(
                     record.getModelConfigId(),
