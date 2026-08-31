@@ -1,5 +1,6 @@
 package ai.novaflow.knowledge.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -30,6 +31,7 @@ public class KnowledgeBaseService {
     private final DocumentMapper documentMapper;
     private final DocumentStorageService documentStorageService;
     private final RecentAccessService recentAccessService;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<KnowledgeBaseVO> page(int page, int pageSize, String keyword) {
         Long tenantId = requireTenantId();
@@ -108,6 +110,7 @@ public class KnowledgeBaseService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         knowledgeBaseMapper.update(entity);
+        auditRecorder.record("knowledge.delete", "knowledge", entity.getId(), "删除知识库: " + entity.getKbName());
     }
 
     public KnowledgeBaseEntity getKnowledgeBaseOrThrow(Long id) {

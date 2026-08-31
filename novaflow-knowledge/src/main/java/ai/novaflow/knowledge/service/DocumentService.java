@@ -1,5 +1,6 @@
 package ai.novaflow.knowledge.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -38,6 +39,7 @@ public class DocumentService {
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentStorageService documentStorageService;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<DocumentVO> page(Long knowledgeBaseId, int page, int pageSize, String keyword) {
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
@@ -133,6 +135,8 @@ public class DocumentService {
         knowledgeBase.setChunkCount(Math.max(0, safeInt(knowledgeBase.getChunkCount()) - safeInt(entity.getChunkCount())));
         knowledgeBase.setUpdatedAt(LocalDateTime.now());
         knowledgeBaseMapper.update(knowledgeBase);
+        auditRecorder.record("document.delete", "document", entity.getId(),
+                "删除文档: " + entity.getDocName() + "（知识库 ID " + knowledgeBaseId + "）");
     }
 
     public void triggerReprocess(Long knowledgeBaseId, Long documentId) {

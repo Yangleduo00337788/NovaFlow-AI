@@ -1,5 +1,6 @@
 package ai.novaflow.model.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.util.CryptoService;
@@ -39,6 +40,7 @@ public class ModelProviderService {
     private final ModelConnectivityService modelConnectivityService;
     private final ModelSyncService modelSyncService;
     private final ModelUsageService modelUsageService;
+    private final AuditRecorder auditRecorder;
 
     public List<ModelProviderVO> listProviders() {
         Long tenantId = requireTenantId();
@@ -131,6 +133,8 @@ public class ModelProviderService {
             config.setUpdatedAt(LocalDateTime.now());
             modelConfigMapper.update(config);
         }
+        auditRecorder.record("model_provider.delete", "model_provider", entity.getId(),
+                "删除模型提供商: " + entity.getProviderCode());
     }
 
     public ModelConnectivityTestVO test(Long id, ModelConnectivityTestRequest request) {

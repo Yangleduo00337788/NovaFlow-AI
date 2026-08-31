@@ -1,5 +1,6 @@
 package ai.novaflow.workflow.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.application.ApplicationLookup;
 import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.common.context.TenantContext;
@@ -49,6 +50,7 @@ public class WorkflowService {
     private final ApplicationLookup applicationLookup;
     private final RecentAccessService recentAccessService;
     private final ObjectMapper objectMapper;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<WorkflowVO> page(int page, int pageSize, String keyword, Long applicationId) {
         Long tenantId = requireTenantId();
@@ -201,6 +203,7 @@ public class WorkflowService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         workflowMapper.update(entity);
+        auditRecorder.record("workflow.delete", "workflow", entity.getId(), "删除工作流: " + entity.getWorkflowName());
     }
 
     private void syncCanvas(WorkflowEntity entity, WorkflowSaveRequest request, LocalDateTime now) {

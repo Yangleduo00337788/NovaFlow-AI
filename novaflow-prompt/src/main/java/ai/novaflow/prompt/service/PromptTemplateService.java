@@ -3,6 +3,7 @@ package ai.novaflow.prompt.service;
 import ai.novaflow.aiengine.agent.ChatAgentExecutor;
 import ai.novaflow.aiengine.agent.ChatExecuteRequest;
 import ai.novaflow.aiengine.agent.ChatExecuteResult;
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -45,6 +46,7 @@ public class PromptTemplateService {
     private final PromptVariableUtils promptVariableUtils;
     private final ModelResolutionService modelResolutionService;
     private final ChatAgentExecutor chatAgentExecutor;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<PromptTemplateVO> page(int page, int pageSize, String keyword, String category) {
         Long tenantId = requireTenantId();
@@ -176,6 +178,7 @@ public class PromptTemplateService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         promptTemplateMapper.update(entity);
+        auditRecorder.record("prompt.delete", "prompt", entity.getId(), "删除 Prompt 模板: " + entity.getTemplateName());
     }
 
     public PromptTestResultVO test(Long id, PromptTestRequest request) {

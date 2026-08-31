@@ -1,5 +1,6 @@
 package ai.novaflow.tool.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -40,6 +41,7 @@ public class McpServerService {
     private final McpToolSyncService mcpToolSyncService;
     private final McpCommandValidator mcpCommandValidator;
     private final ObjectMapper objectMapper;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
         Long tenantId = requireTenantId();
@@ -126,6 +128,7 @@ public class McpServerService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         mcpServerMapper.update(entity);
+        auditRecorder.record("mcp.delete", "mcp_server", entity.getId(), "删除 MCP 服务: " + entity.getServerName());
     }
 
     private McpServerEntity getOrThrow(Long id) {

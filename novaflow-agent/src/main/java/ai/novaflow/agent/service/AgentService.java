@@ -12,6 +12,7 @@ import ai.novaflow.agent.mapper.AgentKnowledgeMapper;
 import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.agent.mapper.AgentSkillMapper;
 import ai.novaflow.agent.mapper.AgentToolMapper;
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.domain.RetrievalConfig;
@@ -53,6 +54,7 @@ public class AgentService {
     private final RecentAccessService recentAccessService;
     private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<AgentVO> page(int page, int pageSize, String keyword, String agentType) {
         Long tenantId = requireTenantId();
@@ -159,6 +161,7 @@ public class AgentService {
         agent.setIsDeleted(1);
         agent.setUpdatedAt(LocalDateTime.now());
         agentMapper.update(agent);
+        auditRecorder.record("agent.delete", "agent", agent.getId(), "删除 Agent: " + agent.getAgentName());
     }
 
     public List<Long> listKnowledgeBaseIds(Long agentId) {

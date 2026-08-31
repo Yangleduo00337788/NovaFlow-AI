@@ -1,5 +1,6 @@
 package ai.novaflow.model.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.BillingCurrency;
@@ -31,6 +32,7 @@ public class ModelConfigService {
     private final ModelProviderMapper modelProviderMapper;
     private final ModelProviderService modelProviderService;
     private final ModelSyncService modelSyncService;
+    private final AuditRecorder auditRecorder;
 
     public List<ModelConfigVO> list(Long providerId, String modelType) {
         Long tenantId = requireTenantId();
@@ -132,6 +134,8 @@ public class ModelConfigService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         modelConfigMapper.update(entity);
+        auditRecorder.record("model_config.delete", "model_config", entity.getId(),
+                "删除模型配置: " + entity.getModelName());
     }
 
     @Transactional

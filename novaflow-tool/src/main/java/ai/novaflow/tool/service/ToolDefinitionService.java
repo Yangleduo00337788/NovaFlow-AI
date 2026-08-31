@@ -1,5 +1,6 @@
 package ai.novaflow.tool.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -40,6 +41,7 @@ public class ToolDefinitionService {
     private final ToolDefinitionMapper toolDefinitionMapper;
     private final ToolConfigConverter toolConfigConverter;
     private final ToolExecutorRouter toolExecutorRouter;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<ToolDefinitionVO> page(int page, int pageSize, String keyword, String toolType) {
         Long tenantId = requireTenantId();
@@ -265,6 +267,7 @@ public class ToolDefinitionService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         toolDefinitionMapper.update(entity);
+        auditRecorder.record("tool.delete", "tool", entity.getId(), "删除工具: " + entity.getToolName());
     }
 
     public ToolTestResultVO test(Long id, ToolTestRequest request) {

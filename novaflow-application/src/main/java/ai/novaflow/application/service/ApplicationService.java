@@ -6,6 +6,7 @@ import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.application.domain.dto.ApplicationSaveRequest;
 import ai.novaflow.application.domain.vo.ApplicationPublishVO;
 import ai.novaflow.application.domain.vo.ApplicationVO;
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -43,6 +44,7 @@ public class ApplicationService {
     private final WorkspaceMapper workspaceMapper;
     private final AgentMapper agentMapper;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final AuditRecorder auditRecorder;
 
     public PageResult<ApplicationVO> page(int page, int pageSize, String keyword) {
         Long tenantId = requireTenantId();
@@ -138,6 +140,7 @@ public class ApplicationService {
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
         applicationMapper.update(entity);
+        auditRecorder.record("application.delete", "application", entity.getId(), "删除应用: " + entity.getAppName());
     }
 
     public ApplicationPublishVO getPublishInfo(Long id) {
