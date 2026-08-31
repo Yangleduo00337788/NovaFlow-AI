@@ -50,6 +50,7 @@ export const menuGroups: MenuGroup[] = [
       { key: 'platform', label: '平台超管', path: '/platform', icon: 'settings', permissions: ['platform:manage'] },
       { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view', 'platform:manage'] },
       { key: 'changelog', label: '版本记录', path: '/changelog', icon: 'settings' },
+      { key: 'privacy', label: '安全与隐私', path: '/privacy', icon: 'settings' },
     ],
   },
 ]
@@ -74,6 +75,7 @@ const routePermissionMap: Record<string, string[]> = {
   '/platform': ['platform:manage'],
   '/audit': ['audit:view', 'platform:manage'],
   '/changelog': [],
+  '/privacy': [],
 }
 
 export function filterMenuGroups(hasAnyPermission: (codes?: string[]) => boolean): MenuGroup[] {

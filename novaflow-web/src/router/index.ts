@@ -50,6 +50,7 @@ const router = createRouter({
         { path: 'platform', name: 'platform', component: () => import('@/views/platform/index.vue'), meta: { title: '平台超管' } },
         { path: 'audit', name: 'audit', component: () => import('@/views/audit/index.vue'), meta: { title: '审计日志' } },
         { path: 'changelog', name: 'changelog', component: () => import('@/views/changelog/index.vue'), meta: { title: '版本记录' } },
+        { path: 'privacy', name: 'privacy', component: () => import('@/views/privacy/index.vue'), meta: { title: '安全与隐私' } },
       ],
     },
   ],
