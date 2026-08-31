@@ -4,16 +4,17 @@ import ai.novaflow.agent.domain.AgentStatus;
 import ai.novaflow.agent.domain.vo.AgentPublishVO;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.entity.AgentApiKeyEntity;
+import ai.novaflow.agent.entity.AgentEmbedTokenEntity;
 import ai.novaflow.agent.entity.AgentEntity;
 import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
-import com.mybatisflex.core.query.QueryWrapper;
 import ai.novaflow.workflow.service.WorkflowService;
+import com.mybatisflex.core.query.QueryWrapper;
+import ai.novaflow.user.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -24,12 +25,21 @@ public class AgentPublishService {
     private final AgentMapper agentMapper;
     private final AgentService agentService;
     private final AgentApiKeyService agentApiKeyService;
+    private final AgentEmbedTokenService agentEmbedTokenService;
     private final WorkflowService workflowService;
+    private final AuditLogService auditLogService;
 
     public AgentPublishVO getPublishInfo(Long agentId) {
         AgentEntity agent = agentService.getAgentEntityOrThrow(agentId);
         AgentApiKeyEntity apiKey = agentApiKeyService.findByAgentId(agentId);
-        return buildPublishVO(agent, apiKey, null);
+        AgentEmbedTokenEntity embedToken = agentEmbedTokenService.findByAgentId(agentId);
+        if (agent.getStatus() == AgentStatus.PUBLISHED
+                && (embedToken == null || embedToken.getStatus() == null || embedToken.getStatus() != 1)) {
+            String rawEmbedToken = agentEmbedTokenService.issueEmbedToken(agentId, agent.getTenantId());
+            embedToken = agentEmbedTokenService.findByAgentId(agentId);
+            return buildPublishVO(agent, apiKey, embedToken, null, rawEmbedToken);
+        }
+        return buildPublishVO(agent, apiKey, embedToken, null, null);
     }
 
     @Transactional
@@ -40,14 +50,20 @@ public class AgentPublishService {
         validatePublishable(detail);
 
         String rawApiKey = agentApiKeyService.issueApiKey(agentId, tenantId);
+        String rawEmbedToken = agentEmbedTokenService.issueEmbedToken(agentId, tenantId);
         agent.setStatus(AgentStatus.PUBLISHED);
         agent.setPublishedAt(LocalDateTime.now());
         agent.setVersion(safeVersion(agent.getVersion()) + 1);
         agent.setUpdatedAt(LocalDateTime.now());
         agentMapper.update(agent);
 
-        AgentApiKeyEntity apiKey = agentApiKeyService.findByAgentId(agentId);
-        return buildPublishVO(agent, apiKey, rawApiKey);
+        auditLogService.record("agent.publish", "agent", agentId, "发布 Agent v" + agent.getVersion());
+        return buildPublishVO(
+                agent,
+                agentApiKeyService.findByAgentId(agentId),
+                agentEmbedTokenService.findByAgentId(agentId),
+                rawApiKey,
+                rawEmbedToken);
     }
 
     @Transactional
@@ -57,7 +73,14 @@ public class AgentPublishService {
         agent.setUpdatedAt(LocalDateTime.now());
         agentMapper.update(agent);
         agentApiKeyService.disableApiKey(agentId);
-        return buildPublishVO(agent, agentApiKeyService.findByAgentId(agentId), null);
+        agentEmbedTokenService.disableEmbedToken(agentId);
+        auditLogService.record("agent.unpublish", "agent", agentId, "下线 Agent");
+        return buildPublishVO(
+                agent,
+                agentApiKeyService.findByAgentId(agentId),
+                agentEmbedTokenService.findByAgentId(agentId),
+                null,
+                null);
     }
 
     @Transactional
@@ -67,7 +90,29 @@ public class AgentPublishService {
             throw new BusinessException("仅已发布的 Agent 可轮换 API Key");
         }
         String rawApiKey = agentApiKeyService.issueApiKey(agentId, agent.getTenantId());
-        return buildPublishVO(agent, agentApiKeyService.findByAgentId(agentId), rawApiKey);
+        auditLogService.record("agent.rotate_api_key", "agent", agentId, "轮换 API Key");
+        return buildPublishVO(
+                agent,
+                agentApiKeyService.findByAgentId(agentId),
+                agentEmbedTokenService.findByAgentId(agentId),
+                rawApiKey,
+                null);
+    }
+
+    @Transactional
+    public AgentPublishVO rotateEmbedToken(Long agentId) {
+        AgentEntity agent = agentService.getAgentEntityOrThrow(agentId);
+        if (agent.getStatus() != AgentStatus.PUBLISHED) {
+            throw new BusinessException("仅已发布的 Agent 可轮换 Embed Token");
+        }
+        String rawEmbedToken = agentEmbedTokenService.issueEmbedToken(agentId, agent.getTenantId());
+        auditLogService.record("agent.rotate_embed_token", "agent", agentId, "轮换 Embed Token");
+        return buildPublishVO(
+                agent,
+                agentApiKeyService.findByAgentId(agentId),
+                agentEmbedTokenService.findByAgentId(agentId),
+                null,
+                rawEmbedToken);
     }
 
     public AgentEntity requirePublishedAgent(Long agentId, Long tenantId) {
@@ -111,7 +156,12 @@ public class AgentPublishService {
         }
     }
 
-    private AgentPublishVO buildPublishVO(AgentEntity agent, AgentApiKeyEntity apiKey, String rawApiKey) {
+    private AgentPublishVO buildPublishVO(
+            AgentEntity agent,
+            AgentApiKeyEntity apiKey,
+            AgentEmbedTokenEntity embedToken,
+            String rawApiKey,
+            String rawEmbedToken) {
         return AgentPublishVO.builder()
                 .agentId(agent.getId())
                 .status(agent.getStatus())
@@ -119,6 +169,8 @@ public class AgentPublishService {
                 .publishedAt(agent.getPublishedAt())
                 .apiKeyPrefix(apiKey != null ? apiKey.getApiKeyPrefix() : null)
                 .apiKey(rawApiKey)
+                .embedTokenPrefix(embedToken != null ? embedToken.getTokenPrefix() : null)
+                .embedToken(rawEmbedToken)
                 .chatEndpoint("/api/v1/open/agents/" + agent.getId() + "/chat")
                 .streamEndpoint("/api/v1/open/agents/" + agent.getId() + "/chat/stream")
                 .welcomeEndpoint("/api/v1/open/agents/" + agent.getId() + "/welcome")

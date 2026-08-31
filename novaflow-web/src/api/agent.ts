@@ -116,6 +116,8 @@ export interface AgentPublishInfo {
   publishedAt?: string
   apiKeyPrefix?: string
   apiKey?: string
+  embedTokenPrefix?: string
+  embedToken?: string
   chatEndpoint: string
   streamEndpoint: string
   welcomeEndpoint?: string
@@ -136,6 +138,10 @@ export function unpublishAgent(id: number) {
 
 export function rotateAgentApiKey(id: number) {
   return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/rotate-api-key`)
+}
+
+export function rotateAgentEmbedToken(id: number) {
+  return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/rotate-embed-token`)
 }
 
 export interface ModelCapabilities {
@@ -382,16 +388,24 @@ export async function streamAgentDebugChat(
   }
 }
 
-function buildOpenAuthHeaders(apiKey: string) {
-  return {
-    Authorization: `Bearer ${apiKey}`,
+function buildOpenAuthHeaders(token: string, callerId?: string) {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
+  if (token.startsWith('nf_embed_')) {
+    headers['X-Embed-Token'] = token
+  } else {
+    headers.Authorization = `Bearer ${token}`
+  }
+  if (callerId) {
+    headers['X-Caller-Id'] = callerId
+  }
+  return headers
 }
 
-export function fetchOpenAgentWelcome(agentId: number, apiKey: string) {
+export function fetchOpenAgentWelcome(agentId: number, token: string, callerId?: string) {
   return fetch(`/api/v1/open/agents/${agentId}/welcome`, {
-    headers: buildOpenAuthHeaders(apiKey),
+    headers: buildOpenAuthHeaders(token, callerId),
   }).then(async (response) => {
     const result = (await response.json()) as ApiResult<AgentDebugChatResponse>
     if (!response.ok || result.code !== 0) {
@@ -403,7 +417,7 @@ export function fetchOpenAgentWelcome(agentId: number, apiKey: string) {
 
 export async function streamOpenAgentChat(
   agentId: number,
-  apiKey: string,
+  token: string,
   message: string,
   conversationId: string | undefined,
   handlers: {
@@ -412,10 +426,11 @@ export async function streamOpenAgentChat(
     onError: (error: Error) => void
   },
   signal?: AbortSignal,
+  callerId?: string,
 ) {
   const response = await fetch(`/api/v1/open/agents/${agentId}/chat/stream`, {
     method: 'POST',
-    headers: buildOpenAuthHeaders(apiKey),
+    headers: buildOpenAuthHeaders(token, callerId),
     body: JSON.stringify({ message, conversationId }),
     signal,
   })

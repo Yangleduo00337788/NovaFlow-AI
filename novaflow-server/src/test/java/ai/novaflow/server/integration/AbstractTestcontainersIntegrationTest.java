@@ -42,15 +42,19 @@ public abstract class AbstractTestcontainersIntegrationTest extends IntegrationT
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> String.valueOf(REDIS.getMappedPort(6379)));
         registerCommonProperties(registry);
+        registerRedisPassword(registry, "redis123");
     }
 
     static void registerCommonProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.redis.password", () -> "redis123");
         registry.add("novaflow.security.crypto-key", () -> "NovaFlowAI-TestKey-32bytes!!!!!");
         registry.add("novaflow.storage.access-key", () -> "test-access-key");
         registry.add("novaflow.storage.secret-key", () -> "test-secret-key");
         registry.add("novaflow.storage.endpoint", () -> "http://localhost:9000");
         registry.add("novaflow.qdrant.host", () -> "localhost");
         registry.add("novaflow.qdrant.port", () -> "6334");
+    }
+
+    static void registerRedisPassword(DynamicPropertyRegistry registry, String password) {
+        registry.add("spring.data.redis.password", () -> password);
     }
 }

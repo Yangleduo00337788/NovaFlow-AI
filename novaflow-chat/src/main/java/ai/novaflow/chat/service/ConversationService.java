@@ -40,6 +40,7 @@ public class ConversationService {
             Long agentId,
             Long tenantId,
             String channel,
+            String callerId,
             int page,
             int pageSize) {
         QueryWrapper query = QueryWrapper.create()
@@ -47,6 +48,9 @@ public class ConversationService {
                 .eq("agent_id", agentId);
         if (StringUtils.hasText(channel)) {
             query.eq("channel", channel);
+        }
+        if (StringUtils.hasText(callerId)) {
+            query.eq("caller_id", callerId.trim());
         }
         query.orderBy("last_message_at", false).orderBy("id", false);
 
@@ -60,8 +64,12 @@ public class ConversationService {
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
-    public List<ConversationMessageVO> listMessages(Long agentId, Long tenantId, String conversationKey) {
-        ConversationEntity conversation = getConversationOrThrow(agentId, tenantId, conversationKey);
+    public List<ConversationMessageVO> listMessages(
+            Long agentId,
+            Long tenantId,
+            String conversationKey,
+            String callerId) {
+        ConversationEntity conversation = getConversationOrThrow(agentId, tenantId, conversationKey, callerId);
         List<ConversationMessageEntity> messages = conversationMessageMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("conversation_id", conversation.getId())
@@ -71,18 +79,27 @@ public class ConversationService {
         return messages.stream().map(this::toMessageVO).toList();
     }
 
-    private ConversationEntity getConversationOrThrow(Long agentId, Long tenantId, String conversationKey) {
-        ConversationEntity conversation = conversationMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("agent_id", agentId)
-                        .eq("tenant_id", tenantId)
-                        .eq("conversation_key", conversationKey)
-                        .limit(1)
-        );
+    private ConversationEntity getConversationOrThrow(
+            Long agentId,
+            Long tenantId,
+            String conversationKey,
+            String callerId) {
+        QueryWrapper query = QueryWrapper.create()
+                .eq("agent_id", agentId)
+                .eq("tenant_id", tenantId)
+                .eq("conversation_key", conversationKey);
+        if (StringUtils.hasText(callerId)) {
+            query.eq("caller_id", callerId.trim());
+        }
+        ConversationEntity conversation = conversationMapper.selectOneByQuery(query.limit(1));
         if (conversation == null) {
             throw new BusinessException("会话不存在");
         }
         return conversation;
+    }
+
+    public List<ConversationMessageVO> listMessages(Long agentId, Long tenantId, String conversationKey) {
+        return listMessages(agentId, tenantId, conversationKey, null);
     }
 
     private ConversationVO toConversationVO(ConversationEntity entity, String preview) {
@@ -164,6 +181,9 @@ public class ConversationService {
             conversation.setConversationKey(request.conversationKey());
             conversation.setChannel(request.channel());
             conversation.setUserId(request.userId());
+            if (StringUtils.hasText(request.callerId())) {
+                conversation.setCallerId(request.callerId().trim());
+            }
             conversation.setMessageCount(0);
             conversation.setCreatedAt(now);
             conversation.setUpdatedAt(now);
@@ -184,6 +204,9 @@ public class ConversationService {
         } else {
             conversation.setChannel(request.channel());
             conversation.setUserId(request.userId());
+            if (StringUtils.hasText(request.callerId())) {
+                conversation.setCallerId(request.callerId().trim());
+            }
             conversation.setUpdatedAt(now);
         }
 
@@ -246,6 +269,7 @@ public class ConversationService {
             String conversationKey,
             String channel,
             Long userId,
+            String callerId,
             String userMessage,
             String assistantReply,
             Integer tokensUsed,

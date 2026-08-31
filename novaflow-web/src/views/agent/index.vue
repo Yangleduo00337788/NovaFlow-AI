@@ -421,15 +421,30 @@
           </div>
           <div class="endpoint-item">
             <span>会话列表</span>
-            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations</code>
+            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations?callerId=</code>
           </div>
           <div class="endpoint-item">
             <span>会话消息</span>
-            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations/messages?conversationKey=</code>
+            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations/messages?callerId=&amp;conversationKey=</code>
           </div>
 
           <div class="section-label">网页嵌入</div>
-          <p class="endpoint-tip">将以下 iframe 嵌入到你的网站。API Key 会暴露在页面中，生产环境建议通过服务端代理调用。</p>
+          <p class="endpoint-tip">嵌入页请使用受限 Embed Token（仅对话，不可列举他人会话）。API Key 仅用于服务端集成。</p>
+          <p v-if="publishInfo.embedTokenPrefix" class="endpoint-tip">
+            Embed Token 前缀：<code>{{ publishInfo.embedTokenPrefix }}...</code>
+          </p>
+          <a-alert
+            v-if="revealedEmbedToken"
+            type="warning"
+            show-icon
+            class="key-alert"
+            message="新 Embed Token 已生成"
+            description="请立即复制并更新 iframe 地址。旧 Token 会立即失效。"
+          />
+          <div v-if="revealedEmbedToken" class="api-key-box">
+            <code>{{ revealedEmbedToken }}</code>
+            <a-button type="primary" size="small" @click="copyText(revealedEmbedToken)">复制 Embed Token</a-button>
+          </div>
           <pre class="curl-example">{{ embedExample }}</pre>
           <a-button size="small" @click="copyText(embedExample)">复制嵌入代码</a-button>
 
@@ -458,6 +473,13 @@
             >
               <a-button :loading="publishLoading">轮换 API Key</a-button>
             </a-popconfirm>
+            <a-popconfirm
+              title="轮换后旧 Embed Token 将立即失效，需同步更新 iframe"
+              ok-text="确认轮换"
+              @confirm="onRotateEmbedToken"
+            >
+              <a-button :loading="publishLoading">轮换 Embed Token</a-button>
+            </a-popconfirm>
             <a-popconfirm title="确认下线该 Agent？对外 API 将立即停止" @confirm="onUnpublish">
               <a-button danger :loading="publishLoading">下线</a-button>
             </a-popconfirm>
@@ -483,6 +505,7 @@ import {
   fetchAgents,
   publishAgent,
   rotateAgentApiKey,
+  rotateAgentEmbedToken,
   unpublishAgent,
   updateAgent,
   type AgentItem,
@@ -560,6 +583,7 @@ const publishAgentId = ref<number | null>(null)
 const publishInfo = ref<AgentPublishInfo | null>(null)
 const publishLoading = ref(false)
 const revealedApiKey = ref('')
+const revealedEmbedToken = ref('')
 
 const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin
 
@@ -584,15 +608,16 @@ const curlExample = computed(() => {
   const key = revealedApiKey.value || 'YOUR_API_KEY'
   return `curl -X POST "${apiBaseUrl}${publishInfo.value.chatEndpoint}" ^
   -H "Authorization: Bearer ${key}" ^
+  -H "X-Caller-Id: your-end-user-id" ^
   -H "Content-Type: application/json" ^
   -d "{\\"message\\":\\"你好\\",\\"conversationId\\":\\"conv-001\\"}"`
 })
 
 const embedExample = computed(() => {
   if (!publishInfo.value?.embedPath) return ''
-  const key = revealedApiKey.value || 'YOUR_API_KEY'
+  const token = revealedEmbedToken.value || 'YOUR_EMBED_TOKEN'
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
-  return `<iframe src="${origin}${publishInfo.value.embedPath}?apiKey=${key}" width="400" height="640" style="border:0;border-radius:12px;" allow="clipboard-write"></iframe>`
+  return `<iframe src="${origin}${publishInfo.value.embedPath}?embedToken=${token}" width="400" height="640" style="border:0;border-radius:12px;" allow="clipboard-write"></iframe>`
 })
 
 const form = reactive<AgentSaveRequest>({
@@ -935,10 +960,14 @@ async function openPublish(id: number) {
   publishAgentId.value = id
   publishModalOpen.value = true
   revealedApiKey.value = ''
+  revealedEmbedToken.value = ''
   publishLoading.value = true
   try {
     const res = await fetchAgentPublishInfo(id)
     publishInfo.value = res.data.data
+    if (res.data.data.embedToken) {
+      revealedEmbedToken.value = res.data.data.embedToken
+    }
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载发布信息失败')
     publishModalOpen.value = false
@@ -951,6 +980,7 @@ function closePublishModal() {
   publishAgentId.value = null
   publishInfo.value = null
   revealedApiKey.value = ''
+  revealedEmbedToken.value = ''
 }
 
 async function onPublish() {
@@ -960,7 +990,8 @@ async function onPublish() {
     const res = await publishAgent(publishAgentId.value)
     publishInfo.value = res.data.data
     revealedApiKey.value = res.data.data.apiKey || ''
-    message.success('发布成功，请立即复制 API Key')
+    revealedEmbedToken.value = res.data.data.embedToken || ''
+    message.success('发布成功，请立即复制 API Key 与 Embed Token')
     loadData()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '发布失败')
@@ -976,6 +1007,7 @@ async function onUnpublish() {
     const res = await unpublishAgent(publishAgentId.value)
     publishInfo.value = res.data.data
     revealedApiKey.value = ''
+    revealedEmbedToken.value = ''
     message.success('已下线')
     loadData()
   } catch (e) {
@@ -993,6 +1025,21 @@ async function onRotateKey() {
     publishInfo.value = res.data.data
     revealedApiKey.value = res.data.data.apiKey || ''
     message.success('API Key 已轮换，旧 Key 已失效，请复制新 Key 并更新调用方')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '轮换失败')
+  } finally {
+    publishLoading.value = false
+  }
+}
+
+async function onRotateEmbedToken() {
+  if (!publishAgentId.value) return
+  publishLoading.value = true
+  try {
+    const res = await rotateAgentEmbedToken(publishAgentId.value)
+    publishInfo.value = res.data.data
+    revealedEmbedToken.value = res.data.data.embedToken || ''
+    message.success('Embed Token 已轮换，请更新 iframe 嵌入地址')
   } catch (e) {
     message.error(e instanceof Error ? e.message : '轮换失败')
   } finally {

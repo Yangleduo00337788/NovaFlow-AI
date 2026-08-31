@@ -93,6 +93,16 @@ novaflow:
 
   open-api:
     rate-limit-per-minute: ${OPEN_API_RATE_LIMIT_PER_MINUTE:60}
+    ip-rate-limit-per-minute: ${OPEN_API_IP_RATE_LIMIT_PER_MINUTE:30}
+
+  conversation:
+    retention-enabled: ${CONVERSATION_RETENTION_ENABLED:true}
+    retention-days: ${CONVERSATION_RETENTION_DAYS:90}
+    retention-cron: ${CONVERSATION_RETENTION_CRON:0 30 3 * * *}
+
+  mcp:
+    allowed-commands: ${NOVAFLOW_MCP_ALLOWED_COMMANDS:npx,node,uvx,uv,python,python3}
+    node-path: ${NOVAFLOW_NODE_PATH:}
 
   storage:
     endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
@@ -106,5 +116,10 @@ novaflow:
     use-tls: false
     api-key: ${QDRANT_API_KEY:}
 
-  mcp:
-    node-path: ${NOVAFLOW_NODE_PATH:}
+  telemetry:
+    enabled: ${OTEL_ENABLED:false}
+    service-name: novaflow-server
+    otlp-endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
+    langfuse-public-key: ${LANGFUSE_PUBLIC_KEY:}
+    langfuse-secret-key: ${LANGFUSE_SECRET_KEY:}
+    langfuse-host: ${LANGFUSE_HOST:https://cloud.langfuse.com}

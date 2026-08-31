@@ -34,6 +34,11 @@
           AND usage_date &gt;= #{startDate} AND usage_date &lt;= #{endDate}
     </select>
 
+    <select id="sumTokensBetweenAllTenants" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(total_tokens), 0) FROM token_usage
+        WHERE usage_date &gt;= #{startDate} AND usage_date &lt;= #{endDate}
+    </select>
+
     <select id="countCallsBetween" resultType="java.lang.Long">
         SELECT COUNT(*) FROM token_usage
         WHERE tenant_id = #{tenantId}

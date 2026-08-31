@@ -10,6 +10,9 @@
     </parent>
     <artifactId>novaflow-server</artifactId>
     <name>novaflow-server</name>
+    <properties>
+        <test.excludedGroups>local</test.excludedGroups>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>ai.novaflow</groupId>
@@ -133,6 +136,11 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -144,9 +152,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <environmentVariables>
-                        <DOCKER_HOST>npipe:////./pipe/dockerDesktopLinuxEngine</DOCKER_HOST>
-                    </environmentVariables>
+                    <excludedGroups>${test.excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>

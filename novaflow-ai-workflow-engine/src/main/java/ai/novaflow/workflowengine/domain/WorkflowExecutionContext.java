@@ -11,6 +11,8 @@ import java.util.Map;
 public class WorkflowExecutionContext {
 
     private Long tenantId;
+    private Long triggeredByUserId;
+    private String executionId;
     private String payload;
     private Map<String, WorkflowNodeDefinition> nodeMap = new HashMap<>();
     private WorkflowNodeProcessor nodeProcessor;

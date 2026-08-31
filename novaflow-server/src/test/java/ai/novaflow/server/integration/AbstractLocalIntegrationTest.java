@@ -24,6 +24,7 @@ public abstract class AbstractLocalIntegrationTest extends IntegrationTestSuppor
         registry.add("spring.data.redis.host", () -> env("REDIS_HOST", "localhost"));
         registry.add("spring.data.redis.port", () -> env("REDIS_PORT", "6379"));
         AbstractTestcontainersIntegrationTest.registerCommonProperties(registry);
+        AbstractTestcontainersIntegrationTest.registerRedisPassword(registry, env("REDIS_PASSWORD", "redis123"));
     }
 
     private static String env(String key, String defaultValue) {

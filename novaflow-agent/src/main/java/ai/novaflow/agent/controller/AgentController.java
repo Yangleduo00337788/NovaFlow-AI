@@ -105,6 +105,12 @@ public class AgentController {
         return ApiResult.ok(agentPublishService.rotateApiKey(id));
     }
 
+    @SaCheckPermission("agent:publish")
+    @PostMapping("/{id}/rotate-embed-token")
+    public ApiResult<AgentPublishVO> rotateEmbedToken(@PathVariable Long id) {
+        return ApiResult.ok(agentPublishService.rotateEmbedToken(id));
+    }
+
     @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/welcome")
     public ApiResult<AgentDebugChatVO> debugWelcome(@PathVariable Long id) {
@@ -152,7 +158,7 @@ public class AgentController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
         return ApiResult.ok(conversationService.pageConversations(
-                id, TenantContext.getTenantId(), "debug", page, pageSize));
+                id, TenantContext.getTenantId(), "debug", null, page, pageSize));
     }
 
     @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)

@@ -1,5 +1,7 @@
 package ai.novaflow.workflow.service;
 
+import ai.novaflow.common.telemetry.NovaFlowTracer;
+import ai.novaflow.common.telemetry.NoopNovaFlowTracer;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.dto.ModelUsageRecordRequest;
@@ -28,6 +30,7 @@ import ai.novaflow.workflowengine.domain.WorkflowStepSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -51,6 +54,12 @@ public class WorkflowExecutionService {
     private final ObjectMapper objectMapper;
     private final WorkflowNodeProcessorImpl workflowNodeProcessor;
     private final WorkflowLiteFlowExecutor workflowLiteFlowExecutor;
+    private final ObjectProvider<NovaFlowTracer> novaFlowTracer;
+
+    private NovaFlowTracer tracer() {
+        NovaFlowTracer tracer = novaFlowTracer.getIfAvailable();
+        return tracer != null ? tracer : NoopNovaFlowTracer.INSTANCE;
+    }
 
     @Transactional
     public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request) {
@@ -76,43 +85,57 @@ public class WorkflowExecutionService {
 
         String input = request != null && StringUtils.hasText(request.getInput()) ? request.getInput().trim() : "";
         String executionId = UUID.randomUUID().toString().replace("-", "");
-        LocalDateTime startedAt = LocalDateTime.now();
-        long startedMs = System.currentTimeMillis();
+        NovaFlowTracer.SpanScope span = tracer().startSpan("workflow.execute", Map.of(
+                "workflow.id", String.valueOf(workflowId),
+                "workflow.name", workflow.getWorkflowName() != null ? workflow.getWorkflowName() : "",
+                "tenant.id", String.valueOf(tenantId),
+                "execution.id", executionId
+        ));
+        try {
+            LocalDateTime startedAt = LocalDateTime.now();
+            long startedMs = System.currentTimeMillis();
 
-        WorkflowExecutionEntity execution = new WorkflowExecutionEntity();
-        execution.setTenantId(tenantId);
-        execution.setWorkflowId(workflowId);
-        execution.setExecutionId(executionId);
-        execution.setStatus(WorkflowExecutionStatus.RUNNING);
-        execution.setInputData(writeJson(Map.of("input", input)));
-        execution.setStartedAt(startedAt);
-        execution.setTriggeredBy(triggeredByUserId);
-        workflowExecutionMapper.insert(execution);
+            WorkflowExecutionEntity execution = new WorkflowExecutionEntity();
+            execution.setTenantId(tenantId);
+            execution.setWorkflowId(workflowId);
+            execution.setExecutionId(executionId);
+            execution.setStatus(WorkflowExecutionStatus.RUNNING);
+            execution.setInputData(writeJson(Map.of("input", input)));
+            execution.setStartedAt(startedAt);
+            execution.setTriggeredBy(triggeredByUserId);
+            workflowExecutionMapper.insert(execution);
 
-        ExecutionOutcome outcome = runWithLiteFlow(nodes, edges, input, tenantId, executionId);
+            ExecutionOutcome outcome = runWithLiteFlow(nodes, edges, input, tenantId, executionId, triggeredByUserId);
 
-        int durationMs = (int) (System.currentTimeMillis() - startedMs);
-        execution.setStatus(outcome.status());
-        execution.setOutputData(writeJson(Map.of("output", outcome.output() != null ? outcome.output() : "")));
-        execution.setErrorMessage(outcome.errorMessage());
-        execution.setFinishedAt(LocalDateTime.now());
-        execution.setDurationMs(durationMs);
-        workflowExecutionMapper.update(execution);
+            int durationMs = (int) (System.currentTimeMillis() - startedMs);
+            execution.setStatus(outcome.status());
+            execution.setOutputData(writeJson(Map.of("output", outcome.output() != null ? outcome.output() : "")));
+            execution.setErrorMessage(outcome.errorMessage());
+            execution.setFinishedAt(LocalDateTime.now());
+            execution.setDurationMs(durationMs);
+            workflowExecutionMapper.update(execution);
 
-        if (runOptions.isRecordUsage()) {
-            recordModelUsages(workflow, triggeredByUserId, runOptions.getAgentId(), outcome.modelUsages());
+            if (runOptions.isRecordUsage()) {
+                recordModelUsages(workflow, triggeredByUserId, runOptions.getAgentId(), outcome.modelUsages());
+            }
+
+            span.setAttribute("workflow.status", String.valueOf(outcome.status()));
+            return WorkflowRunResultVO.builder()
+                    .executionId(executionId)
+                    .status(outcome.status())
+                    .output(outcome.output())
+                    .errorMessage(outcome.errorMessage())
+                    .durationMs(durationMs)
+                    .tokensUsed(outcome.totalTokens())
+                    .modelUsages(outcome.modelUsages())
+                    .steps(outcome.steps())
+                    .build();
+        } catch (RuntimeException ex) {
+            span.recordError(ex);
+            throw ex;
+        } finally {
+            span.close();
         }
-
-        return WorkflowRunResultVO.builder()
-                .executionId(executionId)
-                .status(outcome.status())
-                .output(outcome.output())
-                .errorMessage(outcome.errorMessage())
-                .durationMs(durationMs)
-                .tokensUsed(outcome.totalTokens())
-                .modelUsages(outcome.modelUsages())
-                .steps(outcome.steps())
-                .build();
     }
 
     private ExecutionOutcome runWithLiteFlow(
@@ -120,7 +143,8 @@ public class WorkflowExecutionService {
             List<WorkflowEdgeEntity> edges,
             String input,
             Long tenantId,
-            String executionId) {
+            String executionId,
+            Long triggeredByUserId) {
         String elExpression = WorkflowElBuilder.build(nodes, edges);
         if (!StringUtils.hasText(elExpression)) {
             throw new BusinessException("无法生成工作流 EL 表达式");
@@ -128,6 +152,8 @@ public class WorkflowExecutionService {
 
         WorkflowExecutionContext context = new WorkflowExecutionContext();
         context.setTenantId(tenantId);
+        context.setTriggeredByUserId(triggeredByUserId);
+        context.setExecutionId(executionId);
         context.setPayload(input);
         context.setNodeProcessor(workflowNodeProcessor);
         for (WorkflowNodeEntity node : nodes) {

@@ -18,6 +18,7 @@ public class ConversationEntity {
     private String conversationKey;
     private String channel;
     private Long userId;
+    private String callerId;
     private Integer messageCount;
     private LocalDateTime lastMessageAt;
     private LocalDateTime createdAt;

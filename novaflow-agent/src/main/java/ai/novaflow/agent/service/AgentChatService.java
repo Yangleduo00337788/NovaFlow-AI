@@ -26,12 +26,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import ai.novaflow.common.telemetry.NovaFlowTracer;
+import ai.novaflow.common.telemetry.NoopNovaFlowTracer;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -46,6 +50,12 @@ public class AgentChatService {
     private final ObjectMapper objectMapper;
     private final AgentService agentService;
     private final AgentWorkflowChatService agentWorkflowChatService;
+    private final ObjectProvider<NovaFlowTracer> novaFlowTracer;
+
+    private NovaFlowTracer tracer() {
+        NovaFlowTracer tracer = novaFlowTracer.getIfAvailable();
+        return tracer != null ? tracer : NoopNovaFlowTracer.INSTANCE;
+    }
 
     public boolean supportsRealExecution(AgentVO agent) {
         if ("workflow".equals(agent.getAgentType())) {
@@ -57,20 +67,39 @@ public class AgentChatService {
     }
 
     public AgentDebugChatVO chat(AgentVO agent, AgentDebugChatRequest request, Long tenantId, Long userId, String conversationPrefix) {
+        return chat(agent, request, tenantId, userId, conversationPrefix, null);
+    }
+
+    public AgentDebugChatVO chat(
+            AgentVO agent,
+            AgentDebugChatRequest request,
+            Long tenantId,
+            Long userId,
+            String conversationPrefix,
+            String callerId) {
         if ("workflow".equals(agent.getAgentType())) {
-            return agentWorkflowChatService.chat(agent, request, tenantId, userId, conversationPrefix);
+            return agentWorkflowChatService.chat(agent, request, tenantId, userId, conversationPrefix, callerId);
         }
-        String message = buildUserMessage(request);
-        ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
-        ExecutionPlan plan = buildExecutionPlan(context, message);
+        NovaFlowTracer.SpanScope span = tracer().startSpan("agent.chat", Map.of(
+                "agent.id", String.valueOf(agent.getId()),
+                "agent.type", agent.getAgentType() != null ? agent.getAgentType() : "",
+                "tenant.id", String.valueOf(tenantId)
+        ));
         try {
+            String message = buildUserMessage(request);
+            ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
+            ExecutionPlan plan = buildExecutionPlan(context, message);
             ChatExecuteResult result = chatAgentExecutor.execute(plan.executeRequest());
             recordUsage(context, result, "chat", true);
-            persistConversation(context, message, result, plan.sources(), conversationPrefix);
+            persistConversation(context, message, result, plan.sources(), conversationPrefix, callerId);
             return toChatVO(agent, result, plan.sources());
         } catch (RuntimeException ex) {
+            span.recordError(ex);
+            ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
             recordFailure(context, "chat", ex.getMessage());
             throw ex;
+        } finally {
+            span.close();
         }
     }
 
@@ -81,8 +110,19 @@ public class AgentChatService {
             Long userId,
             String conversationPrefix,
             SseEmitter emitter) {
+        streamChat(agent, request, tenantId, userId, conversationPrefix, null, emitter);
+    }
+
+    public void streamChat(
+            AgentVO agent,
+            AgentDebugChatRequest request,
+            Long tenantId,
+            Long userId,
+            String conversationPrefix,
+            String callerId,
+            SseEmitter emitter) {
         if ("workflow".equals(agent.getAgentType())) {
-            agentWorkflowChatService.streamChat(agent, request, tenantId, userId, conversationPrefix, emitter);
+            agentWorkflowChatService.streamChat(agent, request, tenantId, userId, conversationPrefix, callerId, emitter);
             return;
         }
         String message = buildUserMessage(request);
@@ -90,7 +130,7 @@ public class AgentChatService {
         ExecutionPlan plan = buildExecutionPlan(context, message);
 
         if ("tool".equals(agent.getAgentType())) {
-            streamToolChat(agent, context, message, plan, conversationPrefix, emitter);
+            streamToolChat(agent, context, message, plan, conversationPrefix, callerId, emitter);
             return;
         }
 
@@ -122,7 +162,7 @@ public class AgentChatService {
             @Override
             public void onComplete(ChatExecuteResult result) {
                 recordUsage(context, result, "chat", true);
-                persistConversation(context, message, result, plan.sources(), conversationPrefix);
+                persistConversation(context, message, result, plan.sources(), conversationPrefix, callerId);
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("done")
                         .reply(result.getReply())
@@ -186,6 +226,7 @@ public class AgentChatService {
             String message,
             ExecutionPlan plan,
             String conversationPrefix,
+            String callerId,
             SseEmitter emitter) {
         chatAgentExecutor.executeToolStream(plan.executeRequest(), new ai.novaflow.aiengine.agent.ChatStreamListener() {
             @Override
@@ -225,7 +266,7 @@ public class AgentChatService {
             @Override
             public void onComplete(ChatExecuteResult result) {
                 recordUsage(context, result, "chat", true);
-                persistConversation(context, message, result, plan.sources(), conversationPrefix);
+                persistConversation(context, message, result, plan.sources(), conversationPrefix, callerId);
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("done")
                         .reply(result.getReply())
@@ -320,7 +361,8 @@ public class AgentChatService {
             String userMessage,
             ChatExecuteResult result,
             List<RetrievalSourceVO> sources,
-            String channel) {
+            String channel,
+            String callerId) {
         try {
             conversationService.persistExchange(ConversationService.ExchangeRequest.builder()
                     .tenantId(context.tenantId())
@@ -328,6 +370,7 @@ public class AgentChatService {
                     .conversationKey(context.conversationId())
                     .channel(channel)
                     .userId(context.userId())
+                    .callerId(callerId)
                     .userMessage(userMessage)
                     .assistantReply(result.getReply())
                     .tokensUsed(result.getTokensUsed())

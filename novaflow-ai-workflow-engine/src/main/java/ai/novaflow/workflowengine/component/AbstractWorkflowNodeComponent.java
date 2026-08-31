@@ -19,7 +19,7 @@ abstract class AbstractWorkflowNodeComponent extends NodeComponent {
         WorkflowNodeProcessResult result = context.getNodeProcessor().process(
                 node,
                 context.getPayload(),
-                context.getTenantId()
+                context
         );
         int durationMs = (int) (System.currentTimeMillis() - startedAt);
         context.recordStep(node, context.getPayload(), result, durationMs);

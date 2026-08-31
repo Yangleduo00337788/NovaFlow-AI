@@ -25,6 +25,8 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
 
     Long sumTokensBetween(Long tenantId, LocalDate startDate, LocalDate endDate);
 
+    Long sumTokensBetweenAllTenants(LocalDate startDate, LocalDate endDate);
+
     Long countCallsBetween(Long tenantId, LocalDate startDate, LocalDate endDate);
 
     BigDecimal sumCostBetween(Long tenantId, String currency, LocalDate startDate, LocalDate endDate);

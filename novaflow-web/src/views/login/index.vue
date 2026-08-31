@@ -147,7 +147,7 @@
 
         <div v-else class="sso-placeholder">
           <SafetyCertificateOutlined class="sso-placeholder__icon" />
-          <p>企业 SSO 单点登录即将上线</p>
+          <p>企业 SSO（OAuth2/OIDC）计划在 v1.1 提供，当前 v1.0 请使用邮箱密码登录</p>
           <a-button type="link" @click="activeTab = 'password'">返回账号密码登录</a-button>
         </div>
 

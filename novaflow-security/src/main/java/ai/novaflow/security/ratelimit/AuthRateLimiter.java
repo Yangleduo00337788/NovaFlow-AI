@@ -20,16 +20,24 @@ public class AuthRateLimiter {
     private int loginRateLimitPerMinute;
 
     public void checkLogin(String email, String clientIp) {
+        check("login", email, clientIp, loginRateLimitPerMinute);
+    }
+
+    public void checkRegister(String email, String clientIp) {
+        check("register", email, clientIp, loginRateLimitPerMinute);
+    }
+
+    private void check(String action, String email, String clientIp, int limitPerMinute) {
         String fingerprint = SecureUtil.sha256(
-                safe(email).toLowerCase() + "|" + safeIp(clientIp)
+                action + "|" + safe(email).toLowerCase() + "|" + safeIp(clientIp)
         );
-        String key = "novaflow:auth:login:rate:" + fingerprint;
+        String key = "novaflow:auth:" + action + ":rate:" + fingerprint;
         Long count = stringRedisTemplate.opsForValue().increment(key);
         if (count != null && count == 1L) {
             stringRedisTemplate.expire(key, Duration.ofMinutes(1));
         }
-        if (count != null && count > loginRateLimitPerMinute) {
-            throw new BusinessException(42901, "登录尝试过于频繁，请稍后再试");
+        if (count != null && count > limitPerMinute) {
+            throw new BusinessException(42901, "请求过于频繁，请稍后再试");
         }
     }
 

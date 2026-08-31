@@ -38,6 +38,16 @@ public class AgentWorkflowChatService {
             Long tenantId,
             Long userId,
             String conversationPrefix) {
+        return chat(agent, request, tenantId, userId, conversationPrefix, null);
+    }
+
+    public AgentDebugChatVO chat(
+            AgentVO agent,
+            AgentDebugChatRequest request,
+            Long tenantId,
+            Long userId,
+            String conversationPrefix,
+            String callerId) {
         WorkflowRunResultVO result = runWorkflow(agent, request.getMessage().trim(), tenantId, userId);
         String reply = resolveReply(result);
         long latencyMs = toLatencyMs(result.getDurationMs());
@@ -49,7 +59,7 @@ public class AgentWorkflowChatService {
                 .latencyMs(latencyMs)
                 .debugMode(false)
                 .build();
-        persistConversation(agent, request, tenantId, userId, conversationPrefix, reply, latencyMs, tokensUsed);
+        persistConversation(agent, request, tenantId, userId, conversationPrefix, callerId, reply, latencyMs, tokensUsed);
         return vo;
     }
 
@@ -59,6 +69,17 @@ public class AgentWorkflowChatService {
             Long tenantId,
             Long userId,
             String conversationPrefix,
+            SseEmitter emitter) {
+        streamChat(agent, request, tenantId, userId, conversationPrefix, null, emitter);
+    }
+
+    public void streamChat(
+            AgentVO agent,
+            AgentDebugChatRequest request,
+            Long tenantId,
+            Long userId,
+            String conversationPrefix,
+            String callerId,
             SseEmitter emitter) {
         try {
             WorkflowRunResultVO result = runWorkflow(agent, request.getMessage().trim(), tenantId, userId);
@@ -71,7 +92,7 @@ public class AgentWorkflowChatService {
                         .content(String.valueOf(ch))
                         .build());
             }
-            persistConversation(agent, request, tenantId, userId, conversationPrefix, reply, latencyMs, tokensUsed);
+            persistConversation(agent, request, tenantId, userId, conversationPrefix, callerId, reply, latencyMs, tokensUsed);
             sendEvent(emitter, AgentDebugStreamEvent.builder()
                     .type("done")
                     .reply(reply)
@@ -128,6 +149,7 @@ public class AgentWorkflowChatService {
             Long tenantId,
             Long userId,
             String conversationPrefix,
+            String callerId,
             String reply,
             long latencyMs,
             int tokensUsed) {
@@ -142,6 +164,7 @@ public class AgentWorkflowChatService {
                     .conversationKey(conversationKey)
                     .channel(prefix)
                     .userId(userId)
+                    .callerId(callerId)
                     .userMessage(request.getMessage().trim())
                     .assistantReply(reply)
                     .tokensUsed(tokensUsed)

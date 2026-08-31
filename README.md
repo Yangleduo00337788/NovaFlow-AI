@@ -34,9 +34,20 @@
 [架构设计](#-架构设计) ·
 [模块说明](#-模块说明) ·
 [快速开始](#-快速开始) ·
+[生产部署](#-生产部署私有化) ·
 [文档](#-文档)
 
 </div>
+
+### v1.0 范围说明
+
+- **Multi-Agent 工作流节点**：工作流编排器支持 Agent 节点，可在流程中调用已发布 Agent。
+- **私有化一键部署**：`deploy/docker-compose.prod.yml` 提供 Server + Web 镜像与完整基础设施栈。
+- **OpenTelemetry**：Workflow / Agent 执行 Span 上报；可选 OTLP 或 Langfuse 集成。
+- **平台超管 / 审计日志 / 全局搜索**：租户 CRUD、操作审计、顶栏全局搜索（见菜单与 `/changelog`）。
+- **Open API 安全**：服务端集成使用 `nf_live_` API Key；网页嵌入使用受限 `nf_embed_` Token，且必须携带 `X-Caller-Id` 隔离终端用户会话。
+- **生产部署**：使用 `spring.profiles.active=prod` 启动，并设置强随机 `NOVAFLOW_CRYPTO_KEY`；或使用 Docker Compose 一键部署（见下方「生产部署」章节）。
+- **v1.1 规划（未纳入本版本）**：SSO、部门组织架构、成本分摊报表、外部告警通道（邮件/Webhook）。
 
 ---
 
@@ -226,7 +237,8 @@ NovaFlow-AI/
 │
 ├── docs/                          # 设计文档
 ├── docker-compose.yml             # 本地全量基础设施
-└── docker-compose.local.yml       # 仅 Redis + Qdrant（MySQL 远程）
+├── docker-compose.local.yml       # 仅 Redis + Qdrant（MySQL 远程）
+└── deploy/                        # 生产私有化部署（Dockerfile + compose）
 ```
 
 ---
@@ -341,6 +353,96 @@ npm run dev
 | 邮箱 | 密码 |
 |------|------|
 | `admin@novaflow.ai` | `Admin123!` |
+
+---
+
+## 🏭 生产部署（私有化）
+
+适用于内网 / 私有化环境，一键拉起 **MySQL、Redis、MinIO、Qdrant、后端、前端（Nginx）**。
+
+### 环境要求
+
+- **Docker** 24+ 与 **Docker Compose** v2
+- 建议内存 ≥ 8 GB，磁盘 ≥ 20 GB
+
+### 1️⃣ 准备配置
+
+```bash
+cp deploy/.env.prod.example .env
+```
+
+编辑项目根目录 `.env`，至少修改以下项：
+
+| 变量 | 说明 |
+|------|------|
+| `MYSQL_ROOT_PASSWORD` | MySQL root 密码 |
+| `REDIS_PASSWORD` | Redis 密码 |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | MinIO 凭证 |
+| `NOVAFLOW_CRYPTO_KEY` | 模型 API Key 加密密钥（强随机，≥32 字符） |
+| `CORS_ALLOWED_ORIGIN` | 前端访问域名，如 `https://ai.example.com` |
+
+### 2️⃣ 构建并启动
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml up -d --build
+```
+
+| 服务 | 默认地址 | 说明 |
+|------|----------|------|
+| Web 控制台 | http://localhost（`WEB_PORT`） | Nginx 反代前端 + `/api` |
+| 后端 API | http://localhost:8080（`SERVER_PORT`） | 也可仅通过 Web 反代访问 |
+| MinIO 控制台 | 需自行映射或进入容器 | 默认未对外暴露 9001 |
+
+查看日志：
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml logs -f server web
+```
+
+停止并清理：
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml down
+# 保留数据卷；加 -v 可删除 MySQL/Redis/MinIO/Qdrant 数据
+```
+
+### 3️⃣ OpenTelemetry / Langfuse（可选）
+
+在 `.env` 中启用：
+
+```env
+OTEL_ENABLED=true
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+未配置 Langfuse 时，可改用通用 OTLP 端点：
+
+```env
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
+```
+
+### 4️⃣ 非容器部署（JAR + 静态资源）
+
+仅基础设施用 Docker，应用进程在宿主机运行：
+
+```bash
+# 基础设施
+docker compose up -d
+
+# 后端（生产配置）
+export SPRING_PROFILES_ACTIVE=prod
+export NOVAFLOW_CRYPTO_KEY=your-strong-key
+mvn -pl novaflow-server -am package -DskipTests
+java -jar novaflow-server/target/novaflow-server-0.1.0-SNAPSHOT.jar
+
+# 前端构建后由 Nginx 托管 dist/
+cd novaflow-web && npm ci && npm run build
+```
+
+生产配置见 `novaflow-server/src/main/resources/application-prod.yml`（关闭 Swagger、启用 Flyway 校验等）。
 
 ---
 

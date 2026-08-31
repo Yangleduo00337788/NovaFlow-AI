@@ -47,6 +47,9 @@ export const menuGroups: MenuGroup[] = [
       { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage'] },
       { key: 'settings', label: '系统设置', path: '/settings', icon: 'settings', permissions: ['tenant:manage'] },
       { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing', permissions: ['billing:view', 'billing:manage'] },
+      { key: 'platform', label: '平台超管', path: '/platform', icon: 'settings', permissions: ['platform:manage'] },
+      { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view', 'platform:manage'] },
+      { key: 'changelog', label: '版本记录', path: '/changelog', icon: 'settings' },
     ],
   },
 ]
@@ -68,6 +71,9 @@ const routePermissionMap: Record<string, string[]> = {
   '/permission': ['member:manage'],
   '/settings': ['tenant:manage'],
   '/billing': ['billing:view', 'billing:manage'],
+  '/platform': ['platform:manage'],
+  '/audit': ['audit:view', 'platform:manage'],
+  '/changelog': [],
 }
 
 export function filterMenuGroups(hasAnyPermission: (codes?: string[]) => boolean): MenuGroup[] {

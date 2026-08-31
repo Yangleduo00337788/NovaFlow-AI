@@ -11,6 +11,7 @@ import ai.novaflow.tool.domain.vo.McpSyncResultVO;
 import ai.novaflow.tool.entity.McpServerEntity;
 import ai.novaflow.tool.mapper.McpServerMapper;
 import ai.novaflow.tool.mcp.McpClient;
+import ai.novaflow.tool.mcp.McpCommandValidator;
 import ai.novaflow.tool.mcp.McpConnectResult;
 import ai.novaflow.tool.mcp.McpDiscoveredTool;
 import ai.novaflow.tool.mcp.McpServerConfig;
@@ -37,6 +38,7 @@ public class McpServerService {
     private final McpServerMapper mcpServerMapper;
     private final McpClient mcpClient;
     private final McpToolSyncService mcpToolSyncService;
+    private final McpCommandValidator mcpCommandValidator;
     private final ObjectMapper objectMapper;
 
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
@@ -65,6 +67,7 @@ public class McpServerService {
     public McpConnectResultVO connect(Long id) {
         McpServerEntity entity = getOrThrow(id);
         McpServerConfig config = parseStoredConfig(entity.getServerName(), entity.getServerConfig());
+        mcpCommandValidator.validate(config);
         McpConnectResult result = mcpClient.discoverTools(config);
         LocalDateTime now = LocalDateTime.now();
         entity.setUpdatedAt(now);
@@ -100,6 +103,7 @@ public class McpServerService {
         Long tenantId = requireTenantId();
         ensureNameUnique(tenantId, request.getServerName(), null);
         McpServerConfig config = McpServerConfig.parse(objectMapper, request.getServerName(), request.getServerConfig());
+        mcpCommandValidator.validate(config);
         LocalDateTime now = LocalDateTime.now();
         McpServerEntity entity = new McpServerEntity();
         entity.setTenantId(tenantId);

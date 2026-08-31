@@ -17,6 +17,7 @@ import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
+import ai.novaflow.user.service.AuditLogService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +47,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthRateLimiter authRateLimiter;
     private final LoginFailureLockService loginFailureLockService;
+    private final AuditLogService auditLogService;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.getEmail();
@@ -90,6 +92,8 @@ public class AuthService {
 
     @Transactional
     public LoginVO register(RegisterRequest request, HttpServletRequest httpRequest) {
+        String clientIp = httpRequest.getRemoteAddr();
+        authRateLimiter.checkRegister(request.getEmail(), clientIp);
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException("两次输入的密码不一致");
         }
@@ -167,6 +171,14 @@ public class AuthService {
         userMapper.update(user);
 
         TenantContext.setTenantId(tenant.getId());
+
+        auditLogService.record(
+                "user.register",
+                "tenant",
+                tenant.getId(),
+                "注册企业: " + tenant.getTenantName(),
+                tenant.getId(),
+                user.getId());
 
         return buildLoginVO(user, tenant, adminRole);
     }

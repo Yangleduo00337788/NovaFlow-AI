@@ -120,6 +120,32 @@
                 description="上游输出为 JSON 对象时会自动解析为工具参数；也可在此填写固定参数，与上游输出合并（上游优先）。"
               />
             </template>
+            <template v-else-if="selectedNode.type === 'agent'">
+              <a-form-item label="Agent">
+                <a-select
+                  v-model:value="agentId"
+                  placeholder="选择已发布的 Agent"
+                  :options="agentOptions"
+                  :loading="agentsLoading"
+                  allow-clear
+                  show-search
+                  option-filter-prop="label"
+                />
+              </a-form-item>
+              <a-form-item label="消息模板">
+                <a-textarea
+                  v-model:value="agentMessageTemplate"
+                  :rows="4"
+                  placeholder="使用 {{input}} 引用上游输出，默认直接传递"
+                />
+              </a-form-item>
+              <a-alert
+                type="info"
+                show-icon
+                message="Multi-Agent 节点"
+                description="调用所选 Agent 处理上游输入，输出 Agent 回复作为下游节点输入。建议选择已发布且支持执行的 Chat/RAG/Tool/Workflow Agent。"
+              />
+            </template>
             <template v-else-if="selectedNode.type === 'knowledge'">
               <a-form-item label="知识库">
                 <a-select
@@ -191,6 +217,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import WorkflowNode from '@/components/workflow/WorkflowNode.vue'
 import { fetchModelConfigs } from '@/api/model'
+import { fetchAgents } from '@/api/agent'
 import { fetchKnowledgeBases } from '@/api/knowledge'
 import { fetchToolOptions } from '@/api/tool'
 import {
@@ -211,6 +238,7 @@ const nodeTypes: NodeTypesObject = {
   llm: markRaw(WorkflowNode),
   knowledge: markRaw(WorkflowNode),
   tool: markRaw(WorkflowNode),
+  agent: markRaw(WorkflowNode),
   condition: markRaw(WorkflowNode),
   end: markRaw(WorkflowNode),
 }
@@ -219,6 +247,7 @@ const palette = [
   { type: 'llm', label: 'LLM', icon: 'AI' },
   { type: 'knowledge', label: '知识库', icon: 'KB' },
   { type: 'tool', label: '工具', icon: 'T' },
+  { type: 'agent', label: 'Agent', icon: 'AG' },
   { type: 'condition', label: '条件分支', icon: '?' },
   { type: 'end', label: '结束', icon: '■' },
 ]
@@ -252,9 +281,11 @@ const publishing = ref(false)
 const running = ref(false)
 const modelsLoading = ref(false)
 const toolsLoading = ref(false)
+const agentsLoading = ref(false)
 const knowledgeLoading = ref(false)
 const modelOptions = ref<Array<{ label: string; value: number }>>([])
 const toolOptions = ref<Array<{ label: string; value: number }>>([])
+const agentOptions = ref<Array<{ label: string; value: number }>>([])
 const knowledgeOptions = ref<Array<{ label: string; value: number }>>([])
 const runOpen = ref(false)
 const runInput = ref('你好，请帮我总结这段话。')
@@ -334,6 +365,22 @@ const knowledgeTopK = computed({
   },
 })
 
+const agentId = computed({
+  get: () => (selectedNode.value?.data?.config?.agentId as number | undefined) ?? undefined,
+  set: (value) => {
+    if (!selectedNode.value) return
+    selectedNode.value.data.config = { ...(selectedNode.value.data.config || {}), agentId: value }
+  },
+})
+
+const agentMessageTemplate = computed({
+  get: () => (selectedNode.value?.data?.config?.messageTemplate as string | undefined) ?? '{{input}}',
+  set: (value) => {
+    if (!selectedNode.value) return
+    selectedNode.value.data.config = { ...(selectedNode.value.data.config || {}), messageTemplate: value }
+  },
+})
+
 function goBack() {
   router.push('/workflow')
 }
@@ -368,7 +415,13 @@ function addNode(type: string, label: string) {
     position: { x: 120 + nodes.value.length * 40, y: 120 + nodes.value.length * 20 },
     data: {
       label,
-      config: type === 'llm' ? { prompt: '请处理以下输入：{{input}}' } : type === 'condition' ? { expression: 'not_empty' } : {},
+      config: type === 'llm'
+        ? { prompt: '请处理以下输入：{{input}}' }
+        : type === 'agent'
+          ? { messageTemplate: '{{input}}' }
+          : type === 'condition'
+            ? { expression: 'not_empty' }
+            : {},
     },
   })
 }
@@ -457,6 +510,19 @@ async function loadTools() {
   }
 }
 
+async function loadAgents() {
+  agentsLoading.value = true
+  try {
+    const res = await fetchAgents({ page: 1, pageSize: 100 })
+    agentOptions.value = res.data.data.list.map((item) => ({
+      label: `${item.agentName}（${item.agentType}）`,
+      value: item.id,
+    }))
+  } finally {
+    agentsLoading.value = false
+  }
+}
+
 async function loadKnowledgeBases() {
   knowledgeLoading.value = true
   try {
@@ -538,6 +604,7 @@ onMounted(() => {
   loadDetail().catch((e) => message.error(e instanceof Error ? e.message : '加载失败'))
   loadModels()
   loadTools()
+  loadAgents()
   loadKnowledgeBases()
 })
 
@@ -639,6 +706,7 @@ watch(
 .palette-icon.llm { background: #eef2ff; color: #4f46e5; }
 .palette-icon.knowledge { background: #dcfce7; color: #15803d; }
 .palette-icon.tool { background: #fee2e2; color: #dc2626; }
+.palette-icon.agent { background: #e0f2fe; color: #0284c7; }
 .palette-icon.condition { background: #fef3c7; color: #d97706; }
 .palette-icon.end { background: #fee2e2; color: #dc2626; }
 

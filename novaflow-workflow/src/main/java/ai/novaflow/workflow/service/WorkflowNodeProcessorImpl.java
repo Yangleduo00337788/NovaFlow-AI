@@ -10,17 +10,22 @@ import ai.novaflow.rag.retrieval.KnowledgeRetrievalService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.tool.executor.ToolExecutorRouter;
 import ai.novaflow.tool.service.ToolDefinitionService;
-import ai.novaflow.workflow.domain.WorkflowNodeType;
+import ai.novaflow.common.workflow.WorkflowAgentInvoker;
+import ai.novaflow.common.workflow.WorkflowAgentInvokeResult;
 import ai.novaflow.workflow.domain.vo.WorkflowModelUsageVO;
-import ai.novaflow.workflowengine.domain.WorkflowNodeDefinition;
+import ai.novaflow.workflow.domain.WorkflowNodeType;
+import ai.novaflow.workflowengine.domain.WorkflowExecutionContext;
 import ai.novaflow.workflowengine.domain.WorkflowNodeProcessResult;
 import ai.novaflow.workflowengine.domain.WorkflowNodeProcessor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+
 import org.springframework.util.StringUtils;
 
+import ai.novaflow.workflowengine.domain.WorkflowNodeDefinition;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,18 +41,52 @@ public class WorkflowNodeProcessorImpl implements WorkflowNodeProcessor {
     private final ToolExecutorRouter toolExecutorRouter;
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final ObjectMapper objectMapper;
+    private final ObjectProvider<WorkflowAgentInvoker> workflowAgentInvoker;
 
     @Override
-    public WorkflowNodeProcessResult process(WorkflowNodeDefinition node, String input, Long tenantId) {
+    public WorkflowNodeProcessResult process(WorkflowNodeDefinition node, String input, WorkflowExecutionContext context) {
+        Long tenantId = context.getTenantId();
         return switch (node.getNodeType()) {
             case WorkflowNodeType.START -> success(input);
             case WorkflowNodeType.LLM -> executeLlmNode(node, input, tenantId);
             case WorkflowNodeType.KNOWLEDGE -> executeKnowledgeNode(node, input, tenantId);
             case WorkflowNodeType.TOOL -> executeToolNode(node, input, tenantId);
+            case WorkflowNodeType.AGENT -> executeAgentNode(node, input, context);
             case WorkflowNodeType.CONDITION -> success(evaluateCondition(node, input));
             case WorkflowNodeType.END -> success(StringUtils.hasText(input) ? input : "流程结束");
             default -> failure("暂不支持的节点类型: " + node.getNodeType());
         };
+    }
+
+    private WorkflowNodeProcessResult executeAgentNode(
+            WorkflowNodeDefinition node,
+            String input,
+            WorkflowExecutionContext context) {
+        WorkflowAgentInvoker invoker = workflowAgentInvoker.getIfAvailable();
+        if (invoker == null) {
+            return failure("Agent 节点执行器未就绪");
+        }
+        Map<String, Object> config = parseConfig(node.getNodeConfig());
+        Long agentId = toLong(config.get("agentId"));
+        String messageTemplate = config.get("messageTemplate") != null
+                ? String.valueOf(config.get("messageTemplate"))
+                : "{{input}}";
+        String message = messageTemplate.replace("{{input}}", input != null ? input : "");
+        String conversationKey = "wf-" + context.getExecutionId() + "-" + node.getNodeId();
+        WorkflowAgentInvokeResult result = invoker.invoke(
+                agentId,
+                context.getTenantId(),
+                context.getTriggeredByUserId(),
+                message,
+                conversationKey);
+        if (!result.isSuccess()) {
+            return failure(result.getErrorMessage());
+        }
+        return WorkflowNodeProcessResult.builder()
+                .success(true)
+                .output(result.getOutput())
+                .tokensUsed(result.getTokensUsed() != null ? result.getTokensUsed() : 0)
+                .build();
     }
 
     private WorkflowNodeProcessResult executeLlmNode(WorkflowNodeDefinition node, String input, Long tenantId) {

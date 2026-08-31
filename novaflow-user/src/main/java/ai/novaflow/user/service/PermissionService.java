@@ -96,6 +96,13 @@ public class PermissionService {
         return "tenant_admin".equals(roleCode) || "super_admin".equals(roleCode);
     }
 
+    public void requireSuperAdmin(long userId, Long tenantId) {
+        RoleEntity role = resolveRole(userId, tenantId);
+        if (role == null || !"super_admin".equals(role.getRoleCode())) {
+            throw new BusinessException("需要平台超级管理员权限");
+        }
+    }
+
     public RoleEntity requireSystemRole(String roleCode) {
         RoleEntity role = roleMapper.selectOneByQuery(
                 QueryWrapper.create()

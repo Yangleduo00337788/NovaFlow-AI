@@ -26,6 +26,7 @@ const icon = computed(() => {
     llm: 'AI',
     knowledge: 'KB',
     tool: 'T',
+    agent: 'AG',
     condition: '?',
     end: '■',
   }
@@ -72,6 +73,11 @@ const statusClass = computed(() => {
 .workflow-node.type-tool {
   border-color: #ef4444;
   background: #fef2f2;
+}
+
+.workflow-node.type-agent {
+  border-color: #0ea5e9;
+  background: #f0f9ff;
 }
 
 .workflow-node.type-condition {

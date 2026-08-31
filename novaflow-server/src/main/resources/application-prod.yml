@@ -1,0 +1,29 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  flyway:
+    validate-on-migrate: true
+
+logging:
+  level:
+    root: warn
+    ai.novaflow: info
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+novaflow:
+  conversation:
+    retention-enabled: true
+    retention-days: 90

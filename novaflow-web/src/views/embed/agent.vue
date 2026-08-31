@@ -143,15 +143,29 @@ const TYPEWRITER_INTERVAL_MS = 18
 const route = useRoute()
 const router = useRouter()
 const agentId = Number(route.params.id)
-const storageKey = `novaflow_embed_key_${agentId}`
+const storageKey = `novaflow_embed_token_${agentId}`
+const callerStorageKey = `novaflow_embed_caller_${agentId}`
 
-function resolveApiKey(): string {
-  const fromQuery = String(route.query.apiKey || route.query.key || '')
+function resolveCallerId(): string {
+  let callerId = sessionStorage.getItem(callerStorageKey) || ''
+  if (!callerId) {
+    callerId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `caller-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    sessionStorage.setItem(callerStorageKey, callerId)
+  }
+  return callerId
+}
+
+function resolveEmbedToken(): string {
+  const fromQuery = String(route.query.embedToken || route.query.token || '')
   const fromStorage = sessionStorage.getItem(storageKey) || ''
   const key = fromQuery || fromStorage
   if (fromQuery) {
     sessionStorage.setItem(storageKey, fromQuery)
     const nextQuery = { ...route.query }
+    delete nextQuery.embedToken
+    delete nextQuery.token
     delete nextQuery.apiKey
     delete nextQuery.key
     router.replace({ query: nextQuery })
@@ -159,7 +173,8 @@ function resolveApiKey(): string {
   return key
 }
 
-const apiKey = ref(resolveApiKey())
+const embedToken = ref(resolveEmbedToken())
+const callerId = ref(resolveCallerId())
 const subtitle = route.query.subtitle ? String(route.query.subtitle) : ''
 
 const agentName = ref('')
@@ -245,14 +260,14 @@ function formatMeta(tokens?: number, latencyMs?: number) {
 }
 
 async function loadWelcome() {
-  if (!agentId || !apiKey.value) {
-    errorMessage.value = '缺少 agentId 或 apiKey 参数'
+  if (!agentId || !embedToken.value) {
+    errorMessage.value = '缺少 agentId 或 embedToken 参数'
     return
   }
   loadingWelcome.value = true
   errorMessage.value = ''
   try {
-    const res = await fetchOpenAgentWelcome(agentId, apiKey.value)
+    const res = await fetchOpenAgentWelcome(agentId, embedToken.value, callerId.value)
     agentName.value = res.data.data.agentName
     if (res.data.data.reply) {
       messages.value.push({ id: seq++, role: 'assistant', content: res.data.data.reply })
@@ -292,7 +307,7 @@ async function onSend() {
   try {
     await streamOpenAgentChat(
       agentId,
-      apiKey.value,
+      embedToken.value,
       text,
       conversationId.value,
       {
@@ -316,6 +331,7 @@ async function onSend() {
         },
       },
       abortController.signal,
+      callerId.value,
     )
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') return

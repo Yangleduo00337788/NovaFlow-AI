@@ -1157,6 +1157,8 @@ Dashboard 是用户登录后的默认首页，对应 UI 原型「工作台」页
 
 **目标**：企业级完整能力
 
+> **v1.0 范围调整（2026-08）**：SSO（OAuth2/OIDC）延后至 v1.1；Open API 采用 API Key + 受限 Embed Token + `X-Caller-Id` 终端隔离；MCP stdio 命令白名单；操作审计日志与对话数据保留策略已纳入。
+
 | 模块 | 功能 |
 |------|------|
 | MCP 集成 | MCP Server 接入 |
@@ -1166,7 +1168,7 @@ Dashboard 是用户登录后的默认首页，对应 UI 原型「工作台」页
 | 账单与用量 | 配额管理、费用明细、账单导出 |
 | 组织/权限 | 完整的组织管理和 RBAC |
 | 高级 RAG | Hybrid Search + Rerank |
-| SSO | OAuth2/OIDC 集成 |
+| SSO | OAuth2/OIDC 集成（**延后至 v1.1**） |
 | 私有化 | Docker Compose 一键部署 |
 
 ### 8.4 v2.0 — 持续迭代

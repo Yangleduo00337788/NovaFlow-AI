@@ -29,13 +29,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AgentOpenController {
 
+    private static final String HEADER_CALLER_ID = "X-Caller-Id";
+
     private final AgentOpenService agentOpenService;
     private final OpenApiRateLimiter openApiRateLimiter;
 
     @GetMapping("/{id}/welcome")
     public ApiResult<AgentDebugChatVO> welcome(@PathVariable Long id, HttpServletRequest request) {
-        String apiKey = resolveApiKey(request);
-        return ApiResult.ok(agentOpenService.welcome(id, apiKey));
+        OpenApiRequestContext ctx = resolveRequestContext(request);
+        return ApiResult.ok(agentOpenService.welcome(id, ctx.token()));
     }
 
     @PostMapping("/{id}/chat")
@@ -43,8 +45,8 @@ public class AgentOpenController {
             @PathVariable Long id,
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
-        String apiKey = resolveApiKey(httpRequest);
-        return ApiResult.ok(agentOpenService.chat(id, apiKey, request));
+        OpenApiRequestContext ctx = resolveRequestContext(httpRequest);
+        return ApiResult.ok(agentOpenService.chat(id, ctx.token(), ctx.callerId(), request));
     }
 
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -52,42 +54,59 @@ public class AgentOpenController {
             @PathVariable Long id,
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
-        String apiKey = resolveApiKey(httpRequest);
-        return agentOpenService.streamChat(id, apiKey, request);
+        OpenApiRequestContext ctx = resolveRequestContext(httpRequest);
+        return agentOpenService.streamChat(id, ctx.token(), ctx.callerId(), request);
     }
 
     @GetMapping("/{id}/conversations")
     public ApiResult<PageResult<ConversationVO>> listConversations(
             @PathVariable Long id,
             HttpServletRequest request,
+            @RequestParam String callerId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
-        String apiKey = resolveApiKey(request);
-        return ApiResult.ok(agentOpenService.listConversations(id, apiKey, page, pageSize));
+        OpenApiRequestContext ctx = resolveRequestContext(request);
+        return ApiResult.ok(agentOpenService.listConversations(id, ctx.token(), callerId, page, pageSize));
     }
 
     @GetMapping("/{id}/conversations/messages")
     public ApiResult<List<ConversationMessageVO>> listConversationMessages(
             @PathVariable Long id,
             @RequestParam String conversationKey,
+            @RequestParam String callerId,
             HttpServletRequest request) {
-        String apiKey = resolveApiKey(request);
-        return ApiResult.ok(agentOpenService.listMessages(id, apiKey, conversationKey));
+        OpenApiRequestContext ctx = resolveRequestContext(request);
+        return ApiResult.ok(agentOpenService.listMessages(id, ctx.token(), callerId, conversationKey));
     }
 
-    private String resolveApiKey(HttpServletRequest request) {
+    private OpenApiRequestContext resolveRequestContext(HttpServletRequest request) {
+        String token = resolveToken(request);
+        openApiRateLimiter.check(token, request.getRemoteAddr());
+        String callerId = request.getHeader(HEADER_CALLER_ID);
+        return new OpenApiRequestContext(token, callerId);
+    }
+
+    private String resolveToken(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
-        String apiKey = null;
+        String token = null;
         if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
-            apiKey = authorization.substring(7).trim();
+            token = authorization.substring(7).trim();
         }
-        if (!StringUtils.hasText(apiKey)) {
+        if (!StringUtils.hasText(token)) {
             String headerKey = request.getHeader("X-API-Key");
             if (StringUtils.hasText(headerKey)) {
-                apiKey = headerKey.trim();
+                token = headerKey.trim();
             }
         }
-        openApiRateLimiter.check(apiKey, request.getRemoteAddr());
-        return apiKey;
+        if (!StringUtils.hasText(token)) {
+            String embedToken = request.getHeader("X-Embed-Token");
+            if (StringUtils.hasText(embedToken)) {
+                token = embedToken.trim();
+            }
+        }
+        return token;
+    }
+
+    private record OpenApiRequestContext(String token, String callerId) {
     }
 }

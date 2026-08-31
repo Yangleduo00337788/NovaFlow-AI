@@ -12,7 +12,7 @@
     </div>
 
     <div class="center">
-      <div class="global-search">
+      <div class="global-search" :class="{ open: searchOpen }">
         <SearchOutlined class="search-prefix" />
         <input
           ref="searchInputRef"
@@ -20,13 +20,32 @@
           type="text"
           class="search-input"
           placeholder="搜索应用、Agent、知识库、工作流..."
+          @focus="searchOpen = true"
+          @keydown.enter.prevent="runSearch"
+          @keydown.esc="closeSearch"
         />
+        <div v-if="searchOpen && (searchLoading || searchResults.length || searchKeyword.trim())" class="search-dropdown">
+          <a-spin :spinning="searchLoading">
+            <div v-if="!searchLoading && !searchResults.length" class="search-empty">未找到匹配结果</div>
+            <button
+              v-for="item in searchResults"
+              :key="`${item.type}-${item.id}`"
+              type="button"
+              class="search-item"
+              @mousedown.prevent="openSearchResult(item)"
+            >
+              <span class="search-item-type">{{ typeLabel(item.type) }}</span>
+              <span class="search-item-title">{{ item.title }}</span>
+              <span class="search-item-sub">{{ item.subtitle }}</span>
+            </button>
+          </a-spin>
+        </div>
       </div>
     </div>
 
     <div class="right">
       <ThemeToggle />
-      <a-button type="text" class="icon-btn" title="帮助"><QuestionCircleOutlined /></a-button>
+      <a-button type="text" class="icon-btn" title="版本记录" @click="router.push('/changelog')"><QuestionCircleOutlined /></a-button>
       <a-dropdown
         v-model:open="notificationOpen"
         :trigger="['click']"
@@ -118,6 +137,7 @@ import {
 import { getBreadcrumbByPath } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
 import { formatDateTime } from '@/utils/datetime'
+import { globalSearch, type GlobalSearchItem } from '@/api/search'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 defineProps<{ collapsed: boolean }>()
@@ -135,6 +155,10 @@ const roleName = computed(() => {
 })
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchKeyword = ref('')
+const searchOpen = ref(false)
+const searchLoading = ref(false)
+const searchResults = ref<GlobalSearchItem[]>([])
+let searchTimer: number | undefined
 const userMenuOpen = ref(false)
 const notificationOpen = ref(false)
 const notificationsLoading = ref(false)
@@ -151,6 +175,66 @@ const displayUnreadCount = computed(() => {
   const listUnread = notifications.value.filter((item) => !item.read).length
   return Math.max(unreadCount.value, listUnread)
 })
+
+async function runSearch() {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) {
+    searchResults.value = []
+    return
+  }
+  searchLoading.value = true
+  searchOpen.value = true
+  try {
+    const res = await globalSearch(keyword, 20)
+    searchResults.value = res.data.data
+  } catch {
+    searchResults.value = []
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function closeSearch() {
+  searchOpen.value = false
+}
+
+function openSearchResult(item: GlobalSearchItem) {
+  searchOpen.value = false
+  searchKeyword.value = ''
+  if (item.type === 'agent') {
+    router.push('/agent')
+    return
+  }
+  router.push(item.path)
+}
+
+function typeLabel(type: string) {
+  const map: Record<string, string> = {
+    application: '应用',
+    agent: 'Agent',
+    knowledge: '知识库',
+    workflow: '工作流',
+  }
+  return map[type] || type
+}
+
+watch(searchKeyword, (value) => {
+  window.clearTimeout(searchTimer)
+  if (!value.trim()) {
+    searchResults.value = []
+    return
+  }
+  searchTimer = window.setTimeout(() => {
+    runSearch()
+  }, 300)
+})
+
+function onDocumentClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null
+  if (!target?.closest('.global-search')) {
+    searchOpen.value = false
+  }
+}
 
 async function loadUnreadCount() {
   try {
@@ -221,6 +305,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
+  document.addEventListener('click', onDocumentClick)
   loadUnreadCount()
   notificationTimer = window.setInterval(loadUnreadCount, 30000)
 })
@@ -232,8 +317,12 @@ watch(
 )
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
+  document.removeEventListener('click', onDocumentClick)
   if (notificationTimer) {
     window.clearInterval(notificationTimer)
+  }
+  if (searchTimer) {
+    window.clearTimeout(searchTimer)
   }
 })
 
@@ -271,6 +360,7 @@ async function onLogout() {
 }
 
 .global-search {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -309,6 +399,63 @@ async function onLogout() {
 }
 
 .search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  max-height: 320px;
+  overflow: auto;
+  z-index: 100;
+  padding: 6px;
+}
+
+.search-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.search-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 4px 10px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.search-item:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.search-item-type {
+  font-size: 12px;
+  color: #4f46e5;
+  font-weight: 600;
+}
+
+.search-item-title {
+  font-size: 13px;
+  color: var(--text-body);
+  font-weight: 600;
+}
+
+.search-item-sub {
+  grid-column: 2;
+  font-size: 12px;
   color: var(--text-muted);
 }
 

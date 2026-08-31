@@ -41,6 +41,7 @@ dist-ssr/
 .env
 .env.*
 !.env.example
+!deploy/.env.prod.example
 
 # --- Docker 本地数据卷 ---
 data/

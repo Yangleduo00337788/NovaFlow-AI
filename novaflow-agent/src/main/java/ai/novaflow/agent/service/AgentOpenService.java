@@ -1,13 +1,15 @@
 package ai.novaflow.agent.service;
 
+import ai.novaflow.agent.domain.OpenApiAuthContext;
+import ai.novaflow.agent.domain.OpenApiCredentialType;
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.agent.util.OpenApiCallerIdValidator;
 import ai.novaflow.chat.domain.vo.ConversationMessageVO;
 import ai.novaflow.chat.domain.vo.ConversationVO;
 import ai.novaflow.chat.service.ConversationService;
-import ai.novaflow.agent.entity.AgentApiKeyEntity;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -28,36 +30,38 @@ public class AgentOpenService {
 
     private static final long SSE_TIMEOUT_MS = 120_000L;
 
-    private final AgentApiKeyService agentApiKeyService;
+    private final OpenApiAuthService openApiAuthService;
     private final AgentPublishService agentPublishService;
     private final AgentService agentService;
     private final AgentChatService agentChatService;
     private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
 
-    public AgentDebugChatVO chat(Long agentId, String rawApiKey, AgentDebugChatRequest request) {
-        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+    public AgentDebugChatVO chat(Long agentId, String rawToken, String callerId, AgentDebugChatRequest request) {
+        OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
+        String scopedCallerId = requireCallerId(auth, callerId);
         try {
-            TenantContext.setTenantId(apiKey.getTenantId());
-            agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
+            TenantContext.setTenantId(auth.tenantId());
+            agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
             AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
             ensureApiSupported(agent);
-            return agentChatService.chat(agent, request, apiKey.getTenantId(), null, "open");
+            return agentChatService.chat(agent, request, auth.tenantId(), null, "open", scopedCallerId);
         } finally {
             TenantContext.clear();
         }
     }
 
-    public SseEmitter streamChat(Long agentId, String rawApiKey, AgentDebugChatRequest request) {
-        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+    public SseEmitter streamChat(Long agentId, String rawToken, String callerId, AgentDebugChatRequest request) {
+        OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
+        String scopedCallerId = requireCallerId(auth, callerId);
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         CompletableFuture.runAsync(() -> {
             try {
-                TenantContext.setTenantId(apiKey.getTenantId());
-                agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
+                TenantContext.setTenantId(auth.tenantId());
+                agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
                 AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
                 ensureApiSupported(agent);
-                agentChatService.streamChat(agent, request, apiKey.getTenantId(), null, "open", emitter);
+                agentChatService.streamChat(agent, request, auth.tenantId(), null, "open", scopedCallerId, emitter);
             } catch (BusinessException e) {
                 completeWithError(emitter, e);
             } catch (Exception e) {
@@ -71,11 +75,11 @@ public class AgentOpenService {
         return emitter;
     }
 
-    public AgentDebugChatVO welcome(Long agentId, String rawApiKey) {
-        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+    public AgentDebugChatVO welcome(Long agentId, String rawToken) {
+        OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
         try {
-            TenantContext.setTenantId(apiKey.getTenantId());
-            agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
+            TenantContext.setTenantId(auth.tenantId());
+            agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
             AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
             String welcome = StringUtils.hasText(agent.getWelcomeMessage())
                     ? agent.getWelcomeMessage()
@@ -92,26 +96,48 @@ public class AgentOpenService {
         }
     }
 
-    public PageResult<ConversationVO> listConversations(Long agentId, String rawApiKey, int page, int pageSize) {
-        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+    public PageResult<ConversationVO> listConversations(
+            Long agentId,
+            String rawToken,
+            String callerId,
+            int page,
+            int pageSize) {
+        OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
+        if (auth.credentialType() == OpenApiCredentialType.EMBED_TOKEN) {
+            throw new BusinessException(40303, "Embed Token 无权访问会话列表");
+        }
+        String scopedCallerId = OpenApiCallerIdValidator.requireValid(callerId);
         try {
-            TenantContext.setTenantId(apiKey.getTenantId());
-            agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
-            return conversationService.pageConversations(agentId, apiKey.getTenantId(), "open", page, pageSize);
+            TenantContext.setTenantId(auth.tenantId());
+            agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
+            return conversationService.pageConversations(
+                    agentId, auth.tenantId(), "open", scopedCallerId, page, pageSize);
         } finally {
             TenantContext.clear();
         }
     }
 
-    public List<ConversationMessageVO> listMessages(Long agentId, String rawApiKey, String conversationKey) {
-        AgentApiKeyEntity apiKey = agentApiKeyService.authenticate(agentId, rawApiKey);
+    public List<ConversationMessageVO> listMessages(
+            Long agentId,
+            String rawToken,
+            String callerId,
+            String conversationKey) {
+        OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
+        if (auth.credentialType() == OpenApiCredentialType.EMBED_TOKEN) {
+            throw new BusinessException(40303, "Embed Token 无权访问会话消息");
+        }
+        String scopedCallerId = OpenApiCallerIdValidator.requireValid(callerId);
         try {
-            TenantContext.setTenantId(apiKey.getTenantId());
-            agentPublishService.requirePublishedAgent(agentId, apiKey.getTenantId());
-            return conversationService.listMessages(agentId, apiKey.getTenantId(), conversationKey);
+            TenantContext.setTenantId(auth.tenantId());
+            agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
+            return conversationService.listMessages(agentId, auth.tenantId(), conversationKey, scopedCallerId);
         } finally {
             TenantContext.clear();
         }
+    }
+
+    private String requireCallerId(OpenApiAuthContext auth, String callerId) {
+        return OpenApiCallerIdValidator.requireValid(callerId);
     }
 
     private void ensureApiSupported(AgentVO agent) {

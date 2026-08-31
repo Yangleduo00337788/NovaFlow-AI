@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1
+
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+WORKDIR /workspace
+COPY pom.xml .
+COPY novaflow-common/pom.xml novaflow-common/pom.xml
+COPY novaflow-security/pom.xml novaflow-security/pom.xml
+COPY novaflow-user/pom.xml novaflow-user/pom.xml
+COPY novaflow-tenant/pom.xml novaflow-tenant/pom.xml
+COPY novaflow-application/pom.xml novaflow-application/pom.xml
+COPY novaflow-agent/pom.xml novaflow-agent/pom.xml
+COPY novaflow-prompt/pom.xml novaflow-prompt/pom.xml
+COPY novaflow-workflow/pom.xml novaflow-workflow/pom.xml
+COPY novaflow-knowledge/pom.xml novaflow-knowledge/pom.xml
+COPY novaflow-model/pom.xml novaflow-model/pom.xml
+COPY novaflow-tool/pom.xml novaflow-tool/pom.xml
+COPY novaflow-chat/pom.xml novaflow-chat/pom.xml
+COPY novaflow-dashboard/pom.xml novaflow-dashboard/pom.xml
+COPY novaflow-monitor/pom.xml novaflow-monitor/pom.xml
+COPY novaflow-billing/pom.xml novaflow-billing/pom.xml
+COPY novaflow-observability/pom.xml novaflow-observability/pom.xml
+COPY novaflow-ai-engine/pom.xml novaflow-ai-engine/pom.xml
+COPY novaflow-ai-rag/pom.xml novaflow-ai-rag/pom.xml
+COPY novaflow-ai-workflow-engine/pom.xml novaflow-ai-workflow-engine/pom.xml
+COPY novaflow-server/pom.xml novaflow-server/pom.xml
+RUN mvn -pl novaflow-server -am dependency:go-offline -B
+
+COPY . .
+RUN mvn -pl novaflow-server -am package -DskipTests -B
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S novaflow && adduser -S novaflow -G novaflow
+COPY --from=build /workspace/novaflow-server/target/novaflow-server-*.jar app.jar
+USER novaflow
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
