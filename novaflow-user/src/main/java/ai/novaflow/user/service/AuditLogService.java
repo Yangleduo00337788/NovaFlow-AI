@@ -1,5 +1,6 @@
 package ai.novaflow.user.service;
 
+import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.user.entity.AuditLogEntity;
 import ai.novaflow.user.mapper.AuditLogMapper;
@@ -15,24 +16,29 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-public class AuditLogService {
+public class AuditLogService implements AuditRecorder {
 
     private final AuditLogMapper auditLogMapper;
 
+    @Override
     public void record(String action, String resourceType, Long resourceId, String detail) {
-        AuditLogEntity entity = new AuditLogEntity();
-        entity.setTenantId(TenantContext.getTenantId());
-        entity.setUserId(StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null);
-        entity.setAction(action);
-        entity.setResourceType(resourceType);
-        entity.setResourceId(resourceId);
-        entity.setDetail(truncate(detail));
-        entity.setClientIp(resolveClientIp());
-        entity.setCreatedAt(LocalDateTime.now());
-        auditLogMapper.insert(entity);
+        insert(action, resourceType, resourceId, detail, TenantContext.getTenantId(),
+                StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null, resolveClientIp());
     }
 
+    @Override
     public void record(String action, String resourceType, Long resourceId, String detail, Long tenantId, Long userId) {
+        insert(action, resourceType, resourceId, detail, tenantId, userId, resolveClientIp());
+    }
+
+    @Override
+    public void record(String action, String resourceType, Long resourceId, String detail,
+                       Long tenantId, Long userId, String clientIp) {
+        insert(action, resourceType, resourceId, detail, tenantId, userId, clientIp);
+    }
+
+    private void insert(String action, String resourceType, Long resourceId, String detail,
+                        Long tenantId, Long userId, String clientIp) {
         AuditLogEntity entity = new AuditLogEntity();
         entity.setTenantId(tenantId);
         entity.setUserId(userId);
@@ -40,7 +46,7 @@ public class AuditLogService {
         entity.setResourceType(resourceType);
         entity.setResourceId(resourceId);
         entity.setDetail(truncate(detail));
-        entity.setClientIp(resolveClientIp());
+        entity.setClientIp(clientIp);
         entity.setCreatedAt(LocalDateTime.now());
         auditLogMapper.insert(entity);
     }
