@@ -21,7 +21,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("NovaFlow AI API")
                         .description("Enterprise AI Agent Development Platform")
-                        .version("0.1.0"))
+                        .version("1.0.0"))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
                 .components(new Components()
                         .addSecuritySchemes(SECURITY_SCHEME_NAME, new SecurityScheme()

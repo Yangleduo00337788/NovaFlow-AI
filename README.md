@@ -26,7 +26,7 @@
 
 [![Gitee Stars](https://gitee.com/yangleduo7788/nova-flow-ai/badge/star.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/stargazers)
 [![Gitee Forks](https://gitee.com/yangleduo7788/nova-flow-ai/badge/fork.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/members)
-[![Version](https://img.shields.io/badge/version-0.1.0--SNAPSHOT-informational)](./pom.xml)
+[![Version](https://img.shields.io/badge/version-1.0.0-informational)](./pom.xml)
 
 <br/>
 
@@ -329,7 +329,7 @@ docker compose -f docker-compose.local.yml up -d
 
 ```bash
 mvn clean package -DskipTests
-java -jar novaflow-server/target/novaflow-server-0.1.0-SNAPSHOT.jar
+java -jar novaflow-server/target/novaflow-server-1.0.0.jar
 ```
 
 | 服务 | 地址 |
@@ -436,7 +436,7 @@ docker compose up -d
 export SPRING_PROFILES_ACTIVE=prod
 export NOVAFLOW_CRYPTO_KEY=your-strong-key
 mvn -pl novaflow-server -am package -DskipTests
-java -jar novaflow-server/target/novaflow-server-0.1.0-SNAPSHOT.jar
+java -jar novaflow-server/target/novaflow-server-1.0.0.jar
 
 # 前端构建后由 Nginx 托管 dist/
 cd novaflow-web && npm ci && npm run build
