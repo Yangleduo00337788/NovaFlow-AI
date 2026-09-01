@@ -513,6 +513,7 @@ public class OrganizationService {
             return "企业版";
         }
         return switch (planType) {
+            case "personal" -> "个人版";
             case "free" -> "免费版";
             case "professional" -> "专业版";
             case "enterprise" -> "企业版";

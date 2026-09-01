@@ -25,4 +25,10 @@ public class RegisterRequest {
     @NotBlank(message = "企业名称不能为空")
     @Size(max = 128, message = "企业名称不能超过 128 个字符")
     private String companyName;
+
+    /**
+     * 注册时选择的套餐：personal（个人版）或 enterprise（企业版，默认，注册即 free 试用档）。
+     */
+    @Size(max = 32, message = "套餐类型不合法")
+    private String planType;
 }

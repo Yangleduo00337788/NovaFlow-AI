@@ -16,10 +16,19 @@ public final class TenantLimits {
         }
         String plan = tenant.getPlanType() != null ? tenant.getPlanType().trim().toLowerCase() : "free";
         switch (plan) {
+            case "personal" -> applyPersonalDefaults(tenant);
             case "enterprise" -> applyEnterpriseDefaults(tenant);
             case "professional", "pro" -> applyProfessionalDefaults(tenant);
             default -> applyFreeDefaults(tenant);
         }
+    }
+
+    private static void applyPersonalDefaults(TenantEntity tenant) {
+        tenant.setMaxMembers(1);
+        tenant.setMaxAgents(3);
+        tenant.setMaxKnowledge(1);
+        tenant.setMaxStorageMb(512);
+        tenant.setMonthlyTokenQuota(20_000L);
     }
 
     private static void applyFreeDefaults(TenantEntity tenant) {

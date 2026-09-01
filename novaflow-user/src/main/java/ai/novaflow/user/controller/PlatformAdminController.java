@@ -2,7 +2,6 @@ package ai.novaflow.user.controller;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
-import ai.novaflow.user.domain.dto.PlatformTenantCreateRequest;
 import ai.novaflow.user.domain.dto.PlatformTenantUpdateRequest;
 import ai.novaflow.user.domain.vo.PlatformGlobalStatsVO;
 import ai.novaflow.user.domain.vo.PlatformTenantVO;
@@ -13,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,12 +38,6 @@ public class PlatformAdminController {
     @GetMapping("/tenants/{id}")
     public ApiResult<PlatformTenantVO> getTenant(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.getTenant(id));
-    }
-
-    @SaCheckPermission("platform:manage")
-    @PostMapping("/tenants")
-    public ApiResult<PlatformTenantVO> createTenant(@Valid @RequestBody PlatformTenantCreateRequest request) {
-        return ApiResult.ok(platformAdminService.createTenant(request));
     }
 
     @SaCheckPermission("platform:manage")

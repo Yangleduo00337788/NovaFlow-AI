@@ -48,10 +48,6 @@ export function fetchPlatformTenant(id: number) {
   return request.get<ApiResult<PlatformTenant>>(`/api/v1/platform/tenants/${id}`)
 }
 
-export function createPlatformTenant(data: Record<string, unknown>) {
-  return request.post<ApiResult<PlatformTenant>>('/api/v1/platform/tenants', data)
-}
-
 export function updatePlatformTenant(id: number, data: Record<string, unknown>) {
   return request.put<ApiResult<PlatformTenant>>(`/api/v1/platform/tenants/${id}`, data)
 }

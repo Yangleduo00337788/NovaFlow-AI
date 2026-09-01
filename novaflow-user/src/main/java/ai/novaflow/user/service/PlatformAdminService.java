@@ -5,19 +5,12 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.mapper.TokenUsageMapper;
 import ai.novaflow.tenant.entity.TenantEntity;
-import ai.novaflow.tenant.entity.TenantMemberEntity;
-import ai.novaflow.tenant.entity.WorkspaceEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
-import ai.novaflow.tenant.mapper.WorkspaceMapper;
-import ai.novaflow.user.domain.dto.PlatformTenantCreateRequest;
 import ai.novaflow.user.domain.dto.PlatformTenantUpdateRequest;
 import ai.novaflow.user.domain.vo.PlatformGlobalStatsVO;
 import ai.novaflow.user.domain.vo.PlatformTenantVO;
-import ai.novaflow.user.entity.RoleEntity;
-import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.user.mapper.PlatformStatsMapper;
-import ai.novaflow.user.mapper.UserMapper;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -31,7 +24,6 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -39,8 +31,6 @@ public class PlatformAdminService {
 
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
-    private final WorkspaceMapper workspaceMapper;
-    private final UserMapper userMapper;
     private final PermissionService permissionService;
     private final TokenUsageMapper tokenUsageMapper;
     private final PlatformStatsMapper platformStatsMapper;
@@ -64,76 +54,6 @@ public class PlatformAdminService {
     public PlatformTenantVO getTenant(Long tenantId) {
         requireSuperAdmin();
         TenantEntity tenant = getTenantOrThrow(tenantId);
-        return toPlatformTenantVO(tenant);
-    }
-
-    @Transactional
-    public PlatformTenantVO createTenant(PlatformTenantCreateRequest request) {
-        requireSuperAdmin();
-        UserEntity adminUser = userMapper.selectOneByQuery(
-                QueryWrapper.create().eq("id", request.getAdminUserId()).eq("is_deleted", 0)
-        );
-        if (adminUser == null) {
-            throw new BusinessException("管理员用户不存在");
-        }
-        long existingMember = tenantMemberMapper.selectCountByQuery(
-                QueryWrapper.create().eq("user_id", request.getAdminUserId()).eq("is_deleted", 0)
-        );
-        if (existingMember > 0) {
-            throw new BusinessException("该用户已加入其他企业，请使用新用户");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        TenantEntity tenant = new TenantEntity();
-        tenant.setTenantCode(generateTenantCode());
-        tenant.setTenantName(request.getTenantName().trim());
-        tenant.setContactName(trimToNull(request.getContactName()));
-        tenant.setContactEmail(trimToNull(request.getContactEmail()));
-        tenant.setContactPhone(trimToNull(request.getContactPhone()));
-        tenant.setPlanType(normalizePlanType(request.getPlanType()));
-        tenant.setStatus(1);
-        tenant.setExpireAt(request.getExpireAt());
-        tenant.setMaxMembers(defaultInt(request.getMaxMembers(), 50));
-        tenant.setMaxAgents(defaultInt(request.getMaxAgents(), 20));
-        tenant.setMaxKnowledge(defaultInt(request.getMaxKnowledge(), 10));
-        tenant.setMaxStorageMb(defaultInt(request.getMaxStorageMb(), 5120));
-        tenant.setMonthlyTokenQuota(request.getMonthlyTokenQuota() != null ? request.getMonthlyTokenQuota() : 1_000_000L);
-        tenant.setCreatedAt(now);
-        tenant.setUpdatedAt(now);
-        tenant.setIsDeleted(0);
-        tenantMapper.insert(tenant);
-
-        RoleEntity adminRole = permissionService.requireSystemRole("tenant_admin");
-        TenantMemberEntity member = new TenantMemberEntity();
-        member.setTenantId(tenant.getId());
-        member.setUserId(request.getAdminUserId());
-        member.setRoleId(adminRole.getId());
-        member.setStatus(1);
-        member.setJoinedAt(now);
-        member.setCreatedAt(now);
-        member.setUpdatedAt(now);
-        member.setIsDeleted(0);
-        tenantMemberMapper.insert(member);
-
-        WorkspaceEntity workspace = new WorkspaceEntity();
-        workspace.setTenantId(tenant.getId());
-        workspace.setWorkspaceName("默认工作空间");
-        workspace.setDescription("系统自动创建");
-        workspace.setIsDefault(1);
-        workspace.setCreatedBy(request.getAdminUserId());
-        workspace.setCreatedAt(now);
-        workspace.setUpdatedAt(now);
-        workspace.setIsDeleted(0);
-        workspaceMapper.insert(workspace);
-
-        auditLogService.record(
-                "platform.tenant.create",
-                "tenant",
-                tenant.getId(),
-                "创建租户: " + tenant.getTenantName(),
-                TenantContext.getTenantId(),
-                StpUtil.getLoginIdAsLong());
-
         return toPlatformTenantVO(tenant);
     }
 
@@ -270,10 +190,6 @@ public class PlatformAdminService {
         permissionService.requireSuperAdmin(StpUtil.getLoginIdAsLong(), TenantContext.getTenantId());
     }
 
-    private String generateTenantCode() {
-        return "T" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
-    }
-
     private String normalizePlanType(String planType) {
         return planType != null ? planType.trim().toLowerCase(Locale.ROOT) : "starter";
     }
@@ -283,15 +199,13 @@ public class PlatformAdminService {
             return "未设置";
         }
         return switch (planType.trim().toLowerCase(Locale.ROOT)) {
+            case "personal" -> "个人版";
+            case "free" -> "免费版";
             case "starter" -> "入门版";
             case "pro" -> "专业版";
             case "enterprise" -> "企业版";
             default -> planType;
         };
-    }
-
-    private int defaultInt(Integer value, int defaultValue) {
-        return value != null && value > 0 ? value : defaultValue;
     }
 
     private String trimToNull(String value) {
