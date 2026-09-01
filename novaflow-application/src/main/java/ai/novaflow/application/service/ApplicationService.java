@@ -340,7 +340,7 @@ public class ApplicationService {
             Long agentId = entity.getDefaultAgentId();
             builder.chatEndpoint("/api/v1/open/agents/" + agentId + "/chat")
                     .streamEndpoint("/api/v1/open/agents/" + agentId + "/chat/stream")
-                    .embedPath("/embed/agent/" + agentId);
+                    .embedPath("/embed/agents/" + agentId);
         }
         return builder.build();
     }

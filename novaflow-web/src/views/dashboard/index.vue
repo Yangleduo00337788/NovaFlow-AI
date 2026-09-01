@@ -1600,4 +1600,71 @@ onMounted(async () => {
 .view-more:hover {
   color: #4096ff;
 }
+
+/* ===== 响应式适配 ===== */
+
+/* 中宽屏：指标与快捷入口降列，主栏与右栏仍并排 */
+@media (max-width: 1400px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .quick-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 窄屏：右栏换行至底部，中间/底部两栏纵向堆叠 */
+@media (max-width: 1200px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+  .dashboard-left {
+    grid-template-rows: 112px 108px auto auto;
+    overflow: visible;
+  }
+  .middle-row {
+    grid-template-columns: 1fr;
+  }
+  .bottom-row {
+    grid-template-columns: 1fr;
+  }
+  .chart-legend-wrap {
+    flex-direction: row;
+  }
+}
+
+/* 小屏：指标降至 2 列，欢迎图隐藏 */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .quick-tiles {
+    grid-template-columns: 1fr;
+  }
+  .welcome-visual {
+    display: none;
+  }
+  .welcome-banner {
+    padding: 0 20px;
+  }
+  .welcome-text h1 {
+    font-size: 18px;
+  }
+  .chart-legend-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .donut-wrap,
+  .chart-card .donut-chart {
+    align-self: center;
+  }
+}
+
+/* 超小屏：指标单列 */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

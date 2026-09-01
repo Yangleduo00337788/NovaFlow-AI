@@ -2,8 +2,9 @@
   <div class="about-body">
     <div class="about-block intro-block">
       <p class="about-block-lead">
-        NovaFlow AI 提供 Agent 编排、工作流、知识库 RAG、模型接入与私有化部署能力，
-        帮助企业快速构建可治理、可观测的 AI 应用。
+        NovaFlow AI v1.0 是企业级 AI Agent 开发中台（Studio），提供 Agent 编排、工作流、
+        知识库 RAG、模型接入与私有化部署能力。终端用户可通过 Embed 嵌入页或 Open API 使用已发布应用；
+        独立用户前台（Portal）与独立超管端规划于 v1.2。
       </p>
       <div class="intro-meta">
         <span>发布日期 2026-08-31</span>
@@ -14,11 +15,19 @@
     <div class="about-block info-block">
       <div class="info-row">
         <span class="info-label">当前版本</span>
-        <span class="info-value">v1.0.0</span>
+        <span class="info-value">v1.0.1</span>
       </div>
       <div class="info-row">
         <span class="info-label">产品定位</span>
-        <span class="info-value">企业级 AI Agent 开发平台</span>
+        <span class="info-value">企业级 AI Agent 开发中台（Studio）</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">v1.0 形态</span>
+        <span class="info-value">Studio 已交付 · Portal 未纳入 · 超管同站部分交付</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">终端接入</span>
+        <span class="info-value">Embed 嵌入页 · Open API · Agent Studio 调试（开发者）</span>
       </div>
       <div class="info-row">
         <span class="info-label">核心能力</span>
@@ -60,7 +69,7 @@
 
 .info-label {
   flex-shrink: 0;
-  width: 72px;
+  width: 80px;
   color: var(--text-muted);
 }
 

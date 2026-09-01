@@ -203,7 +203,11 @@ public class ModelProviderService {
             }
             return "";
         }
-        return cryptoService.decrypt(entity.getApiKeyEncrypted());
+        String decrypted = cryptoService.tryDecrypt(entity.getApiKeyEncrypted());
+        if (decrypted == null) {
+            throw new BusinessException("模型 API Key 无法解密，请在模型中心重新保存提供商密钥");
+        }
+        return decrypted;
     }
 
     private ModelProviderVO toProviderVO(ModelProviderPreset preset, ModelProviderEntity entity, Long tenantId) {
@@ -219,7 +223,10 @@ public class ModelProviderService {
             id = entity.getId();
             baseUrl = StringUtils.hasText(entity.getBaseUrl()) ? entity.getBaseUrl() : preset.getDefaultBaseUrl();
             if (StringUtils.hasText(entity.getApiKeyEncrypted())) {
-                apiKeyMasked = cryptoService.maskSecret(cryptoService.decrypt(entity.getApiKeyEncrypted()));
+                String decrypted = cryptoService.tryDecrypt(entity.getApiKeyEncrypted());
+                apiKeyMasked = decrypted != null
+                        ? cryptoService.maskSecret(decrypted)
+                        : "密钥无效，请重新配置";
             } else if (!preset.isRequiresApiKey()) {
                 apiKeyMasked = "无需配置";
             }

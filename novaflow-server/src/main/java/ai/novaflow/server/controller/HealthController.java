@@ -16,7 +16,7 @@ public class HealthController {
         return ApiResult.ok(Map.of(
                 "status", "UP",
                 "application", "NovaFlow AI",
-                "version", "1.0.0"
+                "version", "1.0.1"
         ));
     }
 }

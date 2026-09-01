@@ -30,6 +30,20 @@ public class CryptoService {
         return aes().decryptStr(cipherText);
     }
 
+    /**
+     * 解密失败时返回 null，避免因历史密钥不一致导致接口 500。
+     */
+    public String tryDecrypt(String cipherText) {
+        if (!StringUtils.hasText(cipherText)) {
+            return null;
+        }
+        try {
+            return aes().decryptStr(cipherText);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     public String maskSecret(String secret) {
         if (!StringUtils.hasText(secret)) {
             return null;

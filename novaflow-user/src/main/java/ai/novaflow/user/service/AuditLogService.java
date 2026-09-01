@@ -40,7 +40,7 @@ public class AuditLogService implements AuditRecorder {
     private void insert(String action, String resourceType, Long resourceId, String detail,
                         Long tenantId, Long userId, String clientIp) {
         AuditLogEntity entity = new AuditLogEntity();
-        entity.setTenantId(tenantId);
+        entity.setTenantId(tenantId != null ? tenantId : 0L);
         entity.setUserId(userId);
         entity.setAction(action);
         entity.setResourceType(resourceType);

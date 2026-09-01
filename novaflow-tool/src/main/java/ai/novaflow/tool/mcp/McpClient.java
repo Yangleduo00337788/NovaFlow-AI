@@ -318,7 +318,7 @@ public class McpClient {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("protocolVersion", PROTOCOL_VERSION);
         params.put("capabilities", Map.of());
-        params.put("clientInfo", Map.of("name", "NovaFlow", "version", "1.0.0"));
+        params.put("clientInfo", Map.of("name", "NovaFlow", "version", "1.0.1"));
         return params;
     }
 

@@ -25,6 +25,10 @@ public abstract class AbstractLocalIntegrationTest extends IntegrationTestSuppor
         registry.add("spring.data.redis.port", () -> env("REDIS_PORT", "6379"));
         AbstractTestcontainersIntegrationTest.registerCommonProperties(registry);
         AbstractTestcontainersIntegrationTest.registerRedisPassword(registry, env("REDIS_PASSWORD", "redis123"));
+        registry.add("novaflow.security.crypto-key", () -> env(
+                "NOVAFLOW_CRYPTO_KEY",
+                "NovaFlowAI-DevKey-32bytes!!!!"
+        ));
     }
 
     private static String env(String key, String defaultValue) {

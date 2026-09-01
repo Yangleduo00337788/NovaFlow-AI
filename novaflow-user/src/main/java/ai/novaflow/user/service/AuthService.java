@@ -12,6 +12,7 @@ import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
+import ai.novaflow.tenant.support.TenantLimits;
 import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
@@ -141,6 +142,7 @@ public class AuthService {
         tenant.setPlanType("free");
         tenant.setStatus(1);
         tenant.setExpireAt(now.plusYears(1));
+        TenantLimits.applyPlanDefaults(tenant);
         tenant.setIsDeleted(0);
         tenant.setCreatedAt(now);
         tenant.setUpdatedAt(now);

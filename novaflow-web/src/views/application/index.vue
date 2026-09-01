@@ -92,7 +92,7 @@
         <a-row :gutter="16">
           <a-col :span="14">
             <a-form-item label="应用名称" required>
-              <a-input v-model:value="form.appName" placeholder="智能客服" data-testid="app-name-input" />
+              <a-input v-model:value="form.appName" placeholder="智能客服" data-testid="app-name-input" maxlength="128" :show-count="true" />
             </a-form-item>
           </a-col>
           <a-col :span="10">

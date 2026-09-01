@@ -2,17 +2,50 @@
   <div class="about-body">
     <div class="about-block intro-block">
       <div class="release-head">
-        <h3 class="release-version">NovaFlow v1.0.0</h3>
-        <a-tag color="blue">正式发布</a-tag>
+        <h3 class="release-version">NovaFlow v1.0.1</h3>
+        <a-tag color="green">补丁版本</a-tag>
       </div>
       <p class="about-block-lead">
-        企业级 AI Agent 开发平台首个正式发布版本，覆盖 Agent 编排、工作流、知识库、私有化部署与平台治理能力。
+        修复 v1.0.0 全量测试中发现的问题，提升注册、审计日志、模型中心与 E2E 测试稳定性。
       </p>
       <div class="release-meta">发布日期 2026-08-31</div>
     </div>
 
     <section class="release-section">
-      <h3 class="about-block-title">本版本新增</h3>
+      <h3 class="about-block-title">问题修复</h3>
+      <ul class="fix-list">
+        <li v-for="item in v101Fixes" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <section class="release-section">
+      <h3 class="about-block-title">测试与工程</h3>
+      <ul class="fix-list">
+        <li v-for="item in v101Engineering" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <div class="about-block history-block">
+      <div class="release-head">
+        <h3 class="release-version">NovaFlow v1.0.0</h3>
+        <a-tag color="blue">正式发布</a-tag>
+      </div>
+      <p class="about-block-lead">
+        企业级 AI Agent 开发中台（Studio）首个正式发布版本，覆盖 Agent 编排、工作流、知识库、
+        私有化部署与租户内平台治理能力。终端用户通过 Embed / Open API 接入；独立 Portal 与独立超管端规划 v1.2。
+      </p>
+      <div class="release-meta">发布日期 2026-08-31</div>
+    </div>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.0.0 产品形态</h3>
+      <ul class="fix-list">
+        <li v-for="item in productForm" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.0.0 本版本新增</h3>
       <div class="about-card-grid">
         <div v-for="item in newFeatures" :key="item.title" class="mini-card">
           <div class="mini-card-title">{{ item.title }}</div>
@@ -22,7 +55,7 @@
     </section>
 
     <section class="release-section">
-      <h3 class="about-block-title">平台能力</h3>
+      <h3 class="about-block-title">v1.0.0 平台能力</h3>
       <div class="about-card-grid">
         <div v-for="item in platformCapabilities" :key="item.title" class="mini-card">
           <div class="mini-card-title">{{ item.title }}</div>
@@ -33,17 +66,38 @@
 
     <div class="about-block roadmap-block">
       <span class="roadmap-label">后续规划</span>
-      <span class="roadmap-text">单点登录（SSO）· 部门组织架构 · 成本分摊报表 · 外部告警通道（邮件 / Webhook）</span>
+      <span class="roadmap-text">v1.1：SSO · 部门组织架构 · 成本分摊 · 外部告警｜v1.2：Portal 用户前台 · 独立 Platform Admin 超管端</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const v101Fixes = [
+  '修复企业注册时租户配额字段未写入导致注册失败的问题。',
+  '修复审计日志在部分场景下 tenant_id 为空导致写入/查询异常的问题。',
+  '修复模型提供商 API Key 因加密密钥不一致导致列表接口 500 的问题，改为友好提示。',
+  '修复应用发布返回的 Embed 路径与前端路由不一致（/embed/agent → /embed/agents）导致嵌入 404 的问题。',
+  '将登录/注册频率限制默认值从 20 次/分钟提升至 120 次/分钟，避免 E2E 与联调误触发限流。',
+]
+
+const v101Engineering = [
+  '新增全模块 API 集成冒烟测试与平台超管专项测试。',
+  '新增 Playwright 全站页面冒烟 E2E（19 个业务页面 + 注册页）。',
+  '本地集成测试默认使用开发环境加密密钥，与 .env 配置保持一致。',
+  '补充 v1.0 三端产品形态说明：明确 Studio 已交付、Portal 未纳入、超管同站部分交付；同步更新 README、PRD、系统架构设计、关于页与更新日志。',
+]
+
+const productForm = [
+  'Studio 开发后台：当前控制台主体，面向开发者与企业管理员。',
+  'Portal 用户前台：v1.0 未交付；业务用户通过 Embed 嵌入页或 Open API 使用已发布应用。',
+  'Platform Admin 超管：v1.0 提供 /platform、/audit 页面，与 Studio 同站；独立超管端规划 v1.2。',
+]
+
 const newFeatures = [
   { title: '工作流 Agent 节点', desc: '在工作流中调用已发布的 Agent，支持多 Agent 协作编排与串联执行。' },
   { title: '私有化部署', desc: '提供服务端与前端 Docker 镜像，配合编排文件一键启动完整环境，适配企业内网部署。' },
   { title: '链路追踪', desc: '工作流与 Agent 执行过程自动记录追踪信息，支持对接外部监控与观测平台。' },
-  { title: '平台管理后台', desc: '平台管理员可管理租户、配置套餐与配额，并查看全局用量统计。' },
+  { title: '平台超管（同站）', desc: '平台管理员可在 /platform、/audit 管理租户、配额与审计；独立超管端规划 v1.2。' },
   { title: '审计日志', desc: '关键操作全程留痕，支持按动作、资源类型与时间范围筛选查询。' },
   { title: '全局搜索', desc: '顶栏快速检索应用、Agent、知识库与工作流，一键跳转至目标页面。' },
 ]
@@ -62,6 +116,12 @@ const platformCapabilities = [
 @import './doc-styles.css';
 
 .intro-block {
+  background: linear-gradient(135deg, rgba(82, 196, 26, 0.08), rgba(14, 165, 233, 0.04));
+  border-color: rgba(82, 196, 26, 0.18);
+}
+
+.history-block {
+  margin-top: 28px;
   background: linear-gradient(135deg, rgba(22, 119, 255, 0.06), rgba(14, 165, 233, 0.04));
   border-color: rgba(22, 119, 255, 0.12);
 }
@@ -89,6 +149,14 @@ const platformCapabilities = [
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
+}
+
+.fix-list {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
 }
 
 .mini-card {

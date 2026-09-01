@@ -6,6 +6,7 @@ import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
+import ai.novaflow.tenant.support.TenantLimits;
 import ai.novaflow.application.mapper.ApplicationMapper;
 import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.tenant.mapper.TenantMapper;
@@ -67,6 +68,7 @@ public class DataInitializer implements CommandLineRunner {
         tenant.setPlanType("enterprise");
         tenant.setStatus(1);
         tenant.setExpireAt(LocalDateTime.of(2028, 12, 31, 23, 59, 59));
+        TenantLimits.applyPlanDefaults(tenant);
         tenant.setIsDeleted(0);
         tenant.setCreatedAt(now);
         tenant.setUpdatedAt(now);

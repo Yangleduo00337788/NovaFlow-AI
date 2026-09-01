@@ -15,3 +15,7 @@ liteflow:
 logging:
   level:
     ai.novaflow: info
+
+novaflow:
+  auth:
+    login-rate-limit-per-minute: 10000

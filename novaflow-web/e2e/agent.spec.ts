@@ -1,15 +1,5 @@
 import { test, expect } from '@playwright/test'
-
-const EMAIL = 'admin@novaflow.ai'
-const PASSWORD = 'Admin123!'
-
-async function login(page: import('@playwright/test').Page) {
-  await page.goto('/login')
-  await page.getByTestId('login-email').fill(EMAIL)
-  await page.getByTestId('login-password').fill(PASSWORD)
-  await page.getByTestId('login-submit').click()
-  await expect(page).toHaveURL(/\/dashboard/)
-}
+import { login } from './helpers/auth'
 
 test.describe('Agent Studio', () => {
   test.beforeEach(async ({ page }) => {
@@ -21,8 +11,11 @@ test.describe('Agent Studio', () => {
     await expect(page.getByTestId('agent-page')).toBeVisible()
     await expect(page.getByTestId('agent-table')).toBeVisible()
 
+    const search = page.getByTestId('agent-search')
+    await search.fill('DeepSeek')
+    await search.press('Enter')
     const row = page.getByRole('row', { name: /DeepSeek/ })
-    await expect(row).toBeVisible()
+    await expect(row).toBeVisible({ timeout: 10000 })
     await row.getByRole('button', { name: '调试' }).click()
 
     const panel = page.getByTestId('agent-debug-panel')

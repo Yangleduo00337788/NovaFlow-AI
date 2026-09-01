@@ -94,7 +94,7 @@
         <a-row :gutter="16">
           <a-col :span="14">
             <a-form-item label="模板名称" required>
-              <a-input v-model:value="form.templateName" placeholder="客服话术模板" data-testid="prompt-name-input" />
+              <a-input v-model:value="form.templateName" placeholder="客服话术模板" data-testid="prompt-name-input" maxlength="128" :show-count="true" />
             </a-form-item>
           </a-col>
           <a-col :span="10">

@@ -87,7 +87,12 @@
     >
       <a-form layout="vertical">
         <a-form-item label="工作流名称" required>
-          <a-input v-model:value="createForm.workflowName" placeholder="客服分流流程" />
+          <a-input
+            v-model:value="createForm.workflowName"
+            placeholder="客服分流流程"
+            maxlength="128"
+            :show-count="true"
+          />
         </a-form-item>
         <a-form-item label="所属应用" required>
           <a-select

@@ -711,7 +711,7 @@ watch(
 .palette-icon.end { background: #fee2e2; color: #dc2626; }
 
 .canvas-wrap {
-  min-height: 0;
+  min-height: 520px;
   overflow: hidden;
 }
 

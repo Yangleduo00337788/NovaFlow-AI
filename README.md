@@ -6,7 +6,7 @@
 
 <br/>
 
-**企业级 AI Agent 开发与运行平台**
+**企业级 AI Agent 开发中台（Studio）**
 
 *Build Intelligent Agents Faster — 让企业快速构建下一代 AI 应用*
 
@@ -26,7 +26,7 @@
 
 [![Gitee Stars](https://gitee.com/yangleduo7788/nova-flow-ai/badge/star.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/stargazers)
 [![Gitee Forks](https://gitee.com/yangleduo7788/nova-flow-ai/badge/fork.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/members)
-[![Version](https://img.shields.io/badge/version-1.0.0-informational)](./pom.xml)
+[![Version](https://img.shields.io/badge/version-1.0.1-informational)](./pom.xml)
 
 <br/>
 
@@ -39,7 +39,25 @@
 
 </div>
 
+### v1.0 产品形态（三端规划）
+
+NovaFlow 面向 **Studio 开发后台 · 用户前台 Portal · Platform Admin 超管** 三端架构演进。v1.0 交付的是 **开发中台 + 对外集成能力**，而非完整的终端用户门户。
+
+| 端 | 面向角色 | v1.0 状态 | 说明 |
+|------|----------|-----------|------|
+| **Studio 开发后台** | 开发者、企业管理员 | ✅ 已交付 | 当前 `novaflow-web` 主体：Agent / 工作流 / 知识库 / 应用发布 / 组织权限 / 监控账单等 |
+| **Portal 用户前台** | 业务用户、终端员工 | ❌ 未纳入 | 独立应用中心与对话入口规划 **v1.2**；v1.0 终端用户通过 **Embed 嵌入页** 或 **Open API** 接入 |
+| **Platform Admin 超管** | 平台运营方 | ⚠️ 部分交付 | `/platform`、`/audit` 已可用，但仍与 Studio **同站同壳**；独立超管端规划 **v1.2** |
+
+**v1.0 终端用户接入方式：**
+
+- **网页嵌入**：`/embed/agents/{id}` + `nf_embed_` Token + `X-Caller-Id`
+- **服务端集成**：Open API + `nf_live_` API Key
+- **Studio 内调试**：Agent Studio 调试面板（面向开发者，非业务用户产品形态）
+
 ### v1.0 范围说明
+
+**本版本包含：**
 
 - **Multi-Agent 工作流节点**：工作流编排器支持 Agent 节点，可在流程中调用已发布 Agent。
 - **私有化一键部署**：`deploy/docker-compose.prod.yml` 提供 Server + Web 镜像与完整基础设施栈。
@@ -47,17 +65,23 @@
 - **平台超管 / 审计日志 / 全局搜索**：租户 CRUD、操作审计、顶栏全局搜索（见菜单与 `/changelog`）。
 - **Open API 安全**：服务端集成使用 `nf_live_` API Key；网页嵌入使用受限 `nf_embed_` Token，且必须携带 `X-Caller-Id` 隔离终端用户会话。
 - **生产部署**：使用 `spring.profiles.active=prod` 启动，并设置强随机 `NOVAFLOW_CRYPTO_KEY`；或使用 Docker Compose 一键部署（见下方「生产部署」章节）。
-- **v1.1 规划（未纳入本版本）**：SSO、部门组织架构、成本分摊报表、外部告警通道（邮件/Webhook）。
+
+**后续版本规划（未纳入 v1.0）：**
+
+| 版本 | 规划能力 |
+|------|----------|
+| **v1.1** | SSO（OAuth2/OIDC）、部门组织架构、成本分摊报表、外部告警通道（邮件/Webhook） |
+| **v1.2** | 独立 **Portal 用户前台**（应用中心、对话入口）、独立 **Platform Admin 超管端**（与 Studio 分域/分壳） |
 
 ---
 
 ## 📖 项目简介
 
-NovaFlow AI 是面向 **Java 企业技术栈** 的下一代 AI Agent 开发与运行平台。采用**模块化单体**架构，提供 Agent 编排、工作流引擎、知识库 RAG、工具市场（MCP）、多租户 RBAC、全链路可观测等能力，支持私有化部署与 SaaS 多租户场景。
+NovaFlow AI 是面向 **Java 企业技术栈** 的企业级 AI Agent **开发中台**。v1.0 提供 Studio 开发后台与 Open API / Embed 对外交付能力；独立用户前台（Portal）与独立超管端（Platform Admin）规划于 v1.2。采用**模块化单体**架构，提供 Agent 编排、工作流引擎、知识库 RAG、工具市场（MCP）、多租户 RBAC、全链路可观测等能力，支持私有化部署与 SaaS 多租户场景。
 
 | 维度 | 说明 |
 |------|------|
-| **定位** | 企业级 AI Agent Operating System |
+| **定位** | 企业级 AI Agent 开发中台（v1.0）；三端完整产品形态目标 v1.2 |
 | **架构** | Modular Monolith（模块化单体，可按域拆分微服务） |
 | **后端** | Java 21 + Spring Boot 3 + MyBatis-Flex |
 | **前端** | Vue 3 + TypeScript + Vite + Ant Design Vue |
@@ -329,7 +353,7 @@ docker compose -f docker-compose.local.yml up -d
 
 ```bash
 mvn clean package -DskipTests
-java -jar novaflow-server/target/novaflow-server-1.0.0.jar
+java -jar novaflow-server/target/novaflow-server-1.0.1.jar
 ```
 
 | 服务 | 地址 |
@@ -436,7 +460,7 @@ docker compose up -d
 export SPRING_PROFILES_ACTIVE=prod
 export NOVAFLOW_CRYPTO_KEY=your-strong-key
 mvn -pl novaflow-server -am package -DskipTests
-java -jar novaflow-server/target/novaflow-server-1.0.0.jar
+java -jar novaflow-server/target/novaflow-server-1.0.1.jar
 
 # 前端构建后由 Nginx 托管 dist/
 cd novaflow-web && npm ci && npm run build
@@ -467,6 +491,7 @@ cd novaflow-web && npm ci && npm run build
 | 文档 | 说明 |
 |------|------|
 | [PRD](docs/PRD.md) | 产品需求与功能设计 |
+| [v1.1 开发计划](docs/v1.1-plan.md) | 下一版本任务清单与里程碑 |
 | [系统架构设计](docs/系统架构设计.md) | 模块拆分、核心流程、部署架构 |
 | [数据库设计](docs/数据库设计.md) | 表结构与 ER 关系 |
 | 安全与隐私说明 | 控制台「关于 → 安全与隐私」页面 |

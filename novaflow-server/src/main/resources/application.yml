@@ -87,7 +87,7 @@ novaflow:
       - ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
 
   auth:
-    login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:20}
+    login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:120}
     login-failure-threshold: ${LOGIN_FAILURE_THRESHOLD:5}
     login-lock-minutes: ${LOGIN_LOCK_MINUTES:15}
 

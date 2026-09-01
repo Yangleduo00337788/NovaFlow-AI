@@ -59,6 +59,24 @@ NovaFlow AI 是下一代**企业级 AI Agent 开发与运行平台**，帮助企
 
 成为 2026 年 **Java + AI 应用开发**方向的旗舰级项目，打造下一代企业级 AI Agent Operating System。
 
+### 1.7 产品形态（三端架构）
+
+NovaFlow 按 **Studio · Portal · Platform Admin** 三端演进，职责分离、权限隔离：
+
+| 端 | 面向角色 | 核心职责 |
+|----|----------|----------|
+| **Studio 开发后台** | 开发者、企业管理员 | 创建 Agent / 工作流 / 知识库，配置模型与工具，发布应用，管理组织与权限 |
+| **Portal 用户前台** | 业务用户、终端员工 | 登录后浏览有权限的已发布应用，进行对话与任务使用（非开发配置） |
+| **Platform Admin 超管** | 平台运营方 | 管理所有租户、全局配额与用量、平台级审计与系统配置 |
+
+**版本与交付边界：**
+
+| 端 | v1.0 | v1.2（规划） |
+|----|------|--------------|
+| Studio 开发后台 | ✅ 已交付（`novaflow-web` 主体） | 持续增强；与超管/Portal 分壳 |
+| Portal 用户前台 | ❌ 未交付；终端用户通过 Embed / Open API 接入 | 独立应用中心 + 对话入口 |
+| Platform Admin 超管 | ⚠️ 部分交付（`/platform`、`/audit` 同站） | 独立超管端，与租户 Studio 分域 |
+
 ---
 
 ## 2. 用户画像
@@ -285,7 +303,7 @@ NovaFlow AI 是下一代**企业级 AI Agent 开发与运行平台**，帮助企
 | 在线调试 | 右侧对话面板实时测试 Agent 效果 |
 | Prompt 版本 | 保存 Prompt 历史版本，支持回滚 |
 | 变量测试 | 测试不同输入变量组合 |
-| 发布 | 发布到应用市场 / 生成 API / 嵌入网页 |
+| 发布 | 生成 Open API / Embed 嵌入链接（v1.0）；独立 Portal 应用中心（v1.2 规划） |
 | 版本管理 | Draft → Published，支持灰度发布 |
 
 #### 4.1.4 Agent 对话
@@ -1155,9 +1173,17 @@ Dashboard 是用户登录后的默认首页，对应 UI 原型「工作台」页
 
 ### 8.3 v1.0 — 20 周
 
-**目标**：企业级完整能力
+**目标**：企业级 AI Agent **开发中台**（Studio）+ Open API / Embed 对外交付 + 租户内平台治理能力
 
-> **v1.0 范围调整（2026-08）**：SSO（OAuth2/OIDC）延后至 v1.1；Open API 采用 API Key + 受限 Embed Token + `X-Caller-Id` 终端隔离；MCP stdio 命令白名单；操作审计日志与对话数据保留策略已纳入。
+> **v1.0 范围调整（2026-08）**：SSO（OAuth2/OIDC）延后至 v1.1；独立 Portal 用户前台、独立 Platform Admin 超管端延后至 v1.2；Open API 采用 API Key + 受限 Embed Token + `X-Caller-Id` 终端隔离；MCP stdio 命令白名单；操作审计日志与对话数据保留策略已纳入。
+
+**v1.0 产品形态：**
+
+| 端 | 状态 | 说明 |
+|----|------|------|
+| Studio 开发后台 | ✅ | Agent / 工作流 / 知识库 / 应用发布 / RBAC / 监控账单 |
+| Portal 用户前台 | ❌ | 终端用户通过 Embed 或 Open API；非独立 Portal 产品 |
+| Platform Admin 超管 | ⚠️ | 租户 CRUD、全局用量、审计（同 `novaflow-web`，非独立超管端） |
 
 | 模块 | 功能 |
 |------|------|
@@ -1168,8 +1194,28 @@ Dashboard 是用户登录后的默认首页，对应 UI 原型「工作台」页
 | 账单与用量 | 配额管理、费用明细、账单导出 |
 | 组织/权限 | 完整的组织管理和 RBAC |
 | 高级 RAG | Hybrid Search + Rerank |
+| Open API / Embed | `nf_live_` API Key、`nf_embed_` Token、`X-Caller-Id` 终端隔离 |
 | SSO | OAuth2/OIDC 集成（**延后至 v1.1**） |
+| Portal 用户前台 | 应用中心、业务用户对话入口（**延后至 v1.2**） |
+| Platform Admin 独立端 | 与 Studio 分域/分壳（**延后至 v1.2**） |
 | 私有化 | Docker Compose 一键部署 |
+
+### 8.3.1 v1.1 — 企业集成增强（规划）
+
+| 模块 | 功能 |
+|------|------|
+| SSO | OAuth2/OIDC 单点登录 |
+| 组织架构 | 部门树形结构 |
+| 成本分摊 | 按应用/工作空间/用户维度报表 |
+| 外部告警 | 邮件 / Webhook 通知通道 |
+
+### 8.3.2 v1.2 — 三端产品化（规划）
+
+| 模块 | 功能 |
+|------|------|
+| Portal 用户前台 | 已发布应用列表、权限过滤、统一对话入口、会话历史 |
+| Platform Admin 独立端 | 与 Studio 分离的超管控制台（租户、计费、全局监控、审计） |
+| Studio 分壳 | 开发后台与超管/Portal 路由或部署分离 |
 
 ### 8.4 v2.0 — 持续迭代
 

@@ -81,7 +81,7 @@
               <template #label>
                 <FormLabelTip label="名称" :tip="AGENT_FIELD_TIPS.agentName" />
               </template>
-              <a-input v-model:value="form.agentName" data-testid="agent-name-input" />
+              <a-input v-model:value="form.agentName" data-testid="agent-name-input" maxlength="128" :show-count="true" />
             </a-form-item>
             <a-form-item>
               <template #label>
