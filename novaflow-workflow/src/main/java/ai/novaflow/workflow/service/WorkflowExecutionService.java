@@ -76,6 +76,7 @@ public class WorkflowExecutionService {
         WorkflowRunOptions runOptions = options != null ? options : WorkflowRunOptions.builder().build();
         Long triggeredByUserId = runOptions.getTriggeredByUserId();
         Long tenantId = requireTenantId();
+        modelUsageService.checkMonthlyTokenQuota(tenantId);
         WorkflowEntity workflow = getWorkflowOrThrow(workflowId, tenantId);
         List<WorkflowNodeEntity> nodes = listNodes(workflowId, tenantId);
         List<WorkflowEdgeEntity> edges = listEdges(workflowId, tenantId);

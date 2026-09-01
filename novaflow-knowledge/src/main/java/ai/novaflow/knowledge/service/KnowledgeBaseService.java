@@ -11,6 +11,9 @@ import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.DocumentMapper;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
 import ai.novaflow.knowledge.storage.DocumentStorageService;
+import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.mapper.TenantMapper;
+import ai.novaflow.tenant.support.TenantQuotas;
 import ai.novaflow.user.service.RecentAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
@@ -30,6 +33,7 @@ public class KnowledgeBaseService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final DocumentMapper documentMapper;
     private final DocumentStorageService documentStorageService;
+    private final TenantMapper tenantMapper;
     private final RecentAccessService recentAccessService;
     private final AuditRecorder auditRecorder;
 
@@ -58,6 +62,7 @@ public class KnowledgeBaseService {
     public KnowledgeBaseVO create(KnowledgeBaseSaveRequest request) {
         Long tenantId = requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
+        assertKnowledgeQuota(tenantId);
         ensureNameUnique(tenantId, request.getKbName(), null);
 
         KnowledgeBaseEntity entity = new KnowledgeBaseEntity();
@@ -178,6 +183,16 @@ public class KnowledgeBaseService {
             throw new BusinessException("租户上下文缺失");
         }
         return tenantId;
+    }
+
+    private void assertKnowledgeQuota(Long tenantId) {
+        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        if (tenant == null) {
+            return;
+        }
+        long kbCount = knowledgeBaseMapper.selectCountByQuery(
+                QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0));
+        TenantQuotas.assertWithinLimit("知识库", kbCount, TenantQuotas.limit(tenant.getMaxKnowledge(), 100));
     }
 
     private KnowledgeBaseVO toVO(KnowledgeBaseEntity entity) {
