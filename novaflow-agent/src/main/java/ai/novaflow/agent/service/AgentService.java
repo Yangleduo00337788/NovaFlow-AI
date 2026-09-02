@@ -20,6 +20,9 @@ import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.agent.util.AgentExtraConfigUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
 import ai.novaflow.prompt.service.PromptTemplateService;
+import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.mapper.TenantMapper;
+import ai.novaflow.tenant.support.TenantQuotas;
 import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.workflow.entity.WorkflowEntity;
 import ai.novaflow.workflow.service.WorkflowService;
@@ -51,6 +54,7 @@ public class AgentService {
     private final AgentSkillMapper agentSkillMapper;
     private final ToolDefinitionService toolDefinitionService;
     private final PromptTemplateService promptTemplateService;
+    private final TenantMapper tenantMapper;
     private final RecentAccessService recentAccessService;
     private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
@@ -97,6 +101,7 @@ public class AgentService {
     public AgentVO create(AgentSaveRequest request) {
         Long tenantId = requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
+        assertAgentQuota(tenantId);
         if (request.getApplicationId() == null) {
             throw new BusinessException("请选择所属应用");
         }
@@ -316,6 +321,16 @@ public class AgentService {
             throw new BusinessException("租户上下文缺失");
         }
         return tenantId;
+    }
+
+    private void assertAgentQuota(Long tenantId) {
+        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        if (tenant == null) {
+            return;
+        }
+        long agentCount = agentMapper.selectCountByQuery(
+                QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0));
+        TenantQuotas.assertWithinLimit("Agent", agentCount, TenantQuotas.limit(tenant.getMaxAgents(), 100));
     }
 
     private AgentConfigEntity buildConfig(Long agentId, Long tenantId, AgentSaveRequest request) {

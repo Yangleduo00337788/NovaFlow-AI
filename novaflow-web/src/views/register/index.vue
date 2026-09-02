@@ -46,14 +46,36 @@
         <p class="subtitle">注册 NovaFlow AI，开始构建智能应用</p>
 
         <a-form layout="vertical" :model="form" @finish="onSubmit">
+          <a-form-item label="选择套餐" name="planType">
+            <div class="plan-picker">
+              <div
+                v-for="plan in planCards"
+                :key="plan.value"
+                class="plan-card"
+                :class="{ active: form.planType === plan.value }"
+                data-testid="register-plan-card"
+                @click="form.planType = plan.value"
+              >
+                <div class="plan-head">
+                  <component :is="plan.icon" class="plan-icon" />
+                  <strong>{{ plan.title }}</strong>
+                </div>
+                <span class="plan-desc">{{ plan.desc }}</span>
+                <ul class="plan-perks">
+                  <li v-for="perk in plan.perks" :key="perk">{{ perk }}</li>
+                </ul>
+              </div>
+            </div>
+          </a-form-item>
+
           <a-form-item
-            label="企业名称"
+            label="企业 / 个人名称"
             name="companyName"
-            :rules="[{ required: true, message: '请输入企业名称' }]"
+            :rules="[{ required: true, message: '请输入企业或个人名称' }]"
           >
             <a-input
               v-model:value="form.companyName"
-              placeholder="您的公司或团队名称"
+              placeholder="您的公司、团队或个人名称"
               data-testid="register-company"
             >
               <template #prefix>
@@ -157,6 +179,7 @@ import {
   BankOutlined,
   LockOutlined,
   MailOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { register } from '@/api/auth'
@@ -169,12 +192,30 @@ const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(false)
 const form = reactive({
+  planType: 'enterprise' as 'personal' | 'enterprise',
   companyName: '',
   email: '',
   nickname: '',
   password: '',
   confirmPassword: '',
 })
+
+const planCards = [
+  {
+    value: 'personal' as const,
+    icon: UserOutlined,
+    title: '个人版',
+    desc: '个人开发者与轻量使用',
+    perks: ['1 名成员', '3 个 Agent', '1 个知识库', '每月 2 万 Token'],
+  },
+  {
+    value: 'enterprise' as const,
+    icon: TeamOutlined,
+    title: '企业版（免费试用）',
+    desc: '团队协作与生产部署',
+    perks: ['10 名成员', '5 个 Agent', '3 个知识库', '每月 10 万 Token'],
+  },
+]
 
 const features = [
   {
@@ -208,8 +249,8 @@ async function onSubmit() {
   loading.value = true
   try {
     const res = await register(form)
-    auth.setAuth(res.data.data)
-    message.success('注册成功，欢迎加入 NovaFlow AI')
+    auth.setAuth(res.data.data, 'studio')
+    message.success(form.planType === 'personal' ? '注册成功，欢迎加入 NovaFlow AI（个人版）' : '注册成功，欢迎加入 NovaFlow AI')
     router.push('/dashboard')
   } catch (e) {
     message.error(e instanceof Error ? e.message : '注册失败')
@@ -353,6 +394,69 @@ async function onSubmit() {
 
 .field-icon {
   color: var(--text-muted);
+}
+
+.plan-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.plan-card {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plan-card:hover {
+  border-color: var(--primary);
+}
+
+.plan-card.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
+}
+
+.plan-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.plan-icon {
+  color: var(--primary);
+  font-size: 16px;
+}
+
+.plan-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.plan-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plan-perks li {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.plan-perks li::before {
+  content: '✓';
+  color: var(--primary);
+  margin-right: 6px;
 }
 
 .submit-btn {

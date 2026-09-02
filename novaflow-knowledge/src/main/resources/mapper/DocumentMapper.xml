@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ai.novaflow.knowledge.mapper.DocumentMapper">
+
+    <select id="sumFileSizeByTenant" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(file_size), 0)
+        FROM document
+        WHERE tenant_id = #{tenantId}
+          AND is_deleted = 0
+    </select>
+
+</mapper>

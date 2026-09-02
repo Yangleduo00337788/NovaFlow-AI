@@ -11,6 +11,9 @@ import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.DocumentMapper;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
 import ai.novaflow.knowledge.storage.DocumentStorageService;
+import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.mapper.TenantMapper;
+import ai.novaflow.tenant.support.TenantQuotas;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.mybatisflex.core.paginate.Page;
@@ -38,6 +41,7 @@ public class DocumentService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentStorageService documentStorageService;
+    private final TenantMapper tenantMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditRecorder auditRecorder;
 
@@ -78,6 +82,7 @@ public class DocumentService {
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         Long tenantId = knowledgeBase.getTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
+        assertStorageQuota(tenantId, file.getSize());
 
         String objectPath = documentStorageService.store(tenantId, knowledgeBaseId, originalFilename, file);
         String fileHash = computeHash(file);
@@ -172,6 +177,24 @@ public class DocumentService {
             throw new BusinessException("租户上下文缺失");
         }
         return tenantId;
+    }
+
+    private void assertStorageQuota(Long tenantId, long incomingBytes) {
+        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        if (tenant == null) {
+            return;
+        }
+        long limitMb = tenant.getMaxStorageMb() != null && tenant.getMaxStorageMb() > 0
+                ? tenant.getMaxStorageMb()
+                : 0;
+        if (limitMb <= 0) {
+            return;
+        }
+        Long used = documentMapper.sumFileSizeByTenant(tenantId);
+        TenantQuotas.assertStorageWithinLimit(
+                used != null ? used : 0L,
+                incomingBytes,
+                limitMb * 1024L * 1024L);
     }
 
     private int safeInt(Integer value) {

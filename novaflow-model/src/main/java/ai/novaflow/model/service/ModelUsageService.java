@@ -1,6 +1,7 @@
 package ai.novaflow.model.service;
 
 import ai.novaflow.common.event.TokenUsageRecordedEvent;
+import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.BillingCurrency;
 import ai.novaflow.model.domain.ModelPriceCatalog;
 import ai.novaflow.model.domain.ModelUsageAggregate;
@@ -14,6 +15,8 @@ import ai.novaflow.model.entity.TokenUsageEntity;
 import ai.novaflow.model.mapper.ModelConfigMapper;
 import ai.novaflow.model.mapper.ModelProviderMapper;
 import ai.novaflow.model.mapper.TokenUsageMapper;
+import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.mapper.TenantMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -25,6 +28,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +39,7 @@ public class ModelUsageService {
     private final TokenUsageMapper tokenUsageMapper;
     private final ModelConfigMapper modelConfigMapper;
     private final ModelProviderMapper modelProviderMapper;
+    private final TenantMapper tenantMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -72,6 +77,29 @@ public class ModelUsageService {
         entity.setCreatedAt(LocalDateTime.now());
         tokenUsageMapper.insert(entity);
         eventPublisher.publishEvent(new TokenUsageRecordedEvent(request.getTenantId()));
+    }
+
+    /**
+     * 对话/工作流执行前的月度 Token 配额硬校验：
+     * 已用 tokens 达到租户月度配额时抛业务异常，阻断本次模型调用。
+     * 配额未配置（<=0）视为不限制。
+     */
+    public void checkMonthlyTokenQuota(Long tenantId) {
+        if (tenantId == null) {
+            return;
+        }
+        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        if (tenant == null || tenant.getMonthlyTokenQuota() == null || tenant.getMonthlyTokenQuota() <= 0) {
+            return;
+        }
+        long quota = tenant.getMonthlyTokenQuota();
+        YearMonth current = YearMonth.now();
+        Long used = tokenUsageMapper.sumTokensBetween(tenantId, current.atDay(1), current.atEndOfMonth());
+        long usedTokens = used != null ? used : 0L;
+        if (usedTokens >= quota) {
+            throw new BusinessException(
+                    "本月 Token 配额已用尽（" + usedTokens + "/" + quota + "），请升级套餐或等待下月重置");
+        }
     }
 
     public ModelUsageStatsVO getUsageStats(Long tenantId) {

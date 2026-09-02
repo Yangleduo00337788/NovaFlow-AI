@@ -5,7 +5,6 @@
         <h1>平台超管</h1>
         <p>跨租户管理、套餐配置与全局用量概览</p>
       </div>
-      <a-button type="primary" @click="openCreate">新建租户</a-button>
     </div>
 
     <div class="stats-grid page-card" v-if="stats">
@@ -77,7 +76,7 @@
 
     <a-modal
       v-model:open="modalOpen"
-      :title="editingId ? '编辑租户' : '新建租户'"
+      title="编辑租户"
       :confirm-loading="saving"
       width="640px"
       @ok="saveTenant"
@@ -92,13 +91,6 @@
           <a-col :span="12">
             <a-form-item label="套餐">
               <a-select v-model:value="form.planType" :options="planOptions" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row v-if="!editingId" :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="管理员用户 ID" required>
-              <a-input-number v-model:value="form.adminUserId" style="width: 100%" :min="1" />
             </a-form-item>
           </a-col>
         </a-row>
@@ -122,7 +114,6 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
-  createPlatformTenant,
   deletePlatformTenant,
   fetchPlatformStats,
   fetchPlatformTenants,
@@ -144,8 +135,7 @@ const editingId = ref<number | null>(null)
 
 const form = reactive({
   tenantName: '',
-  planType: 'starter',
-  adminUserId: undefined as number | undefined,
+  planType: 'free',
   contactName: '',
   contactEmail: '',
   contactPhone: '',
@@ -157,6 +147,8 @@ const form = reactive({
 })
 
 const planOptions = [
+  { value: 'personal', label: '个人版' },
+  { value: 'free', label: '免费版' },
   { value: 'starter', label: '入门版' },
   { value: 'pro', label: '专业版' },
   { value: 'enterprise', label: '企业版' },
@@ -205,26 +197,6 @@ function onTableChange(pag: { current?: number; pageSize?: number }) {
   loadTenants()
 }
 
-function resetForm() {
-  form.tenantName = ''
-  form.planType = 'starter'
-  form.adminUserId = undefined
-  form.contactName = ''
-  form.contactEmail = ''
-  form.contactPhone = ''
-  form.maxMembers = 50
-  form.maxAgents = 20
-  form.maxKnowledge = 10
-  form.monthlyTokenQuota = 1000000
-  form.status = 1
-}
-
-function openCreate() {
-  editingId.value = null
-  resetForm()
-  modalOpen.value = true
-}
-
 function openEdit(record: PlatformTenant) {
   editingId.value = record.id
   form.tenantName = record.tenantName
@@ -247,17 +219,8 @@ async function saveTenant() {
   }
   saving.value = true
   try {
-    if (editingId.value) {
-      await updatePlatformTenant(editingId.value, { ...form })
-      message.success('租户已更新')
-    } else {
-      if (!form.adminUserId) {
-        message.warning('请填写管理员用户 ID')
-        return
-      }
-      await createPlatformTenant({ ...form })
-      message.success('租户已创建')
-    }
+    await updatePlatformTenant(editingId.value!, { ...form })
+    message.success('租户已更新')
     modalOpen.value = false
     await Promise.all([loadTenants(), loadStats()])
   } catch {

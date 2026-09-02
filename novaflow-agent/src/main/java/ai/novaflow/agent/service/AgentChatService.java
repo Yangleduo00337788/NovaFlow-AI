@@ -77,6 +77,7 @@ public class AgentChatService {
             Long userId,
             String conversationPrefix,
             String callerId) {
+        modelUsageService.checkMonthlyTokenQuota(tenantId);
         if ("workflow".equals(agent.getAgentType())) {
             return agentWorkflowChatService.chat(agent, request, tenantId, userId, conversationPrefix, callerId);
         }
@@ -121,6 +122,7 @@ public class AgentChatService {
             String conversationPrefix,
             String callerId,
             SseEmitter emitter) {
+        modelUsageService.checkMonthlyTokenQuota(tenantId);
         if ("workflow".equals(agent.getAgentType())) {
             agentWorkflowChatService.streamChat(agent, request, tenantId, userId, conversationPrefix, callerId, emitter);
             return;

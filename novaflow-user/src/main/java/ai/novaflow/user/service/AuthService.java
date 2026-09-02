@@ -4,6 +4,7 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.security.ratelimit.AuthRateLimiter;
 import ai.novaflow.security.ratelimit.LoginFailureLockService;
+import ai.novaflow.user.domain.LoginTerminal;
 import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
@@ -86,6 +87,11 @@ public class AuthService {
         TenantEntity tenant = tenantMapper.selectOneById(member.getTenantId());
         RoleEntity role = roleMapper.selectOneById(member.getRoleId());
 
+        LoginTerminal terminal = LoginTerminal.from(request.getTerminal());
+        if (terminal != null) {
+            terminal.validateRole(role);
+        }
+
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
         StpUtil.getSession().set("roleCode", role != null ? role.getRoleCode() : "user");
@@ -136,10 +142,13 @@ public class AuthService {
 
         LocalDateTime now = LocalDateTime.now();
 
+        boolean personal = "personal".equalsIgnoreCase(
+                request.getPlanType() != null ? request.getPlanType().trim() : "");
+
         TenantEntity tenant = new TenantEntity();
         tenant.setTenantCode(generateTenantCode(request.getCompanyName()));
         tenant.setTenantName(request.getCompanyName().trim());
-        tenant.setPlanType("free");
+        tenant.setPlanType(personal ? "personal" : "free");
         tenant.setStatus(1);
         tenant.setExpireAt(now.plusYears(1));
         TenantLimits.applyPlanDefaults(tenant);

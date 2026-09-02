@@ -252,6 +252,7 @@ public class BillingService {
             return "免费版";
         }
         return switch (planType.trim().toLowerCase(Locale.ROOT)) {
+            case "personal" -> "个人版";
             case "free" -> "免费版";
             case "pro" -> "专业版";
             case "enterprise" -> "企业版";

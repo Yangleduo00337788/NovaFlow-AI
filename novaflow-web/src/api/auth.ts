@@ -1,9 +1,11 @@
 import request from './request'
 import type { ApiResult } from '@/types/dashboard'
+import type { LoginTerminal } from '@/config/terminal'
 
 export interface LoginRequest {
   email: string
   password: string
+  terminal?: LoginTerminal
 }
 
 export interface RegisterRequest {
@@ -12,6 +14,8 @@ export interface RegisterRequest {
   confirmPassword: string
   nickname?: string
   companyName: string
+  /** personal（个人版）或 enterprise（企业版，注册即免费试用档），默认 enterprise */
+  planType?: 'personal' | 'enterprise'
 }
 
 export interface LoginResponse {
