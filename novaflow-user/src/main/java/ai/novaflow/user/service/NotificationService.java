@@ -3,6 +3,7 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.user.domain.vo.UserNotificationVO;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.user.entity.UserEntity;
@@ -166,7 +167,9 @@ public class NotificationService {
                         return false;
                     }
                     String code = role.getRoleCode();
-                    return "tenant_admin".equals(code) || "super_admin".equals(code);
+                    return RoleCodes.TENANT_OWNER.equals(code)
+                            || RoleCodes.TENANT_ADMIN.equals(code)
+                            || RoleCodes.PLATFORM_ADMIN.equals(code);
                 })
                 .map(TenantMemberEntity::getUserId)
                 .collect(Collectors.toSet());

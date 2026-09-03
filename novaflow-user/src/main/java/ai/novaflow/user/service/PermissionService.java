@@ -1,6 +1,7 @@
 package ai.novaflow.user.service;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.PermissionEntity;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.RolePermissionEntity;
@@ -91,7 +92,7 @@ public class PermissionService {
 
     public void requireSuperAdmin(long userId, Long tenantId) {
         RoleEntity role = resolveRole(userId, tenantId);
-        if (role == null || !"super_admin".equals(role.getRoleCode())) {
+        if (role == null || !RoleCodes.PLATFORM_ADMIN.equals(role.getRoleCode())) {
             throw new BusinessException("需要平台超级管理员权限");
         }
     }

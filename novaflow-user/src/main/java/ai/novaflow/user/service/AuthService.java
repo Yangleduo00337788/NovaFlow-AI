@@ -8,6 +8,7 @@ import ai.novaflow.security.session.SessionTenantIds;
 import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
@@ -142,13 +143,13 @@ public class AuthService {
             throw new BusinessException("该邮箱已被注册");
         }
 
-        RoleEntity adminRole = roleMapper.selectOneByQuery(
+        RoleEntity ownerRole = roleMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", 0)
-                        .eq("role_code", "tenant_admin")
+                        .eq("role_code", RoleCodes.TENANT_OWNER)
                         .eq("is_deleted", 0)
         );
-        if (adminRole == null) {
+        if (ownerRole == null) {
             throw new BusinessException("系统角色未初始化，请联系管理员");
         }
 
@@ -184,7 +185,7 @@ public class AuthService {
         TenantMemberEntity member = new TenantMemberEntity();
         member.setTenantId(tenant.getId());
         member.setUserId(user.getId());
-        member.setRoleId(adminRole.getId());
+        member.setRoleId(ownerRole.getId());
         member.setStatus(1);
         member.setIsDeleted(0);
         member.setJoinedAt(now);
@@ -204,7 +205,7 @@ public class AuthService {
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
-        StpUtil.getSession().set("roleCode", adminRole.getRoleCode());
+        StpUtil.getSession().set("roleCode", ownerRole.getRoleCode());
 
         user.setLastLoginAt(now);
         user.setLastLoginIp(httpRequest.getRemoteAddr());
@@ -220,7 +221,7 @@ public class AuthService {
                 tenant.getId(),
                 user.getId());
 
-        return buildLoginVO(user, tenant, adminRole);
+        return buildLoginVO(user, tenant, ownerRole);
     }
 
     public LoginVO currentUser() {

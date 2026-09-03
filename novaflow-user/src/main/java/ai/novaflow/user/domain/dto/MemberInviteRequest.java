@@ -15,7 +15,7 @@ public class MemberInviteRequest {
     private String nickname;
 
     @NotBlank(message = "角色不能为空")
-    @Pattern(regexp = "tenant_admin|developer|user", message = "角色编码无效")
+    @Pattern(regexp = "tenant_admin|developer|operator|member|viewer", message = "角色编码无效")
     private String roleCode;
 
     private String password;

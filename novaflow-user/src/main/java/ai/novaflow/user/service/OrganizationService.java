@@ -1,6 +1,7 @@
 package ai.novaflow.user.service;
 
 import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.util.PageQueryUtils;
@@ -50,7 +51,7 @@ import java.util.stream.Collectors;
 public class OrganizationService {
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).+$");
-    private static final Set<String> ASSIGNABLE_ROLE_CODES = Set.of("tenant_admin", "developer", "user");
+    private static final Set<String> ASSIGNABLE_ROLE_CODES = RoleCodes.ASSIGNABLE_TENANT_ROLES;
 
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
@@ -291,7 +292,7 @@ public class OrganizationService {
         TenantMemberEntity member = getMemberOrThrow(memberId, tenantId);
         UserEntity user = userMapper.selectOneById(member.getUserId());
         RoleEntity currentRole = permissionService.resolveRole(member.getUserId(), tenantId);
-        ensureNotPlatformAdminRole(currentRole);
+        ensureNotProtectedMemberRole(currentRole);
 
         if (request.getRoleCode() != null) {
             RoleEntity newRole = requireAssignableRole(request.getRoleCode());
@@ -299,9 +300,9 @@ public class OrganizationService {
                 throw new BusinessException("不能修改自己的角色");
             }
             if (currentRole != null
-                    && "tenant_admin".equals(currentRole.getRoleCode())
-                    && !"tenant_admin".equals(request.getRoleCode())) {
-                ensureAnotherTenantAdminExists(tenantId, member.getUserId());
+                    && isTenantGovernanceRole(currentRole.getRoleCode())
+                    && !isTenantGovernanceRole(request.getRoleCode())) {
+                ensureAnotherTenantGovernorExists(tenantId, member.getUserId());
             }
             member.setRoleId(newRole.getId());
             currentRole = newRole;
@@ -313,8 +314,8 @@ public class OrganizationService {
             }
             if (request.getStatus() != 1
                     && currentRole != null
-                    && "tenant_admin".equals(currentRole.getRoleCode())) {
-                ensureAnotherTenantAdminExists(tenantId, member.getUserId());
+                    && isTenantGovernanceRole(currentRole.getRoleCode())) {
+                ensureAnotherTenantGovernorExists(tenantId, member.getUserId());
             }
             member.setStatus(request.getStatus());
             if (user != null) {
@@ -360,9 +361,9 @@ public class OrganizationService {
             throw new BusinessException("不能移除自己");
         }
         RoleEntity role = permissionService.resolveRole(member.getUserId(), tenantId);
-        ensureNotPlatformAdminRole(role);
-        if (role != null && "tenant_admin".equals(role.getRoleCode())) {
-            ensureAnotherTenantAdminExists(tenantId, member.getUserId());
+        ensureNotProtectedMemberRole(role);
+        if (role != null && isTenantGovernanceRole(role.getRoleCode())) {
+            ensureAnotherTenantGovernorExists(tenantId, member.getUserId());
         }
 
         member.setIsDeleted(1);
@@ -376,19 +377,28 @@ public class OrganizationService {
                 "移除成员: " + (removedUser != null ? removedUser.getEmail() : member.getUserId()));
     }
 
-    private void ensureAnotherTenantAdminExists(Long tenantId, Long excludeUserId) {
-        RoleEntity adminRole = permissionService.requireSystemRole("tenant_admin");
+    private boolean isTenantGovernanceRole(String roleCode) {
+        return RoleCodes.TENANT_OWNER.equals(roleCode) || RoleCodes.TENANT_ADMIN.equals(roleCode);
+    }
+
+    private void ensureAnotherTenantGovernorExists(Long tenantId, Long excludeUserId) {
+        RoleEntity ownerRole = permissionService.requireSystemRole(RoleCodes.TENANT_OWNER);
+        RoleEntity adminRole = permissionService.requireSystemRole(RoleCodes.TENANT_ADMIN);
         long count = tenantMemberMapper.selectCountByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
-                        .eq("role_id", adminRole.getId())
+                        .in("role_id", List.of(ownerRole.getId(), adminRole.getId()))
                         .eq("status", 1)
                         .eq("is_deleted", 0)
                         .ne("user_id", excludeUserId)
         );
         if (count == 0) {
-            throw new BusinessException("企业至少保留一名管理员");
+            throw new BusinessException("企业至少保留一名 Owner 或管理员");
         }
+    }
+
+    private void ensureAnotherTenantAdminExists(Long tenantId, Long excludeUserId) {
+        ensureAnotherTenantGovernorExists(tenantId, excludeUserId);
     }
 
     private void ensureUserNotInOtherTenant(Long userId, Long currentTenantId) {
@@ -652,9 +662,9 @@ public class OrganizationService {
         return permissionService.requireSystemRole(roleCode);
     }
 
-    private void ensureNotPlatformAdminRole(RoleEntity role) {
-        if (role != null && "super_admin".equals(role.getRoleCode())) {
-            throw new BusinessException("不能对企业内的平台超级管理员进行该操作");
+    private void ensureNotProtectedMemberRole(RoleEntity role) {
+        if (role != null && RoleCodes.isProtectedMemberRole(role.getRoleCode())) {
+            throw new BusinessException("不能对企业内的受保护角色进行该操作");
         }
     }
 
