@@ -91,7 +91,7 @@
     >
       <a-form layout="vertical" :model="form">
         <a-form-item label="名称" required>
-          <a-input v-model:value="form.kbName" placeholder="产品手册知识库" data-testid="kb-name-input" maxlength="128" :show-count="true" />
+          <a-input v-model:value="form.kbName" placeholder="产品手册知识库" data-testid="kb-name-input" :maxlength="128" :show-count="true" />
         </a-form-item>
         <a-form-item label="描述">
           <a-textarea v-model:value="form.description" :rows="3" placeholder="简要说明知识库用途" />

@@ -4,7 +4,6 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.security.ratelimit.AuthRateLimiter;
 import ai.novaflow.security.ratelimit.LoginFailureLockService;
-import ai.novaflow.user.domain.LoginTerminal;
 import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
@@ -24,6 +23,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +50,9 @@ public class AuthService {
     private final AuthRateLimiter authRateLimiter;
     private final LoginFailureLockService loginFailureLockService;
     private final AuditLogService auditLogService;
+
+    @Value("${novaflow.auth.registration-enabled:true}")
+    private boolean registrationEnabled;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.getEmail();
@@ -83,14 +86,19 @@ public class AuthService {
         if (member == null) {
             throw new BusinessException("用户未加入任何企业");
         }
+        if (member.getStatus() == null || member.getStatus() != 1) {
+            throw new BusinessException("账号已被禁用");
+        }
 
         TenantEntity tenant = tenantMapper.selectOneById(member.getTenantId());
-        RoleEntity role = roleMapper.selectOneById(member.getRoleId());
-
-        LoginTerminal terminal = LoginTerminal.from(request.getTerminal());
-        if (terminal != null) {
-            terminal.validateRole(role);
+        if (tenant == null || Integer.valueOf(1).equals(tenant.getIsDeleted())
+                || tenant.getStatus() == null || tenant.getStatus() != 1) {
+            throw new BusinessException("企业已停用，请联系管理员");
         }
+        if (tenant.getExpireAt() != null && tenant.getExpireAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("企业已到期，请联系管理员续期");
+        }
+        RoleEntity role = roleMapper.selectOneById(member.getRoleId());
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
@@ -116,6 +124,9 @@ public class AuthService {
 
     @Transactional
     public LoginVO register(RegisterRequest request, HttpServletRequest httpRequest) {
+        if (!registrationEnabled) {
+            throw new BusinessException("当前环境未开放自助注册，请联系管理员邀请");
+        }
         String clientIp = httpRequest.getRemoteAddr();
         authRateLimiter.checkRegister(request.getEmail(), clientIp);
         if (!request.getPassword().equals(request.getConfirmPassword())) {

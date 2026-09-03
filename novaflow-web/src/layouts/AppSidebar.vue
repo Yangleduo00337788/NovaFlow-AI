@@ -10,7 +10,12 @@
     </div>
 
     <div class="menu-wrap">
-      <router-link to="/dashboard" class="menu-link menu-link-top" :class="{ active: route.path === '/dashboard' }">
+      <router-link
+        v-if="showDashboard"
+        to="/dashboard"
+        class="menu-link menu-link-top"
+        :class="{ active: route.path === '/dashboard' }"
+      >
         <DashboardOutlined class="menu-icon" />
         <span v-if="!collapsed" class="menu-text">工作台</span>
       </router-link>
@@ -22,7 +27,7 @@
           :key="item.key"
           :to="item.path"
           class="menu-link"
-          :class="{ active: route.path.startsWith(item.path) }"
+          :class="{ active: item.path === '/' ? route.path === '/' : route.path.startsWith(item.path) }"
         >
           <component :is="getMenuIcon(item.icon)" class="menu-icon" />
           <span v-if="!collapsed" class="menu-label">
@@ -95,6 +100,7 @@ import { useRoute } from 'vue-router'
 import { DashboardOutlined, CrownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import { fetchPlanSummary } from '@/api/org'
+import { canAccessRoute, isEndUser } from '@/config/access'
 import { filterMenuGroups } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
 import { useAuthStore } from '@/stores/auth'
@@ -106,7 +112,20 @@ const route = useRoute()
 const themeStore = useThemeStore()
 const auth = useAuthStore()
 
-const visibleMenuGroups = computed(() => filterMenuGroups(auth.hasAnyPermission))
+const routeAccess = computed(() => ({
+  roleCode: auth.roleCode,
+  hasAnyPermission: auth.hasAnyPermission.bind(auth),
+}))
+
+const visibleMenuGroups = computed(() => {
+  if (isEndUser(auth.roleCode)) {
+    return []
+  }
+  return filterMenuGroups(routeAccess.value)
+})
+const showDashboard = computed(
+  () => !isEndUser(auth.roleCode) && canAccessRoute('/dashboard', routeAccess.value),
+)
 
 const planInfo = reactive({
   planType: '企业版',

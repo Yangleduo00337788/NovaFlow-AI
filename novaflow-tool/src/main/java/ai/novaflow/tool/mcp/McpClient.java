@@ -1,6 +1,7 @@
 package ai.novaflow.tool.mcp;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.UrlSafetyValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -433,10 +434,7 @@ public class McpClient {
             throw new BusinessException("远程 MCP 配置缺少 url/endpoint 字段");
         }
         String endpoint = config.getEndpoint().trim();
-        String lower = endpoint.toLowerCase();
-        if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
-            throw new BusinessException("远程 MCP 地址必须使用 http/https 协议");
-        }
+        UrlSafetyValidator.validateHttpUrl(endpoint);
         return endpoint;
     }
 }

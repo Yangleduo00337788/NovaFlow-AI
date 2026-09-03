@@ -799,7 +799,7 @@ onMounted(loadData)
   height: 40px;
   border-radius: 10px;
   background: rgba(22, 119, 255, 0.1);
-  color: #1677ff;
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;

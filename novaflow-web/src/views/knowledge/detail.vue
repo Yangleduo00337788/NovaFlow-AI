@@ -217,7 +217,7 @@
     <a-drawer v-model:open="drawerOpen" title="编辑知识库" :width="560" @close="resetEditForm">
       <a-form layout="vertical" :model="editForm">
         <a-form-item label="名称" required>
-          <a-input v-model:value="editForm.kbName" :show-count="true" maxlength="128" />
+          <a-input v-model:value="editForm.kbName" :show-count="true" :maxlength="128" />
         </a-form-item>
         <a-form-item label="描述">
           <a-textarea v-model:value="editForm.description" :rows="3" />

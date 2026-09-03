@@ -3,8 +3,10 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.model.mapper.TokenUsageMapper;
 import ai.novaflow.tenant.entity.TenantEntity;
+import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.domain.dto.PlatformTenantUpdateRequest;
@@ -37,6 +39,8 @@ public class PlatformAdminService {
     private final AuditLogService auditLogService;
 
     public PageResult<PlatformTenantVO> pageTenants(int page, int pageSize, String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         requireSuperAdmin();
         QueryWrapper query = QueryWrapper.create().eq("is_deleted", 0);
         if (StringUtils.hasText(keyword)) {
@@ -70,6 +74,9 @@ public class PlatformAdminService {
         }
         if (request.getStatus() != null) {
             tenant.setStatus(request.getStatus());
+            if (request.getStatus() != 1) {
+                kickTenantSessions(tenant.getId());
+            }
         }
         if (request.getExpireAt() != null) {
             tenant.setExpireAt(request.getExpireAt());
@@ -111,6 +118,7 @@ public class PlatformAdminService {
         tenant.setStatus(0);
         tenant.setUpdatedAt(LocalDateTime.now());
         tenantMapper.update(tenant);
+        kickTenantSessions(tenant.getId());
 
         auditLogService.record(
                 "platform.tenant.delete",
@@ -188,6 +196,16 @@ public class PlatformAdminService {
 
     private void requireSuperAdmin() {
         permissionService.requireSuperAdmin(StpUtil.getLoginIdAsLong(), TenantContext.getTenantId());
+    }
+
+    private void kickTenantSessions(Long tenantId) {
+        List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
+                QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0));
+        for (TenantMemberEntity member : members) {
+            if (member.getUserId() != null) {
+                StpUtil.logout(member.getUserId());
+            }
+        }
     }
 
     private String normalizePlanType(String planType) {

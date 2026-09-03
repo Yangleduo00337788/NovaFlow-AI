@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test'
-import { login, uniqueName, confirmPopconfirm } from './helpers/auth'
+import { uniqueName, confirmPopconfirm } from './helpers/auth'
 
 test.describe('工作台', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('展示欢迎横幅与统计卡片', async ({ page }) => {
     await page.goto('/dashboard')
     await expect(page.locator('.dashboard')).toBeVisible()
@@ -14,8 +12,6 @@ test.describe('工作台', () => {
 })
 
 test.describe('应用管理', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('创建并删除应用', async ({ page }) => {
     const appName = uniqueName('E2E-App')
     await page.goto('/application')
@@ -36,8 +32,6 @@ test.describe('应用管理', () => {
 })
 
 test.describe('Prompt 管理', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('创建并删除 Prompt 模板', async ({ page }) => {
     const templateName = uniqueName('E2E-Prompt')
     await page.goto('/prompt')
@@ -58,8 +52,6 @@ test.describe('Prompt 管理', () => {
 })
 
 test.describe('工作流 Studio', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('创建工作流并进入编辑器', async ({ page }) => {
     const workflowName = uniqueName('E2E-WF')
     await page.goto('/workflow')
@@ -81,8 +73,6 @@ test.describe('工作流 Studio', () => {
 })
 
 test.describe('知识库 Hub', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('创建知识库并进入详情', async ({ page }) => {
     const kbName = uniqueName('E2E-KB')
     await page.goto('/knowledge')
@@ -115,8 +105,6 @@ test.describe('知识库 Hub', () => {
 })
 
 test.describe('工具市场', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('Skill 与 MCP 两个 Tab 可切换', async ({ page }) => {
     await page.goto('/tool')
     await expect(page.getByTestId('tool-page')).toBeVisible()
@@ -130,8 +118,6 @@ test.describe('工具市场', () => {
 })
 
 test.describe('模型中心', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('三个 Tab 可切换', async ({ page }) => {
     await page.goto('/model')
     await expect(page.locator('.model-page')).toBeVisible()
@@ -146,8 +132,6 @@ test.describe('模型中心', () => {
 })
 
 test.describe('运行监控与日志', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('监控页展示服务状态', async ({ page }) => {
     await page.goto('/monitor')
     await expect(page.getByTestId('monitor-page')).toBeVisible()
@@ -171,8 +155,6 @@ test.describe('运行监控与日志', () => {
 })
 
 test.describe('组织与权限', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   test('组织管理页展示租户信息', async ({ page }) => {
     await page.goto('/org')
     await expect(page.getByTestId('org-page')).toBeVisible()
@@ -183,6 +165,8 @@ test.describe('组织与权限', () => {
     await page.goto('/permission')
     await expect(page.getByTestId('permission-page')).toBeVisible()
     await expect(page.getByText('系统角色', { exact: true })).toBeVisible()
+    await expect(page.getByText('超级管理员')).toBeVisible()
+    await expect(page.getByText('企业管理员')).toBeVisible()
   })
 
   test('账单页可加载', async ({ page }) => {

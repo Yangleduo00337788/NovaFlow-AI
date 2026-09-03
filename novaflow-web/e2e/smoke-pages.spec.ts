@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test'
-import { login } from './helpers/auth'
 
 const tenantPages: Array<{ path: string; selector: string }> = [
   { path: '/dashboard', selector: '.dashboard' },
@@ -18,6 +17,7 @@ const tenantPages: Array<{ path: string; selector: string }> = [
   { path: '/permission', selector: '[data-testid="permission-page"]' },
   { path: '/settings', selector: '.settings-page' },
   { path: '/billing', selector: '[data-testid="billing-page"]' },
+  { path: '/audit', selector: '.audit-page' },
   { path: '/about', selector: '.about-page' },
 ]
 
@@ -28,7 +28,6 @@ const platformPages: Array<{ path: string; selector: string }> = [
 
 test.describe('全站页面冒烟', () => {
   test('租户侧全部页面可加载', async ({ page }) => {
-    await login(page)
     for (const { path: pagePath, selector } of tenantPages) {
       await page.goto(pagePath)
       await expect(page.locator(selector), `page ${pagePath} should render`).toBeVisible({ timeout: 15000 })
@@ -36,7 +35,6 @@ test.describe('全站页面冒烟', () => {
   })
 
   test('平台超管页面可加载', async ({ page }) => {
-    await login(page)
     for (const { path: pagePath, selector } of platformPages) {
       await page.goto(pagePath)
       await expect(page.locator(selector), `page ${pagePath} should render`).toBeVisible({ timeout: 15000 })
@@ -45,6 +43,8 @@ test.describe('全站页面冒烟', () => {
 })
 
 test.describe('注册页', () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
   test('注册页可加载', async ({ page }) => {
     await page.goto('/register')
     await expect(page.getByTestId('register-card')).toBeVisible()

@@ -6,7 +6,7 @@
 
 <br/>
 
-**企业级 AI Agent 开发中台（Studio）**
+**企业级 AI Agent 平台**
 
 *Build Intelligent Agents Faster — 让企业快速构建下一代 AI 应用*
 
@@ -39,21 +39,20 @@
 
 </div>
 
-### v1.0 产品形态（三端规划）
+### 产品形态（一套登录 · 按角色出功能）
 
-NovaFlow 面向 **Studio 开发后台 · 用户前台 Portal · Platform Admin 超管** 三端架构演进。v1.0 交付的是 **开发中台 + 对外集成能力**，而非完整的终端用户门户。
+NovaFlow 是 **单一 Web 应用**（`http://localhost:3000`），**一套登录**。账号角色决定默认首页与可见功能，而不是三套独立前端：
 
-| 端 | 面向角色 | v1.0 状态 | 说明 |
-|------|----------|-----------|------|
-| **Studio 开发后台** | 开发者、企业管理员 | ✅ 已交付 | 当前 `novaflow-web` 主体：Agent / 工作流 / 知识库 / 应用发布 / 组织权限 / 监控账单等 |
-| **Portal 用户前台** | 业务用户、终端员工 | ❌ 未纳入 | 独立应用中心与对话入口规划 **v1.2**；v1.0 终端用户通过 **Embed 嵌入页** 或 **Open API** 接入 |
-| **Platform Admin 超管** | 平台运营方 | ⚠️ 部分交付 | `/platform`、`/audit` 已可用，但仍与 Studio **同站同壳**；独立超管端规划 **v1.2** |
+| 功能区 | 路由 | 主要角色 | 说明 |
+|--------|------|----------|------|
+| **总控** | `/platform`、`/audit` | 平台超管 `super_admin` | 租户管理、审计日志 |
+| **工作台 / Studio** | `/dashboard`、Agent / 工作流 / 知识库等 | 企业管理员 `tenant_admin`、开发者 `developer` | AI 应用开发与企业治理 |
+| **应用门户** | `/portal`、`/portal/apps/:id` | 业务用户 `user` | 使用已发布应用；管理员/开发者可预览 |
 
-**v1.0 终端用户接入方式：**
+**对外接入（不经过控制台登录）：**
 
 - **网页嵌入**：`/embed/agents/{id}` + `nf_embed_` Token + `X-Caller-Id`
 - **服务端集成**：Open API + `nf_live_` API Key
-- **Studio 内调试**：Agent Studio 调试面板（面向开发者，非业务用户产品形态）
 
 ### v1.0 范围说明
 
@@ -70,18 +69,18 @@ NovaFlow 面向 **Studio 开发后台 · 用户前台 Portal · Platform Admin �
 
 | 版本 | 规划能力 |
 |------|----------|
-| **v1.1** | SSO（OAuth2/OIDC）、部门组织架构、成本分摊报表、外部告警通道（邮件/Webhook） |
-| **v1.2** | 独立 **Portal 用户前台**（应用中心、对话入口）、独立 **Platform Admin 超管端**（与 Studio 分域/分壳） |
+| **v1.1** | **用户端 Portal** 能力完善、部门组织架构、成本分摊、外部告警 |
+| **v1.2** | SSO（OAuth2/OIDC，需 IdP 环境） |
 
 ---
 
 ## 📖 项目简介
 
-NovaFlow AI 是面向 **Java 企业技术栈** 的企业级 AI Agent **开发中台**。v1.0 提供 Studio 开发后台与 Open API / Embed 对外交付能力；独立用户前台（Portal）与独立超管端（Platform Admin）规划于 v1.2。采用**模块化单体**架构，提供 Agent 编排、工作流引擎、知识库 RAG、工具市场（MCP）、多租户 RBAC、全链路可观测等能力，支持私有化部署与 SaaS 多租户场景。
+NovaFlow AI 是面向 **Java 企业技术栈** 的企业级 AI Agent 平台。一套控制台、一套登录，按账号角色开放总控、Studio 开发或应用门户；另提供 Open API / Embed 对外集成。采用**模块化单体**架构，提供 Agent 编排、工作流引擎、知识库 RAG、工具市场（MCP）、多租户 RBAC、全链路可观测等能力，支持私有化部署与 SaaS 多租户场景。
 
 | 维度 | 说明 |
 |------|------|
-| **定位** | 企业级 AI Agent 开发中台（v1.0）；三端完整产品形态目标 v1.2 |
+| **定位** | 企业级 AI Agent 平台；单应用 + RBAC 功能分区 |
 | **架构** | Modular Monolith（模块化单体，可按域拆分微服务） |
 | **后端** | Java 21 + Spring Boot 3 + MyBatis-Flex |
 | **前端** | Vue 3 + TypeScript + Vite + Ant Design Vue |
@@ -367,10 +366,10 @@ java -jar novaflow-server/target/novaflow-server-1.0.1.jar
 ```bash
 cd novaflow-web
 npm install
-npm run dev
+npm run dev     # http://localhost:3000 （需后端 8080 已运行）
 ```
 
-前端控制台：http://localhost:3000
+构建：`npm run build` → 产出 `novaflow-web/dist`。
 
 **演示账号**（首次启动自动初始化）：
 
@@ -403,7 +402,9 @@ cp deploy/.env.prod.example .env
 | `REDIS_PASSWORD` | Redis 密码 |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | MinIO 凭证 |
 | `NOVAFLOW_CRYPTO_KEY` | 模型 API Key 加密密钥（强随机，≥32 字符） |
-| `CORS_ALLOWED_ORIGIN` | 前端访问域名，如 `https://ai.example.com` |
+| `CORS_ALLOWED_ORIGIN` | 前端 Origin（生产必填真实域名，禁止默认 localhost） |
+| `NOVAFLOW_CORS_ALLOW_LOCALHOST` | 仅本机 prod 冒烟允许 localhost CORS，默认 false |
+| `WEB_PORT` | Web 映射端口（默认 3000） |
 
 ### 2️⃣ 构建并启动
 
@@ -462,7 +463,7 @@ export NOVAFLOW_CRYPTO_KEY=your-strong-key
 mvn -pl novaflow-server -am package -DskipTests
 java -jar novaflow-server/target/novaflow-server-1.0.1.jar
 
-# 前端构建后由 Nginx 托管 dist/
+# 前端构建后由 Nginx 托管 dist
 cd novaflow-web && npm ci && npm run build
 ```
 

@@ -4,6 +4,7 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.knowledge.domain.dto.KnowledgeBaseSaveRequest;
 import ai.novaflow.knowledge.domain.vo.KnowledgeBaseVO;
 import ai.novaflow.knowledge.entity.DocumentEntity;
@@ -38,6 +39,8 @@ public class KnowledgeBaseService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<KnowledgeBaseVO> page(int page, int pageSize, String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
@@ -186,7 +189,8 @@ public class KnowledgeBaseService {
     }
 
     private void assertKnowledgeQuota(Long tenantId) {
-        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        TenantEntity tenant = tenantMapper.selectOneByQuery(
+                QueryWrapper.create().eq("id", tenantId).forUpdate());
         if (tenant == null) {
             return;
         }

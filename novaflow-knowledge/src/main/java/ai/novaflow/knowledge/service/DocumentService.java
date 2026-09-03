@@ -4,6 +4,7 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.knowledge.domain.DocumentTypeSupport;
 import ai.novaflow.knowledge.domain.vo.DocumentVO;
 import ai.novaflow.knowledge.entity.DocumentEntity;
@@ -46,6 +47,8 @@ public class DocumentService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<DocumentVO> page(Long knowledgeBaseId, int page, int pageSize, String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         QueryWrapper query = QueryWrapper.create()
                 .eq("knowledge_base_id", knowledgeBaseId)

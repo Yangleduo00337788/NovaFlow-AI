@@ -5,7 +5,7 @@
         <h1>Agent Studio</h1>
         <p>创建和管理 AI Agent</p>
       </div>
-      <a-button type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
+      <a-button v-if="canCreate" type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
     </div>
 
     <div class="list-panel page-card">
@@ -49,16 +49,16 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
-              <a-button type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
-              <a-button type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
+              <a-button v-if="canEdit" type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
+              <a-button v-if="canDebug" type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
               <a-button
-                v-if="record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool' || record.agentType === 'workflow'"
+                v-if="canPublish && (record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool' || record.agentType === 'workflow')"
                 type="link"
                 @click="openPublish(record.id)"
               >
                 {{ record.status === 1 ? '发布管理' : '发布' }}
               </a-button>
-              <a-popconfirm title="确认删除？" @confirm="onDelete(record.id)">
+              <a-popconfirm v-if="canDelete" title="确认删除？" @confirm="onDelete(record.id)">
                 <a-button type="link" danger>删除</a-button>
               </a-popconfirm>
             </a-space>
@@ -81,7 +81,7 @@
               <template #label>
                 <FormLabelTip label="名称" :tip="AGENT_FIELD_TIPS.agentName" />
               </template>
-              <a-input v-model:value="form.agentName" data-testid="agent-name-input" maxlength="128" :show-count="true" />
+              <a-input v-model:value="form.agentName" data-testid="agent-name-input" :maxlength="128" :show-count="true" />
             </a-form-item>
             <a-form-item>
               <template #label>
@@ -459,7 +459,7 @@
 
         <div class="publish-actions">
           <a-button
-            v-if="publishInfo.status !== 1"
+            v-if="canPublish && publishInfo.status !== 1"
             type="primary"
             :loading="publishLoading"
             @click="onPublish"
@@ -520,6 +520,7 @@ import { fetchPromptOptions, type PromptTemplate } from '@/api/prompt'
 import { fetchApplicationOptions, type ApplicationItem } from '@/api/application'
 import { fetchWorkflowOptions } from '@/api/workflow'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
 const AGENT_FIELD_TIPS = {
   agentName: 'Agent 的显示名称，会出现在列表、调试对话和对外 API 的标识中。',
@@ -549,6 +550,12 @@ const AGENT_FIELD_TIPS = {
 } as const
 
 const route = useRoute()
+const auth = useAuthStore()
+const canCreate = computed(() => auth.hasPermission('agent:create'))
+const canEdit = computed(() => auth.hasPermission('agent:edit'))
+const canDelete = computed(() => auth.hasPermission('agent:delete'))
+const canPublish = computed(() => auth.hasPermission('agent:publish'))
+const canDebug = computed(() => auth.hasPermission('agent:edit', 'agent:chat'))
 
 const loading = ref(false)
 const saving = ref(false)

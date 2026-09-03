@@ -1,6 +1,8 @@
 import { aboutNavItems, getAboutPageMeta } from '@/views/about/about-config'
+import { canAccessRoute, type RouteAccessContext } from '@/config/access'
 
-export interface MenuItem {  key: string
+export interface MenuItem {
+  key: string
   label: string
   path: string
   icon: string
@@ -23,7 +25,7 @@ export const menuGroups: MenuGroup[] = [
   {
     title: 'AI 开发',
     items: [
-      { key: 'agent', label: 'Agent Studio', path: '/agent', icon: 'robot', permissions: ['agent:create', 'agent:edit', 'agent:chat'] },
+      { key: 'agent', label: 'Agent Studio', path: '/agent', icon: 'robot', permissions: ['agent:create', 'agent:edit'] },
       { key: 'workflow', label: '工作流 Studio', path: '/workflow', icon: 'workflow', permissions: ['workflow:create', 'workflow:edit'] },
       { key: 'knowledge', label: '知识库 Hub', path: '/knowledge', icon: 'knowledge', permissions: ['knowledge:create', 'knowledge:upload'] },
       { key: 'model', label: '模型中心', path: '/model', icon: 'model', permissions: ['model:config'] },
@@ -34,6 +36,7 @@ export const menuGroups: MenuGroup[] = [
   {
     title: '运行与监控',
     items: [
+      { key: 'portal', label: '应用门户', path: '/portal', icon: 'application', permissions: ['portal:access'] },
       { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:manage'] },
       { key: 'monitor', label: '运行监控', path: '/monitor', icon: 'monitor', permissions: ['monitor:view'] },
       { key: 'log', label: '调用日志', path: '/log', icon: 'log', permissions: ['monitor:view', 'billing:view'] },
@@ -48,15 +51,20 @@ export const menuGroups: MenuGroup[] = [
       { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage'] },
       { key: 'settings', label: '系统设置', path: '/settings', icon: 'settings', permissions: ['tenant:manage'] },
       { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing', permissions: ['billing:view', 'billing:manage'] },
-      { key: 'platform', label: '平台超管', path: '/platform', icon: 'settings', permissions: ['platform:manage'] },
-      { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view', 'platform:manage'] },
+      { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view'] },
+    ],
+  },
+  {
+    title: '平台治理',
+    items: [
+      { key: 'platform', label: '租户管理', path: '/platform', icon: 'platform', permissions: ['platform:manage'] },
     ],
   },
 ]
 
 const routePermissionMap: Record<string, string[]> = {
-  '/dashboard': [],
-  '/agent': ['agent:create', 'agent:edit', 'agent:chat'],
+  '/dashboard': ['agent:create', 'agent:edit', 'monitor:view', 'application:manage', 'tenant:manage'],
+  '/agent': ['agent:create', 'agent:edit'],
   '/workflow': ['workflow:create', 'workflow:edit'],
   '/knowledge': ['knowledge:create', 'knowledge:upload'],
   '/model': ['model:config'],
@@ -72,22 +80,24 @@ const routePermissionMap: Record<string, string[]> = {
   '/settings': ['tenant:manage'],
   '/billing': ['billing:view', 'billing:manage'],
   '/platform': ['platform:manage'],
-  '/audit': ['audit:view', 'platform:manage'],
+  '/audit': ['audit:view'],
+  '/portal': ['portal:access'],
   '/about': [],
 }
 
-export function filterMenuGroups(hasAnyPermission: (codes?: string[]) => boolean): MenuGroup[] {
+/** 按权限码过滤菜单；有权限的入口全部展示，不按路径切换菜单集 */
+export function filterMenuGroups(ctx: RouteAccessContext): MenuGroup[] {
   return menuGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => hasAnyPermission(item.permissions)),
+      items: group.items.filter((item) => canAccessRoute(item.path, ctx)),
     }))
     .filter((group) => group.items.length > 0)
 }
 
 export function getRoutePermissions(path: string): string[] | undefined {
   const matched = Object.keys(routePermissionMap)
-    .filter((route) => path === route || path.startsWith(`${route}/`))
+    .filter((route) => path === route || (route !== '/' && path.startsWith(`${route}/`)))
     .sort((a, b) => b.length - a.length)[0]
   return matched ? routePermissionMap[matched] : undefined
 }

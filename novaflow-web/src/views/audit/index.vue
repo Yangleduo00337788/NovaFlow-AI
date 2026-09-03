@@ -53,6 +53,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import type { Dayjs } from 'dayjs'
+import { message } from 'ant-design-vue'
 import { fetchAuditLogs, type AuditLogItem } from '@/api/audit'
 import { formatDateTime } from '@/utils/datetime'
 
@@ -101,6 +102,8 @@ async function loadLogs() {
     })
     logs.value = res.data.data.list
     total.value = res.data.data.total
+  } catch {
+    message.error('加载审计日志失败')
   } finally {
     loading.value = false
   }

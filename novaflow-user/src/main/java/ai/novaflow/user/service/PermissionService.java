@@ -68,6 +68,7 @@ public class PermissionService {
                 QueryWrapper.create()
                         .eq("user_id", userId)
                         .eq("tenant_id", tenantId)
+                        .eq("status", 1)
                         .eq("is_deleted", 0)
                         .limit(1)
         );
@@ -81,19 +82,11 @@ public class PermissionService {
         if (permissionCodes == null || permissionCodes.length == 0) {
             return;
         }
-        RoleEntity role = resolveRole(userId, tenantId);
-        if (role != null && isAdminRole(role.getRoleCode())) {
-            return;
-        }
         List<String> granted = getPermissionCodes(userId, tenantId);
         boolean matched = Arrays.stream(permissionCodes).anyMatch(granted::contains);
         if (!matched) {
             throw new BusinessException("无操作权限");
         }
-    }
-
-    public boolean isAdminRole(String roleCode) {
-        return "tenant_admin".equals(roleCode) || "super_admin".equals(roleCode);
     }
 
     public void requireSuperAdmin(long userId, Long tenantId) {

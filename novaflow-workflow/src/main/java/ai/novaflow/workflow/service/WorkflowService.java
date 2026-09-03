@@ -6,6 +6,7 @@ import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.workflow.domain.WorkflowNodeType;
 import ai.novaflow.workflow.domain.WorkflowStatus;
 import ai.novaflow.workflow.domain.dto.WorkflowSaveRequest;
@@ -53,6 +54,8 @@ public class WorkflowService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<WorkflowVO> page(int page, int pageSize, String keyword, Long applicationId) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)

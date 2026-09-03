@@ -3,6 +3,7 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.user.domain.dto.MemberInviteRequest;
 import ai.novaflow.user.domain.dto.MemberUpdateRequest;
 import ai.novaflow.user.domain.dto.TenantUpdateRequest;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
 public class OrganizationService {
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).+$");
+    private static final Set<String> ASSIGNABLE_ROLE_CODES = Set.of("tenant_admin", "developer", "user");
 
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
@@ -171,6 +174,8 @@ public class OrganizationService {
     }
 
     public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         requireMemberManagePermission();
 
@@ -211,7 +216,7 @@ public class OrganizationService {
             throw new BusinessException("成员数已达上限（" + maxMembers + "）");
         }
 
-        RoleEntity role = permissionService.requireSystemRole(request.getRoleCode());
+        RoleEntity role = requireAssignableRole(request.getRoleCode());
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         UserEntity user = userMapper.selectOneByQuery(
                 QueryWrapper.create().eq("email", email).eq("is_deleted", 0)
@@ -276,7 +281,7 @@ public class OrganizationService {
         RoleEntity currentRole = permissionService.resolveRole(member.getUserId(), tenantId);
 
         if (request.getRoleCode() != null) {
-            RoleEntity newRole = permissionService.requireSystemRole(request.getRoleCode());
+            RoleEntity newRole = requireAssignableRole(request.getRoleCode());
             if (member.getUserId() == currentUserId && !request.getRoleCode().equals(currentRole.getRoleCode())) {
                 throw new BusinessException("不能修改自己的角色");
             }
@@ -303,6 +308,9 @@ public class OrganizationService {
                 user.setStatus(request.getStatus());
                 user.setUpdatedAt(LocalDateTime.now());
                 userMapper.update(user);
+            }
+            if (request.getStatus() != 1) {
+                StpUtil.logout(member.getUserId());
             }
         }
 
@@ -573,6 +581,13 @@ public class OrganizationService {
                 requireTenantId(),
                 "tenant:manage"
         );
+    }
+
+    private RoleEntity requireAssignableRole(String roleCode) {
+        if (roleCode == null || !ASSIGNABLE_ROLE_CODES.contains(roleCode)) {
+            throw new BusinessException("不能分配该角色");
+        }
+        return permissionService.requireSystemRole(roleCode);
     }
 
     private void requireMemberManagePermission() {

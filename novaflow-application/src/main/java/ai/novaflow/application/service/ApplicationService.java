@@ -10,6 +10,7 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
 import ai.novaflow.application.entity.ApplicationEntity;
@@ -47,6 +48,8 @@ public class ApplicationService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<ApplicationVO> page(int page, int pageSize, String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
@@ -340,7 +343,8 @@ public class ApplicationService {
             Long agentId = entity.getDefaultAgentId();
             builder.chatEndpoint("/api/v1/open/agents/" + agentId + "/chat")
                     .streamEndpoint("/api/v1/open/agents/" + agentId + "/chat/stream")
-                    .embedPath("/embed/agents/" + agentId);
+                    .embedPath("/embed/agents/" + agentId)
+                    .portalPath(PortalService.buildPortalPath(entity.getId()));
         }
         return builder.build();
     }

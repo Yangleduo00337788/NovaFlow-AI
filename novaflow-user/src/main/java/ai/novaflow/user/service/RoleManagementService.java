@@ -41,7 +41,7 @@ public class RoleManagementService {
                 QueryWrapper.create()
                         .eq("tenant_id", 0)
                         .eq("is_deleted", 0)
-                        .in("role_code", List.of("tenant_admin", "developer", "user"))
+                        .in("role_code", List.of("super_admin", "tenant_admin", "developer", "user"))
                         .orderBy("id", true)
         );
         Map<Long, Long> memberCountMap = countMembersByRole(tenantId);
@@ -154,10 +154,10 @@ public class RoleManagementService {
 
     private String resolveRoleDescription(String roleCode) {
         return switch (roleCode) {
-            case "tenant_admin" -> "管理企业一切资源、成员与权限";
+            case "tenant_admin" -> "管理本企业资源、成员与权限，不含跨租户总控";
             case "developer" -> "创建和编辑 Agent、工作流、知识库等 AI 资源";
             case "user" -> "仅使用已发布的 AI 应用";
-            case "super_admin" -> "平台级超级管理员";
+            case "super_admin" -> "平台级超级管理员，含企业管理员全部权限，并管理所有租户";
             default -> "";
         };
     }

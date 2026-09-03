@@ -92,7 +92,7 @@
         <a-row :gutter="16">
           <a-col :span="14">
             <a-form-item label="应用名称" required>
-              <a-input v-model:value="form.appName" placeholder="智能客服" data-testid="app-name-input" maxlength="128" :show-count="true" />
+              <a-input v-model:value="form.appName" placeholder="智能客服" data-testid="app-name-input" :maxlength="128" :show-count="true" />
             </a-form-item>
           </a-col>
           <a-col :span="10">
@@ -155,6 +155,9 @@
           </a-descriptions-item>
           <a-descriptions-item v-if="publishInfo?.embedPath" label="嵌入路径">
             {{ publishInfo.embedPath }}
+          </a-descriptions-item>
+          <a-descriptions-item v-if="publishInfo?.portalPath" label="应用门户">
+            <router-link :to="publishInfo.portalPath">{{ publishInfo.portalPath }}</router-link>
           </a-descriptions-item>
         </a-descriptions>
         <div class="publish-actions">

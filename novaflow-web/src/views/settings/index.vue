@@ -117,7 +117,7 @@ const settingGroups = [
 
 .setting-icon {
   font-size: 20px;
-  color: #1677ff;
+  color: var(--primary);
   flex-shrink: 0;
 }
 

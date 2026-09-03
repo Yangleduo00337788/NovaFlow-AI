@@ -46,7 +46,7 @@ public class AgentController {
     private final AgentPublishService agentPublishService;
     private final ConversationService conversationService;
 
-    @SaCheckPermission(value = {"agent:create", "agent:edit", "agent:chat"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:create", "agent:edit"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<AgentVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -56,7 +56,7 @@ public class AgentController {
         return ApiResult.ok(agentService.page(page, pageSize, keyword, agentType));
     }
 
-    @SaCheckPermission(value = {"agent:create", "agent:edit", "agent:chat"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:create", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<AgentVO> detail(@PathVariable Long id) {
         return ApiResult.ok(agentService.detail(id));
@@ -111,13 +111,13 @@ public class AgentController {
         return ApiResult.ok(agentPublishService.rotateEmbedToken(id));
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/welcome")
     public ApiResult<AgentDebugChatVO> debugWelcome(@PathVariable Long id) {
         return ApiResult.ok(agentDebugService.welcome(id));
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @PostMapping("/{id}/debug/chat")
     public ApiResult<AgentDebugChatVO> debugChat(
             @PathVariable Long id,
@@ -125,7 +125,7 @@ public class AgentController {
         return ApiResult.ok(agentDebugService.chat(id, request));
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @PostMapping("/{id}/debug/attachments")
     public ApiResult<DebugAttachmentVO> uploadDebugAttachment(
             @PathVariable Long id,
@@ -134,7 +134,7 @@ public class AgentController {
         return ApiResult.ok(agentDebugAttachmentService.parse(file));
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @PostMapping(value = "/{id}/debug/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter debugChatStream(
             @PathVariable Long id,
@@ -142,30 +142,33 @@ public class AgentController {
         return agentDebugService.streamChat(id, request);
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @DeleteMapping("/{id}/debug/conversation")
     public ApiResult<Void> clearDebugConversation(
             @PathVariable Long id,
             @RequestParam String conversationId) {
+        agentService.getAgentEntityOrThrow(id);
         agentDebugService.clearConversation(id, conversationId);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations")
     public ApiResult<PageResult<ConversationVO>> listDebugConversations(
             @PathVariable Long id,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
+        agentService.getAgentEntityOrThrow(id);
         return ApiResult.ok(conversationService.pageConversations(
                 id, TenantContext.getTenantId(), "debug", null, page, pageSize));
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations/messages")
     public ApiResult<List<ConversationMessageVO>> listDebugConversationMessages(
             @PathVariable Long id,
             @RequestParam String conversationKey) {
+        agentService.getAgentEntityOrThrow(id);
         return ApiResult.ok(conversationService.listMessages(
                 id, TenantContext.getTenantId(), conversationKey));
     }

@@ -36,7 +36,10 @@
               <h3>{{ selectedRole.roleName }}</h3>
               <p>{{ selectedRole.description }}</p>
             </div>
-            <a-tag color="blue">系统内置角色（只读）</a-tag>
+            <div class="detail-tags">
+              <a-tag color="blue">系统内置角色（只读）</a-tag>
+              <a-tag v-if="selectedRole.roleCode === 'super_admin'" color="purple">不可在组织内分配</a-tag>
+            </div>
           </div>
 
           <a-tabs v-model:activeKey="activeTab" class="detail-tabs">
@@ -260,6 +263,13 @@ onMounted(() => {
   margin-bottom: 4px;
 }
 
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .detail-header h3 {
   margin: 0 0 4px;
   font-size: 16px;
@@ -313,7 +323,7 @@ onMounted(() => {
 
 .perm-check {
   font-size: 11px;
-  color: #1677ff;
+  color: var(--primary);
 }
 
 .member-cell {

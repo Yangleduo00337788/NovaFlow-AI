@@ -4,6 +4,8 @@ import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.dashboard.domain.DashboardOverviewVO;
 import ai.novaflow.dashboard.domain.dto.FavoriteToggleRequest;
 import ai.novaflow.dashboard.service.DashboardService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
+@SaCheckPermission(value = {"agent:create", "agent:edit", "monitor:view", "application:manage", "tenant:manage"}, mode = SaMode.OR)
 public class DashboardController {
 
     private final DashboardService dashboardService;

@@ -10,6 +10,7 @@ import ai.novaflow.chat.mapper.ConversationMapper;
 import ai.novaflow.chat.mapper.ConversationMessageMapper;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +44,8 @@ public class ConversationService {
             String callerId,
             int page,
             int pageSize) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("agent_id", agentId);

@@ -1,11 +1,6 @@
 import { test, expect } from '@playwright/test'
-import { login } from './helpers/auth'
 
 test.describe('Agent Studio', () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page)
-  })
-
   test('展示 Agent 列表并打开调试面板', async ({ page }) => {
     await page.goto('/agent')
     await expect(page.getByTestId('agent-page')).toBeVisible()

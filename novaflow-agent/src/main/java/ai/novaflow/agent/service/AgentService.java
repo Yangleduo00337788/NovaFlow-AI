@@ -18,6 +18,7 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.agent.util.AgentExtraConfigUtils;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
 import ai.novaflow.prompt.service.PromptTemplateService;
 import ai.novaflow.tenant.entity.TenantEntity;
@@ -52,6 +53,7 @@ public class AgentService {
     private final AgentKnowledgeMapper agentKnowledgeMapper;
     private final AgentToolMapper agentToolMapper;
     private final AgentSkillMapper agentSkillMapper;
+    private final ai.novaflow.agent.mapper.ApplicationAccessMapper applicationAccessMapper;
     private final ToolDefinitionService toolDefinitionService;
     private final PromptTemplateService promptTemplateService;
     private final TenantMapper tenantMapper;
@@ -61,6 +63,8 @@ public class AgentService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<AgentVO> page(int page, int pageSize, String keyword, String agentType) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
@@ -312,7 +316,24 @@ public class AgentService {
         if (agent == null) {
             throw new BusinessException("Agent不存在");
         }
+        assertPortalAccess(agent);
         return agent;
+    }
+
+    /**
+     * Studio 编辑/创建权限可访问租户内 Agent。
+     * 仅门户或仅对话权限时，只能访问已被已发布应用引用的 Agent。
+     */
+    private void assertPortalAccess(AgentEntity agent) {
+        if (StpUtil.hasPermission("agent:edit") || StpUtil.hasPermission("agent:create")) {
+            return;
+        }
+        Long applicationId = agent.getApplicationId();
+        boolean publishedRef = applicationId != null
+                && applicationAccessMapper.countPublishedApp(applicationId, requireTenantId()) > 0;
+        if (!publishedRef) {
+            throw new BusinessException("无权访问该Agent");
+        }
     }
 
     private Long requireTenantId() {
@@ -324,7 +345,8 @@ public class AgentService {
     }
 
     private void assertAgentQuota(Long tenantId) {
-        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        TenantEntity tenant = tenantMapper.selectOneByQuery(
+                QueryWrapper.create().eq("id", tenantId).forUpdate());
         if (tenant == null) {
             return;
         }

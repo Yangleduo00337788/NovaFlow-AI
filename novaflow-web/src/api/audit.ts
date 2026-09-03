@@ -29,5 +29,5 @@ export function fetchAuditLogs(params: {
   endDate?: string
   keyword?: string
 }) {
-  return request.get<ApiResult<AuditLogPage>>('/api/v1/audit-logs', { params })
+  return request.get<ApiResult<AuditLogPage>>('/v1/audit-logs', { params })
 }

@@ -90,7 +90,7 @@
           <a-input
             v-model:value="createForm.workflowName"
             placeholder="客服分流流程"
-            maxlength="128"
+            :maxlength="128"
             :show-count="true"
           />
         </a-form-item>
