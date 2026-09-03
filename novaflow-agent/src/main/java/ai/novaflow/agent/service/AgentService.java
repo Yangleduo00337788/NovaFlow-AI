@@ -28,7 +28,9 @@ import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.workflow.entity.WorkflowEntity;
 import ai.novaflow.workflow.service.WorkflowService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
+import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
@@ -58,6 +60,7 @@ public class AgentService {
     private final PromptTemplateService promptTemplateService;
     private final TenantMapper tenantMapper;
     private final RecentAccessService recentAccessService;
+    private final ResourceAccessService resourceAccessService;
     private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
     private final AuditRecorder auditRecorder;
@@ -78,7 +81,12 @@ public class AgentService {
         query.orderBy("updated_at", false);
 
         Page<AgentEntity> result = agentMapper.paginate(Page.of(page, pageSize), query);
-        List<AgentVO> list = result.getRecords().stream().map(this::toSimpleVO).toList();
+        long userId = StpUtil.getLoginIdAsLong();
+        List<AgentVO> list = result.getRecords().stream()
+                .filter(agent -> resourceAccessService.canAccessResource(
+                        userId, tenantId, ResourceTypes.AGENT, agent.getId(), "agent:read"))
+                .map(this::toSimpleVO)
+                .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
@@ -92,6 +100,13 @@ public class AgentService {
 
     private AgentVO detail(Long id, boolean recordAccess) {
         AgentEntity agent = getAgentOrThrow(id);
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                requireTenantId(),
+                ResourceTypes.AGENT,
+                id,
+                "agent:read"
+        );
         AgentConfigEntity config = agentConfigMapper.selectOneByQuery(
                 QueryWrapper.create().eq("agent_id", id).limit(1)
         );
@@ -138,6 +153,8 @@ public class AgentService {
 
     @Transactional
     public AgentVO update(Long id, AgentSaveRequest request) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.AGENT, id, "agent:edit");
         AgentEntity agent = getAgentOrThrow(id);
         agent.setAgentName(request.getAgentName());
         agent.setDescription(request.getDescription());
@@ -166,6 +183,8 @@ public class AgentService {
 
     @Transactional
     public void delete(Long id) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.AGENT, id, "agent:delete");
         AgentEntity agent = getAgentOrThrow(id);
         agent.setIsDeleted(1);
         agent.setUpdatedAt(LocalDateTime.now());

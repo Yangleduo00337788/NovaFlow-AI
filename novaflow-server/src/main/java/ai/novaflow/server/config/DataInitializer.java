@@ -61,9 +61,9 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
         RoleEntity superAdminRole = requireSystemRole("super_admin");
-        RoleEntity tenantAdminRole = requireSystemRole("tenant_admin");
-        RoleEntity userRole = requireSystemRole("user");
-        if (superAdminRole == null || tenantAdminRole == null || userRole == null) {
+        RoleEntity tenantOwnerRole = requireSystemRole("tenant_owner");
+        RoleEntity memberRole = requireSystemRole("member");
+        if (superAdminRole == null || tenantOwnerRole == null || memberRole == null) {
             log.warn("System roles not ready, skip demo account bootstrap");
             return;
         }
@@ -75,7 +75,7 @@ public class DataInitializer implements CommandLineRunner {
                 "admin",
                 "张三",
                 "Admin123!",
-                tenantAdminRole,
+                tenantOwnerRole,
                 tenant,
                 now
         );
@@ -93,7 +93,7 @@ public class DataInitializer implements CommandLineRunner {
                 "portaluser",
                 "李四",
                 "User123!",
-                userRole,
+                memberRole,
                 tenant,
                 now
         );
@@ -105,8 +105,8 @@ public class DataInitializer implements CommandLineRunner {
 
                 Demo accounts:
                   平台超管  platform@novaflow.ai
-                  企业管理员 admin@novaflow.ai
-                  企业用户  user@novaflow.ai
+                  企业所有者 admin@novaflow.ai
+                  企业成员  user@novaflow.ai
                   （演示入口 /login，密码见项目 README，请勿用于生产）
                 """);
     }

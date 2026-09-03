@@ -46,7 +46,7 @@ public class AgentController {
     private final AgentPublishService agentPublishService;
     private final ConversationService conversationService;
 
-    @SaCheckPermission(value = {"agent:create", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:read", "agent:create", "agent:edit"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<AgentVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -56,7 +56,7 @@ public class AgentController {
         return ApiResult.ok(agentService.page(page, pageSize, keyword, agentType));
     }
 
-    @SaCheckPermission(value = {"agent:create", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:read", "agent:create", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<AgentVO> detail(@PathVariable Long id) {
         return ApiResult.ok(agentService.detail(id));
