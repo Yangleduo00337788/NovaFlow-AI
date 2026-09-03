@@ -51,6 +51,8 @@ export interface MemberItem {
   email?: string
   roleCode?: string
   roleName?: string
+  departmentId?: number | null
+  departmentName?: string
   status?: number
   joinedAt?: string
   lastLoginAt?: string
@@ -74,11 +76,13 @@ export interface MemberInviteRequest {
   nickname?: string
   roleCode: string
   password?: string
+  departmentId?: number | null
 }
 
 export interface MemberUpdateRequest {
   roleCode?: string
   status?: number
+  departmentId?: number | null
 }
 
 export const ROLE_OPTIONS = [
@@ -115,7 +119,24 @@ export function deleteWorkspace(id: number) {
   return request.delete<ApiResult<void>>(`/v1/org/workspaces/${id}`)
 }
 
-export function fetchMembers(params?: { page?: number; pageSize?: number; keyword?: string }) {
+export interface DepartmentItem {
+  id: number
+  parentId?: number | null
+  deptName: string
+  sortOrder?: number
+  memberCount?: number
+  children?: DepartmentItem[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface DepartmentSaveRequest {
+  deptName: string
+  parentId?: number | null
+  sortOrder?: number
+}
+
+export function fetchMembers(params?: { page?: number; pageSize?: number; keyword?: string; departmentId?: number }) {
   return request.get<ApiResult<{ list: MemberItem[]; total: number }>>('/v1/org/members', { params })
 }
 
@@ -129,4 +150,20 @@ export function updateMember(id: number, data: MemberUpdateRequest) {
 
 export function removeMember(id: number) {
   return request.delete<ApiResult<void>>(`/v1/org/members/${id}`)
+}
+
+export function fetchDepartments() {
+  return request.get<ApiResult<DepartmentItem[]>>('/v1/org/departments')
+}
+
+export function createDepartment(data: DepartmentSaveRequest) {
+  return request.post<ApiResult<DepartmentItem>>('/v1/org/departments', data)
+}
+
+export function updateDepartment(id: number, data: DepartmentSaveRequest) {
+  return request.put<ApiResult<DepartmentItem>>(`/v1/org/departments/${id}`, data)
+}
+
+export function deleteDepartment(id: number) {
+  return request.delete<ApiResult<void>>(`/v1/org/departments/${id}`)
 }

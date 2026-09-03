@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1>组织管理</h1>
-        <p>管理企业信息、工作空间与成员</p>
+        <p>管理企业信息、工作空间、部门与成员</p>
       </div>
     </div>
 
@@ -122,6 +122,41 @@
         </div>
       </a-tab-pane>
 
+      <a-tab-pane key="department" tab="部门">
+        <div class="page-card">
+          <div class="section-toolbar">
+            <span class="toolbar-meta">树形组织，成员可归属到部门</span>
+            <a-button type="primary" @click="openDeptCreate(null)">新建部门</a-button>
+          </div>
+          <a-spin :spinning="deptLoading">
+            <p v-if="!deptLoading && !departments.length" class="empty-dept">暂无部门，点击右上角新建</p>
+            <a-tree
+              v-else
+              block-node
+              default-expand-all
+              :tree-data="departments"
+              :field-names="{ title: 'deptName', key: 'id', children: 'children' }"
+            >
+              <template #title="node">
+                <div class="dept-node">
+                  <span>
+                    {{ node.deptName || node.title }}
+                    <em>{{ node.memberCount || 0 }} 人</em>
+                  </span>
+                  <a-space>
+                    <a-button type="link" size="small" @click.stop="openDeptCreate(node.id || node.key)">子部门</a-button>
+                    <a-button type="link" size="small" @click.stop="openDeptEdit(node)">编辑</a-button>
+                    <a-popconfirm title="删除后成员将变为未分配，确认删除？" @confirm="onDeleteDept(node.id || node.key)">
+                      <a-button type="link" size="small" danger @click.stop>删除</a-button>
+                    </a-popconfirm>
+                  </a-space>
+                </div>
+              </template>
+            </a-tree>
+          </a-spin>
+        </div>
+      </a-tab-pane>
+
       <a-tab-pane key="member" tab="成员管理">
         <div class="page-card">
           <div class="section-toolbar">
@@ -131,6 +166,16 @@
               style="width: 260px"
               allow-clear
               @search="loadMembers"
+            />
+            <a-tree-select
+              v-model:value="memberDeptFilter"
+              allow-clear
+              placeholder="按部门筛选"
+              style="width: 220px"
+              :tree-data="departments"
+              :field-names="{ label: 'deptName', value: 'id', children: 'children' }"
+              tree-default-expand-all
+              @change="onMemberDeptFilterChange"
             />
             <a-button type="primary" @click="openInvite">
               <UserAddOutlined />
@@ -155,6 +200,9 @@
               <template v-else-if="column.key === 'role'">
                 <a-tag>{{ record.roleName }}</a-tag>
               </template>
+              <template v-else-if="column.key === 'department'">
+                {{ record.departmentName || '未分配' }}
+              </template>
               <template v-else-if="column.key === 'status'">
                 <a-tag :color="record.status === 1 ? 'success' : 'default'">
                   {{ record.status === 1 ? '正常' : '已禁用' }}
@@ -167,7 +215,8 @@
                 {{ formatDateTime(record.lastLoginAt) }}
               </template>
               <template v-else-if="column.key === 'actions'">
-                <a-space>
+                <span v-if="isPlatformMember(record)" class="member-locked">平台账号</span>
+                <a-space v-else>
                   <a-button type="link" size="small" @click="openMemberEdit(record)">编辑</a-button>
                   <a-popconfirm title="确认移除该成员？" @confirm="onRemoveMember(record.id)">
                     <a-button type="link" size="small" danger>移除</a-button>
@@ -197,6 +246,30 @@
     </a-modal>
 
     <a-modal
+      v-model:open="deptModalOpen"
+      :title="editingDeptId ? '编辑部门' : (deptForm.parentId ? '新建子部门' : '新建部门')"
+      :confirm-loading="savingDept"
+      @ok="saveDepartment"
+      @cancel="resetDeptForm"
+    >
+      <a-form layout="vertical" :model="deptForm">
+        <a-form-item label="部门名称" required>
+          <a-input v-model:value="deptForm.deptName" placeholder="例如：研发部" />
+        </a-form-item>
+        <a-form-item v-if="!editingDeptId" label="上级部门">
+          <a-tree-select
+            v-model:value="deptForm.parentId"
+            allow-clear
+            placeholder="无（作为一级部门）"
+            :tree-data="departments"
+            :field-names="{ label: 'deptName', value: 'id', children: 'children' }"
+            tree-default-expand-all
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
       v-model:open="inviteModalOpen"
       title="邀请成员"
       :confirm-loading="inviting"
@@ -212,6 +285,16 @@
         </a-form-item>
         <a-form-item label="角色" required>
           <a-select v-model:value="inviteForm.roleCode" :options="ROLE_OPTIONS" />
+        </a-form-item>
+        <a-form-item label="部门">
+          <a-tree-select
+            v-model:value="inviteForm.departmentId"
+            allow-clear
+            placeholder="未分配"
+            :tree-data="departments"
+            :field-names="{ label: 'deptName', value: 'id', children: 'children' }"
+            tree-default-expand-all
+          />
         </a-form-item>
         <a-form-item label="初始密码" required>
           <a-input-password v-model:value="inviteForm.password" placeholder="新用户登录密码（至少 8 位）" />
@@ -233,6 +316,16 @@
         <a-form-item label="角色">
           <a-select v-model:value="memberForm.roleCode" :options="ROLE_OPTIONS" />
         </a-form-item>
+        <a-form-item label="部门">
+          <a-tree-select
+            v-model:value="memberForm.departmentId"
+            allow-clear
+            placeholder="未分配"
+            :tree-data="departments"
+            :field-names="{ label: 'deptName', value: 'id', children: 'children' }"
+            tree-default-expand-all
+          />
+        </a-form-item>
         <a-form-item label="状态">
           <a-select v-model:value="memberForm.status">
             <a-select-option :value="1">正常</a-select-option>
@@ -250,16 +343,21 @@ import { message } from 'ant-design-vue'
 import { PlusOutlined, UserAddOutlined } from '@ant-design/icons-vue'
 import {
   ROLE_OPTIONS,
+  createDepartment,
   createWorkspace,
+  deleteDepartment,
   deleteWorkspace,
+  fetchDepartments,
   fetchMembers,
   fetchTenant,
   fetchWorkspaces,
   inviteMember,
   removeMember,
+  updateDepartment,
   updateMember,
   updateTenant,
   updateWorkspace,
+  type DepartmentItem,
   type MemberItem,
   type TenantInfo,
   type WorkspaceItem,
@@ -287,6 +385,7 @@ const workspaceForm = reactive({ workspaceName: '', description: '' })
 const memberLoading = ref(false)
 const members = ref<MemberItem[]>([])
 const memberKeyword = ref('')
+const memberDeptFilter = ref<number | undefined>(undefined)
 const memberPage = ref(1)
 const memberPageSize = ref(10)
 const memberTotal = ref(0)
@@ -304,12 +403,27 @@ const inviteForm = reactive({
   nickname: '',
   roleCode: 'developer',
   password: '',
+  departmentId: undefined as number | undefined,
 })
 
 const memberModalOpen = ref(false)
 const updatingMember = ref(false)
 const editingMember = ref<MemberItem | null>(null)
-const memberForm = reactive({ roleCode: 'developer', status: 1 })
+const memberForm = reactive({
+  roleCode: 'developer',
+  status: 1,
+  departmentId: undefined as number | undefined,
+})
+
+const deptLoading = ref(false)
+const departments = ref<DepartmentItem[]>([])
+const deptModalOpen = ref(false)
+const savingDept = ref(false)
+const editingDeptId = ref<number | null>(null)
+const deptForm = reactive({
+  deptName: '',
+  parentId: undefined as number | undefined,
+})
 
 const workspaceColumns = [
   { title: '名称', key: 'name', dataIndex: 'workspaceName' },
@@ -321,6 +435,7 @@ const workspaceColumns = [
 const memberColumns = [
   { title: '成员', key: 'member', width: 240 },
   { title: '角色', key: 'role', width: 120 },
+  { title: '部门', key: 'department', width: 140 },
   { title: '状态', key: 'status', width: 100 },
   { title: '加入时间', key: 'joinedAt', width: 180 },
   { title: '最近登录', key: 'lastLoginAt', width: 180 },
@@ -440,6 +555,7 @@ async function loadMembers() {
       page: memberPage.value,
       pageSize: memberPageSize.value,
       keyword: memberKeyword.value || undefined,
+      departmentId: memberDeptFilter.value,
     })
     members.value = res.data.data?.list || []
     memberTotal.value = res.data.data?.total || 0
@@ -449,6 +565,98 @@ async function loadMembers() {
     message.error('加载成员失败')
   } finally {
     memberLoading.value = false
+  }
+}
+
+function onMemberDeptFilterChange() {
+  memberPage.value = 1
+  loadMembers()
+}
+
+async function loadDepartments() {
+  deptLoading.value = true
+  try {
+    const res = await fetchDepartments()
+    departments.value = res.data.data || []
+  } catch {
+    message.error('加载部门失败')
+  } finally {
+    deptLoading.value = false
+  }
+}
+
+function openDeptCreate(parentId: number | null) {
+  editingDeptId.value = null
+  deptForm.deptName = ''
+  deptForm.parentId = parentId || undefined
+  deptModalOpen.value = true
+}
+
+function findDept(id: number, nodes: DepartmentItem[] = departments.value): DepartmentItem | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    const child = findDept(id, node.children || [])
+    if (child) return child
+  }
+  return undefined
+}
+
+function openDeptEdit(node: DepartmentItem | { id?: number; key?: number; deptName?: string; title?: string; parentId?: number }) {
+  const id = Number(node.id || node.key)
+  const found = findDept(id)
+  editingDeptId.value = id
+  deptForm.deptName = found?.deptName || node.deptName || String(node.title || '')
+  deptForm.parentId = found?.parentId || undefined
+  deptModalOpen.value = true
+}
+
+function resetDeptForm() {
+  editingDeptId.value = null
+  deptForm.deptName = ''
+  deptForm.parentId = undefined
+}
+
+async function saveDepartment() {
+  if (!deptForm.deptName.trim()) {
+    message.warning('请填写部门名称')
+    return
+  }
+  savingDept.value = true
+  try {
+    if (editingDeptId.value) {
+      await updateDepartment(editingDeptId.value, {
+        deptName: deptForm.deptName.trim(),
+        parentId: deptForm.parentId,
+      })
+      message.success('部门已更新')
+    } else {
+      await createDepartment({
+        deptName: deptForm.deptName.trim(),
+        parentId: deptForm.parentId,
+      })
+      message.success('部门已创建')
+    }
+    deptModalOpen.value = false
+    resetDeptForm()
+    loadDepartments()
+  } catch {
+    message.error('保存部门失败')
+  } finally {
+    savingDept.value = false
+  }
+}
+
+async function onDeleteDept(id: number) {
+  try {
+    await deleteDepartment(id)
+    message.success('部门已删除')
+    if (memberDeptFilter.value === id) {
+      memberDeptFilter.value = undefined
+    }
+    loadDepartments()
+    loadMembers()
+  } catch {
+    message.error('删除失败')
   }
 }
 
@@ -462,6 +670,7 @@ function openInvite() {
   inviteForm.nickname = ''
   inviteForm.roleCode = 'developer'
   inviteForm.password = ''
+  inviteForm.departmentId = undefined
   inviteModalOpen.value = true
 }
 
@@ -470,6 +679,7 @@ function resetInviteForm() {
   inviteForm.nickname = ''
   inviteForm.roleCode = 'developer'
   inviteForm.password = ''
+  inviteForm.departmentId = undefined
 }
 
 async function submitInvite() {
@@ -492,18 +702,35 @@ async function submitInvite() {
   }
 }
 
+function isPlatformMember(record: MemberItem) {
+  return record.roleCode === 'super_admin'
+}
+
 function openMemberEdit(record: MemberItem) {
+  if (isPlatformMember(record)) {
+    message.warning('不能对企业内的平台超级管理员进行该操作')
+    return
+  }
   editingMember.value = record
   memberForm.roleCode = record.roleCode || 'developer'
   memberForm.status = record.status ?? 1
+  memberForm.departmentId = record.departmentId || undefined
   memberModalOpen.value = true
 }
 
 async function submitMemberUpdate() {
   if (!editingMember.value) return
+  if (isPlatformMember(editingMember.value)) {
+    message.warning('不能对企业内的平台超级管理员进行该操作')
+    return
+  }
   updatingMember.value = true
   try {
-    await updateMember(editingMember.value.id, { ...memberForm })
+    await updateMember(editingMember.value.id, {
+      roleCode: memberForm.roleCode,
+      status: memberForm.status,
+      departmentId: memberForm.departmentId ?? 0,
+    })
     message.success('成员信息已更新')
     memberModalOpen.value = false
     loadMembers()
@@ -528,6 +755,7 @@ async function onRemoveMember(id: number) {
 onMounted(() => {
   loadTenant()
   loadWorkspaces()
+  loadDepartments()
   loadMembers()
 })
 </script>
@@ -573,6 +801,32 @@ onMounted(() => {
 .member-email {
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.member-locked {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.empty-dept {
+  margin: 24px 0;
+  color: var(--text-muted);
+}
+
+.dept-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding-right: 8px;
+}
+
+.dept-node em {
+  margin-left: 8px;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .field-tip {

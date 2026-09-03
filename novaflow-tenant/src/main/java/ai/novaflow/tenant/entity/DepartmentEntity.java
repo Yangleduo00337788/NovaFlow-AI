@@ -8,17 +8,15 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@Table("tenant_member")
-public class TenantMemberEntity {
+@Table("department")
+public class DepartmentEntity {
 
     @Id(keyType = KeyType.Auto)
     private Long id;
     private Long tenantId;
-    private Long userId;
-    private Long roleId;
-    private Long departmentId;
-    private Integer status;
-    private LocalDateTime joinedAt;
+    private Long parentId;
+    private String deptName;
+    private Integer sortOrder;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Integer isDeleted;

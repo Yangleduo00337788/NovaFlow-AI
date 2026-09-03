@@ -16,6 +16,8 @@ public class MemberVO {
     private String email;
     private String roleCode;
     private String roleName;
+    private Long departmentId;
+    private String departmentName;
     private Integer status;
     private LocalDateTime joinedAt;
     private LocalDateTime lastLoginAt;
