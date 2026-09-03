@@ -2,12 +2,16 @@ package ai.novaflow.billing.controller;
 
 import ai.novaflow.billing.domain.dto.BillingAlertSaveRequest;
 import ai.novaflow.billing.domain.dto.BillingQuotaUpdateRequest;
+import ai.novaflow.billing.domain.dto.NotifyChannelSaveRequest;
 import ai.novaflow.billing.domain.vo.BillingAlertVO;
 import ai.novaflow.billing.domain.vo.BillingOverviewVO;
 import ai.novaflow.billing.domain.vo.BillingQuotaVO;
+import ai.novaflow.billing.domain.vo.CostAllocationVO;
+import ai.novaflow.billing.domain.vo.NotifyChannelVO;
 import ai.novaflow.billing.service.BillingAlertService;
 import ai.novaflow.billing.service.BillingExportService;
 import ai.novaflow.billing.service.BillingService;
+import ai.novaflow.billing.service.NotifyChannelService;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -42,11 +46,20 @@ public class BillingController {
     private final BillingService billingService;
     private final BillingAlertService billingAlertService;
     private final BillingExportService billingExportService;
+    private final NotifyChannelService notifyChannelService;
 
     @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
     @GetMapping("/overview")
     public ApiResult<BillingOverviewVO> overview(@RequestParam(required = false) String month) {
         return ApiResult.ok(billingService.getOverview(month));
+    }
+
+    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @GetMapping("/allocation")
+    public ApiResult<CostAllocationVO> allocation(
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "application") String dimension) {
+        return ApiResult.ok(billingService.getAllocation(month, dimension));
     }
 
     @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
@@ -74,6 +87,18 @@ public class BillingController {
                 requireTenantId(),
                 StpUtil.getLoginIdAsLong(),
                 request));
+    }
+
+    @SaCheckPermission("billing:manage")
+    @GetMapping("/notify-channels")
+    public ApiResult<NotifyChannelVO> notifyChannels() {
+        return ApiResult.ok(notifyChannelService.get(requireTenantId()));
+    }
+
+    @SaCheckPermission("billing:manage")
+    @PutMapping("/notify-channels")
+    public ApiResult<NotifyChannelVO> saveNotifyChannels(@RequestBody NotifyChannelSaveRequest request) {
+        return ApiResult.ok(notifyChannelService.save(requireTenantId(), request));
     }
 
     @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)

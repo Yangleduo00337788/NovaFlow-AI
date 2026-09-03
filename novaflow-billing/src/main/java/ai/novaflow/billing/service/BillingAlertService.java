@@ -20,7 +20,6 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +35,7 @@ public class BillingAlertService {
     private final TokenUsageMapper tokenUsageMapper;
     private final NotificationService notificationService;
     private final PermissionService permissionService;
+    private final AlertDispatchService alertDispatchService;
 
     public List<BillingAlertVO> listAlerts(Long tenantId) {
         ensureDefaultAlerts(tenantId);
@@ -139,6 +139,7 @@ public class BillingAlertService {
         if (channels.contains("site")) {
             notificationService.notifyTenantAdmins(tenantId, "billing", title, content, "/billing");
         }
+        alertDispatchService.dispatch(tenantId, alert, channels, title, content, usedTokens, quota, usedPercent);
         alert.setLastTriggeredAt(LocalDateTime.now());
         alert.setUpdatedAt(LocalDateTime.now());
         billingAlertMapper.update(alert);
@@ -185,23 +186,11 @@ public class BillingAlertService {
         if (!StringUtils.hasText(channels)) {
             return List.of("site");
         }
-        return Arrays.stream(channels.split(","))
-                .map(String::trim)
-                .filter(StringUtils::hasText)
-                .toList();
+        return AlertNotifyChannels.normalize(Arrays.asList(channels.split(",")));
     }
 
     private String joinChannels(List<String> channels) {
-        if (channels == null || channels.isEmpty()) {
-            return "site";
-        }
-        List<String> normalized = new ArrayList<>();
-        for (String channel : channels) {
-            if (StringUtils.hasText(channel) && !normalized.contains(channel.trim())) {
-                normalized.add(channel.trim());
-            }
-        }
-        return normalized.isEmpty() ? "site" : String.join(",", normalized);
+        return AlertNotifyChannels.join(channels);
     }
 
     private long safeLong(Long value) {

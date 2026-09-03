@@ -44,6 +44,12 @@ spring:
       max-file-size: 50MB
       max-request-size: 100MB
 
+  mail:
+    host: ${SPRING_MAIL_HOST:}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+
 # MyBatis-Flex：下划线字段自动映射驼峰；手写 SQL 统一放在各模块 resources/mapper/ 下
 mybatis-flex:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -105,6 +111,9 @@ novaflow:
     retention-enabled: ${CONVERSATION_RETENTION_ENABLED:true}
     retention-days: ${CONVERSATION_RETENTION_DAYS:90}
     retention-cron: ${CONVERSATION_RETENTION_CRON:0 30 3 * * *}
+
+  alert:
+    mail-from: ${NOVAFLOW_ALERT_MAIL_FROM:}
 
   mcp:
     allowed-commands: ${NOVAFLOW_MCP_ALLOWED_COMMANDS:npx,node,uvx,uv,python,python3}

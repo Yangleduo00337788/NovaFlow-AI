@@ -159,6 +159,9 @@ test.describe('组织与权限', () => {
     await page.goto('/org')
     await expect(page.getByTestId('org-page')).toBeVisible()
     await expect(page.getByRole('tab', { name: '工作空间' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: '部门' })).toBeVisible()
+    await page.getByRole('tab', { name: '部门' }).click()
+    await expect(page.getByRole('button', { name: '新建部门' })).toBeVisible()
   })
 
   test('权限管理页展示角色列表', async ({ page }) => {
@@ -169,8 +172,19 @@ test.describe('组织与权限', () => {
     await expect(page.getByText('企业管理员')).toBeVisible()
   })
 
-  test('账单页可加载', async ({ page }) => {
+  test('账单页可加载并打开成本分摊', async ({ page }) => {
     await page.goto('/billing')
     await expect(page.getByTestId('billing-page')).toBeVisible()
+    await expect(page.getByRole('tab', { name: '成本分摊' })).toBeVisible()
+    await page.getByRole('tab', { name: '成本分摊' }).click()
+    await expect(page.getByRole('radio', { name: '应用' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: '工作空间' })).toBeVisible()
+  })
+
+  test('账单预警可配置邮件与 Webhook', async ({ page }) => {
+    await page.goto('/billing')
+    await page.getByRole('button', { name: '预警配置' }).click()
+    await expect(page.getByText('外部通道')).toBeVisible()
+    await expect(page.getByText('Webhook', { exact: true }).first()).toBeVisible()
   })
 })
