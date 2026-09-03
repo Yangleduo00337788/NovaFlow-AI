@@ -334,7 +334,15 @@
                 </a-form-item>
               </a-col>
             </a-row>
-            <a-button type="primary" :loading="saving" data-testid="save-agent-btn" @click="onSave">保存</a-button>
+            <a-space>
+              <a-button type="primary" :loading="saving" data-testid="save-agent-btn" @click="onSave">保存</a-button>
+              <a-button
+                v-if="editingId && canManageResource"
+                @click="resourcePermOpen = true"
+              >
+                资源授权
+              </a-button>
+            </a-space>
           </a-form>
         </div>
         <AgentDebugPanel v-if="editingId" :agent-id="editingId" class="debug-side" />
@@ -357,6 +365,14 @@
         @toggle-layout="debugWideLayout = $event"
       />
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      :open="resourcePermOpen"
+      resource-type="AGENT"
+      :resource-id="editingId"
+      :permission-options="agentPermissionOptions"
+      @close="resourcePermOpen = false"
+    />
 
     <a-modal
       v-model:open="publishModalOpen"
@@ -498,6 +514,7 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
 import FormLabelTip from '@/components/common/FormLabelTip.vue'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
 import {
   createAgent,
   deleteAgent,
@@ -556,6 +573,14 @@ const canEdit = computed(() => auth.hasPermission('agent:edit'))
 const canDelete = computed(() => auth.hasPermission('agent:delete'))
 const canPublish = computed(() => auth.hasPermission('agent:publish'))
 const canDebug = computed(() => auth.hasPermission('agent:edit', 'agent:chat'))
+const canManageResource = computed(() => auth.hasAnyPermission(['member:manage', 'tenant:manage']))
+
+const agentPermissionOptions = [
+  { value: 'agent:read', label: '查看' },
+  { value: 'agent:edit', label: '编辑' },
+  { value: 'agent:publish', label: '发布' },
+  { value: 'agent:delete', label: '删除' },
+]
 
 const loading = ref(false)
 const saving = ref(false)
@@ -582,6 +607,7 @@ const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const drawerOpen = ref(false)
+const resourcePermOpen = ref(false)
 const debugOnlyOpen = ref(false)
 const debugWideLayout = ref(false)
 const editingId = ref<number | null>(null)
