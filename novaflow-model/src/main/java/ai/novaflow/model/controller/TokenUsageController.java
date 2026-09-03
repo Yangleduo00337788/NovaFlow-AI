@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@SaCheckPermission(value = {"monitor:view", "billing:view"}, mode = SaMode.OR)
+@SaCheckPermission(value = {"monitor:view", "billing:view", "log:read"}, mode = SaMode.OR)
 @RequestMapping("/api/v1/token-usage")
 @RequiredArgsConstructor
 public class TokenUsageController {

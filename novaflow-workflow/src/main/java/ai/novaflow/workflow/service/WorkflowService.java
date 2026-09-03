@@ -86,6 +86,7 @@ public class WorkflowService {
 
     public List<WorkflowVO> listPublishedOptions(Long applicationId) {
         Long tenantId = requireTenantId();
+        long userId = StpUtil.getLoginIdAsLong();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0)
@@ -95,6 +96,8 @@ public class WorkflowService {
         }
         query.orderBy("updated_at", false);
         return workflowMapper.selectListByQuery(query).stream()
+                .filter(entity -> resourceAccessService.canAccessResource(
+                        userId, tenantId, ResourceTypes.WORKFLOW, entity.getId(), "workflow:read"))
                 .map(entity -> toVO(entity, resolveApplicationName(entity.getApplicationId()), countNodes(entity.getId())))
                 .toList();
     }
