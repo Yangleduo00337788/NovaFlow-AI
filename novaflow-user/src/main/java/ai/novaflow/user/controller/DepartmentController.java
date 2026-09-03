@@ -26,19 +26,19 @@ public class DepartmentController {
 
     private final DepartmentService departmentService;
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<List<DepartmentVO>> list() {
         return ApiResult.ok(departmentService.listTree());
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @PostMapping
     public ApiResult<DepartmentVO> create(@Valid @RequestBody DepartmentSaveRequest request) {
         return ApiResult.ok(departmentService.create(request));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @PutMapping("/{id}")
     public ApiResult<DepartmentVO> update(
             @PathVariable Long id,
@@ -46,7 +46,7 @@ public class DepartmentController {
         return ApiResult.ok(departmentService.update(id, request));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         departmentService.delete(id);

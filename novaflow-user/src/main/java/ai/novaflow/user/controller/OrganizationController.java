@@ -46,6 +46,7 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.updateTenant(request));
     }
 
+    @SaCheckPermission(value = {"dashboard:view", "billing:view", "tenant:manage"}, mode = SaMode.OR)
     @GetMapping("/plan-summary")
     public ApiResult<TenantPlanSummaryVO> planSummary() {
         return ApiResult.ok(organizationService.getPlanSummary());
@@ -78,7 +79,7 @@ public class OrganizationController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @GetMapping("/members")
     public ApiResult<PageResult<MemberVO>> members(
             @RequestParam(defaultValue = "1") int page,
@@ -88,13 +89,13 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.pageMembers(page, pageSize, keyword, departmentId));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:create", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @PostMapping("/members/invite")
     public ApiResult<MemberVO> inviteMember(@Valid @RequestBody MemberInviteRequest request) {
         return ApiResult.ok(organizationService.inviteMember(request));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @PutMapping("/members/{id}")
     public ApiResult<MemberVO> updateMember(
             @PathVariable Long id,
@@ -102,7 +103,7 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.updateMember(id, request));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"user:delete", "member:manage", "tenant:manage"}, mode = SaMode.OR)
     @DeleteMapping("/members/{id}")
     public ApiResult<Void> removeMember(@PathVariable Long id) {
         organizationService.removeMember(id);

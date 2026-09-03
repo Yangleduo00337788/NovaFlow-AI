@@ -26,7 +26,7 @@ public class ResourcePermissionController {
 
     private final ResourcePermissionAdminService resourcePermissionAdminService;
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"member:manage", "tenant:manage", "role:update"}, mode = SaMode.OR)
     @GetMapping("/{resourceType}/{resourceId}/permissions")
     public ApiResult<List<ResourcePermissionEntity>> list(
             @PathVariable String resourceType,
@@ -36,7 +36,7 @@ public class ResourcePermissionController {
         return ApiResult.ok(resourcePermissionAdminService.list(resourceType, resourceId));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"member:manage", "tenant:manage", "role:update"}, mode = SaMode.OR)
     @PutMapping("/{resourceType}/{resourceId}/permissions")
     public ApiResult<List<ResourcePermissionEntity>> save(
             @PathVariable String resourceType,
