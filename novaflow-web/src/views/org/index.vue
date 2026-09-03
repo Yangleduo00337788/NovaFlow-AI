@@ -603,10 +603,11 @@ function findDept(id: number, nodes: DepartmentItem[] = departments.value): Depa
 }
 
 function openDeptEdit(node: DepartmentItem | { id?: number; key?: number; deptName?: string; title?: string; parentId?: number }) {
-  const id = Number(node.id || node.key)
+  const nodeLike = node as { id?: number; key?: number; deptName?: string; title?: string; parentId?: number }
+  const id = Number(nodeLike.id || nodeLike.key)
   const found = findDept(id)
   editingDeptId.value = id
-  deptForm.deptName = found?.deptName || node.deptName || String(node.title || '')
+  deptForm.deptName = found?.deptName || nodeLike.deptName || String(nodeLike.title || '')
   deptForm.parentId = found?.parentId || undefined
   deptModalOpen.value = true
 }

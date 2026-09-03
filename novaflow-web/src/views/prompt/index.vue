@@ -63,7 +63,7 @@
             <a-button type="link" size="small" @click="openVersions(item)">版本</a-button>
             <a-button type="link" size="small" @click="openTest(item)">测试</a-button>
             <a-button v-if="canEdit" type="link" size="small" @click="openEdit(item)">编辑</a-button>
-            <a-popconfirm v-if="canEdit" title="确认删除该模板？" @confirm="onDelete(item.id)">
+            <a-popconfirm v-if="canDelete" title="确认删除该模板？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
           </div>
@@ -217,6 +217,7 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const canCreate = computed(() => auth.hasPermission('prompt:create'))
 const canEdit = computed(() => auth.hasPermission('prompt:edit'))
+const canDelete = computed(() => auth.hasAnyPermission(['prompt:delete', 'prompt:edit']))
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<PromptTemplate[]>([])
@@ -400,7 +401,7 @@ async function onSave() {
 }
 
 async function onDelete(id: number) {
-  if (!canEdit.value) return
+  if (!canDelete.value) return
   try {
     await deletePrompt(id)
     message.success('删除成功')

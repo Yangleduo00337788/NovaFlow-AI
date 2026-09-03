@@ -5,7 +5,12 @@
         <h1>工具市场</h1>
         <p>{{ pageSubtitle }}</p>
       </div>
-      <a-button v-if="canManageTools" type="primary" data-testid="create-tool-btn" @click="onCreateClick">
+      <a-button
+        v-if="activeTab === 'skill' ? canUploadSkill : canCreateMcp"
+        type="primary"
+        data-testid="create-tool-btn"
+        @click="onCreateClick"
+      >
         <PlusOutlined />
         {{ createButtonLabel }}
       </a-button>
@@ -62,14 +67,14 @@
           </div>
           <div class="tool-actions">
             <a-button type="link" size="small" @click="openSkillView(item)">查看</a-button>
-            <a-button v-if="canManageTools" type="link" size="small" @click="openSkillReupload(item)">重新上传</a-button>
-            <a-popconfirm v-if="canManageTools" title="确认删除该技能？" @confirm="onDelete(item.id)">
+            <a-button v-if="canUploadSkill" type="link" size="small" @click="openSkillReupload(item)">重新上传</a-button>
+            <a-popconfirm v-if="canDeleteSkill" title="确认删除该技能？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
           </div>
         </div>
       </div>
-              <a-empty v-else :description="canManageTools ? '暂无技能，点击右上角上传 SKILL.md' : '暂无技能'" />
+              <a-empty v-else :description="canUploadSkill ? '暂无技能，点击右上角上传 SKILL.md' : '暂无技能'" />
             </a-spin>
 
             <div v-if="total > pageSize" class="pagination-wrap">
@@ -139,14 +144,14 @@
                 </span>
               </div>
               <div class="tool-actions">
-                <a-button v-if="canManageTools" type="link" size="small" :loading="mcpConnectingId === item.id" @click="onMcpConnect(item)">
+                <a-button v-if="canManageMcp" type="link" size="small" :loading="mcpConnectingId === item.id" @click="onMcpConnect(item)">
                   连接测试
                 </a-button>
                 <a-button type="link" size="small" :disabled="!item.toolCount" @click="openMcpTools(item)">
                   工具列表
                 </a-button>
                 <a-button
-                  v-if="canManageTools"
+                  v-if="canManageMcp"
                   type="link"
                   size="small"
                   :loading="mcpSyncingId === item.id"
@@ -155,13 +160,13 @@
                 >
                   同步市场
                 </a-button>
-                <a-popconfirm v-if="canManageTools" title="确认删除该 MCP 服务？" @confirm="onMcpDelete(item.id)">
+                <a-popconfirm v-if="canDeleteMcp" title="确认删除该 MCP 服务？" @confirm="onMcpDelete(item.id)">
                   <a-button type="link" size="small" danger>删除</a-button>
                 </a-popconfirm>
               </div>
             </div>
           </div>
-                <a-empty v-else :description="canManageTools ? '暂无 MCP 插件，点击右上角配置' : '暂无 MCP 插件'" />
+                <a-empty v-else :description="canCreateMcp ? '暂无 MCP 插件，点击右上角配置' : '暂无 MCP 插件'" />
               </a-spin>
             </div>
           </div>
@@ -213,7 +218,7 @@
                 <div class="tool-footer">
                   <span class="tool-time">{{ formatDateTime(item.updatedAt) }}</span>
                 </div>
-                <div v-if="canManageTools" class="tool-actions">
+                <div v-if="canDeleteSkill" class="tool-actions">
                   <a-popconfirm title="确认删除该插件工具？" @confirm="onDeleteMcpMarketTool(item.id)">
                     <a-button type="link" size="small" danger>删除</a-button>
                   </a-popconfirm>
@@ -360,7 +365,11 @@ import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-const canManageTools = computed(() => auth.hasPermission('agent:edit'))
+const canUploadSkill = computed(() => auth.hasAnyPermission(['tool:create', 'agent:edit']))
+const canDeleteSkill = computed(() => auth.hasAnyPermission(['tool:delete', 'agent:edit']))
+const canManageMcp = computed(() => auth.hasAnyPermission(['mcp:create', 'mcp:update', 'mcp:delete', 'agent:edit']))
+const canCreateMcp = computed(() => auth.hasAnyPermission(['mcp:create', 'agent:edit']))
+const canDeleteMcp = computed(() => auth.hasAnyPermission(['mcp:delete', 'agent:edit']))
 const activeTab = ref('skill')
 
 const pageSubtitle = computed(() =>
@@ -426,12 +435,13 @@ const mcpConfigJson = ref(`{
 }`)
 
 function onCreateClick() {
-  if (!canManageTools.value) return
   if (activeTab.value === 'mcp') {
+    if (!canCreateMcp.value) return
     resetMcpForm()
     mcpDrawerOpen.value = true
     return
   }
+  if (!canUploadSkill.value) return
   openSkillUpload()
 }
 
@@ -478,7 +488,7 @@ async function loadMcpData() {
 }
 
 async function onMcpConnect(item: McpServer) {
-  if (!canManageTools.value) return
+  if (!canManageMcp.value) return
   mcpConnectingId.value = item.id
   try {
     const res = await connectMcpServer(item.id)
@@ -501,7 +511,7 @@ async function onMcpConnect(item: McpServer) {
 }
 
 async function onMcpSync(item: McpServer) {
-  if (!canManageTools.value) return
+  if (!canManageMcp.value) return
   mcpSyncingId.value = item.id
   try {
     const res = await syncMcpServerTools(item.id)
@@ -547,7 +557,7 @@ function formatSchema(schema: Record<string, unknown>) {
 }
 
 async function onMcpSave() {
-  if (!canManageTools.value) return
+  if (!canCreateMcp.value) return
   if (!mcpForm.serverName.trim()) {
     message.warning('请填写插件名称')
     return
@@ -580,7 +590,7 @@ async function onMcpSave() {
 }
 
 async function onMcpDelete(id: number) {
-  if (!canManageTools.value) return
+  if (!canDeleteMcp.value) return
   try {
     await deleteMcpServer(id)
     message.success('已删除')
@@ -602,7 +612,7 @@ function openSkillUpload() {
 }
 
 function openSkillReupload(item: ToolDefinition) {
-  if (!canManageTools.value) return
+  if (!canUploadSkill.value) return
   skillReuploadId.value = item.id
   skillUploadFile.value = null
   skillFileList.value = []
@@ -610,7 +620,7 @@ function openSkillReupload(item: ToolDefinition) {
 }
 
 function beforeSkillUpload(file: File) {
-  if (!canManageTools.value) return false
+  if (!canUploadSkill.value) return false
   if (!file.name.toLowerCase().endsWith('.md')) {
     message.warning('仅支持 .md 格式的 Skill 文件')
     return false
@@ -626,7 +636,7 @@ function onSkillFileRemove() {
 }
 
 async function submitSkillUpload() {
-  if (!canManageTools.value) return
+  if (!canUploadSkill.value) return
   if (!skillUploadFile.value) {
     message.warning('请先选择 SKILL.md 文件')
     return
@@ -688,7 +698,7 @@ async function loadMcpMarketData() {
 }
 
 async function onDeleteMcpMarketTool(id: number) {
-  if (!canManageTools.value) return
+  if (!canDeleteSkill.value) return
   try {
     await deleteTool(id)
     message.success('删除成功')
@@ -716,7 +726,7 @@ async function loadData() {
 }
 
 async function onDelete(id: number) {
-  if (!canManageTools.value) return
+  if (!canDeleteSkill.value) return
   try {
     await deleteTool(id)
     message.success('删除成功')

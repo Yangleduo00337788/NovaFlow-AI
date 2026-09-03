@@ -17,7 +17,7 @@ export function portalAppPath(applicationId: number): string {
 }
 
 /** 仅门户入口角色（当前无；Member/Viewer 可进工作台） */
-export function isPortalOnlyRole(roleCode: string): boolean {
+export function isPortalOnlyRole(_roleCode: string): boolean {
   return false
 }
 
