@@ -47,8 +47,8 @@ export const menuGroups: MenuGroup[] = [
   {
     title: '系统管理',
     items: [
-      { key: 'org', label: '组织管理', path: '/org', icon: 'org', permissions: ['tenant:manage', 'member:manage'] },
-      { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage'] },
+      { key: 'org', label: '组织管理', path: '/org', icon: 'org', permissions: ['tenant:manage', 'member:manage', 'user:read'] },
+      { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage', 'role:read'] },
       { key: 'settings', label: '系统设置', path: '/settings', icon: 'settings', permissions: ['tenant:manage'] },
       { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing', permissions: ['billing:view', 'billing:manage'] },
       { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view'] },
@@ -75,8 +75,8 @@ const routePermissionMap: Record<string, string[]> = {
   '/log': ['log:read', 'monitor:view', 'billing:view'],
   '/trace': ['trace:view'],
   '/observability': ['monitor:view'],
-  '/org': ['tenant:manage', 'member:manage'],
-  '/permission': ['member:manage'],
+  '/org': ['tenant:manage', 'member:manage', 'user:read'],
+  '/permission': ['member:manage', 'role:read'],
   '/settings': ['tenant:manage'],
   '/billing': ['billing:view', 'billing:manage'],
   '/platform': ['platform:manage'],

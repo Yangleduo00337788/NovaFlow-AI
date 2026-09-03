@@ -8,7 +8,7 @@
     </div>
 
     <a-tabs v-model:activeKey="activeTab" type="card">
-      <a-tab-pane key="tenant" tab="企业信息">
+      <a-tab-pane v-if="canManageTenant" key="tenant" tab="企业信息">
         <div class="page-card tenant-card">
           <a-spin :spinning="tenantLoading">
             <a-form layout="vertical" :model="tenantForm" class="tenant-form">
@@ -81,11 +81,11 @@
         </div>
       </a-tab-pane>
 
-      <a-tab-pane key="workspace" tab="工作空间">
+      <a-tab-pane v-if="canManageTenant" key="workspace" tab="工作空间">
         <div class="page-card">
           <div class="section-toolbar">
             <span class="toolbar-meta">共 {{ workspaces.length }} 个工作空间</span>
-            <a-button type="primary" @click="openWorkspaceCreate">
+            <a-button v-if="canManageTenant" type="primary" @click="openWorkspaceCreate">
               <PlusOutlined />
               创建工作空间
             </a-button>
@@ -106,7 +106,7 @@
                 {{ formatDateTime(record.updatedAt) }}
               </template>
               <template v-else-if="column.key === 'actions'">
-                <a-space>
+                <a-space v-if="canManageTenant">
                   <a-button type="link" size="small" @click="openWorkspaceEdit(record)">编辑</a-button>
                   <a-popconfirm
                     v-if="!record.isDefault"
@@ -122,11 +122,11 @@
         </div>
       </a-tab-pane>
 
-      <a-tab-pane key="department" tab="部门">
+      <a-tab-pane v-if="canReadUsers" key="department" tab="部门">
         <div class="page-card">
           <div class="section-toolbar">
             <span class="toolbar-meta">树形组织，成员可归属到部门</span>
-            <a-button type="primary" @click="openDeptCreate(null)">新建部门</a-button>
+            <a-button v-if="canManageDept" type="primary" @click="openDeptCreate(null)">新建部门</a-button>
           </div>
           <a-spin :spinning="deptLoading">
             <p v-if="!deptLoading && !departments.length" class="empty-dept">暂无部门，点击右上角新建</p>
@@ -143,7 +143,7 @@
                     {{ node.deptName || node.title }}
                     <em>{{ node.memberCount || 0 }} 人</em>
                   </span>
-                  <a-space>
+                  <a-space v-if="canManageDept">
                     <a-button type="link" size="small" @click.stop="openDeptCreate(node.id || node.key)">子部门</a-button>
                     <a-button type="link" size="small" @click.stop="openDeptEdit(node)">编辑</a-button>
                     <a-popconfirm title="删除后成员将变为未分配，确认删除？" @confirm="onDeleteDept(node.id || node.key)">
@@ -157,7 +157,7 @@
         </div>
       </a-tab-pane>
 
-      <a-tab-pane key="member" tab="成员管理">
+      <a-tab-pane v-if="canReadUsers" key="member" tab="成员管理">
         <div class="page-card">
           <div class="section-toolbar">
             <a-input-search
@@ -177,7 +177,7 @@
               tree-default-expand-all
               @change="onMemberDeptFilterChange"
             />
-            <a-button type="primary" @click="openInvite">
+            <a-button v-if="canInviteUser" type="primary" @click="openInvite">
               <UserAddOutlined />
               邀请成员
             </a-button>
@@ -216,9 +216,9 @@
               </template>
               <template v-else-if="column.key === 'actions'">
                 <span v-if="isProtectedMember(record)" class="member-locked">受保护角色</span>
-                <a-space v-else>
-                  <a-button type="link" size="small" @click="openMemberEdit(record)">编辑</a-button>
-                  <a-popconfirm title="确认移除该成员？" @confirm="onRemoveMember(record.id)">
+                <a-space v-else-if="canUpdateUser || canDeleteUser">
+                  <a-button v-if="canUpdateUser" type="link" size="small" @click="openMemberEdit(record)">编辑</a-button>
+                  <a-popconfirm v-if="canDeleteUser" title="确认移除该成员？" @confirm="onRemoveMember(record.id)">
                     <a-button type="link" size="small" danger>移除</a-button>
                   </a-popconfirm>
                 </a-space>
@@ -338,7 +338,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined, UserAddOutlined } from '@ant-design/icons-vue'
 import {
@@ -364,6 +364,15 @@ import {
 } from '@/api/org'
 import { isProtectedMemberRole } from '@/config/roles'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const canManageTenant = computed(() => auth.hasPermission('tenant:manage'))
+const canReadUsers = computed(() => auth.hasAnyPermission(['user:read', 'member:manage', 'tenant:manage']))
+const canInviteUser = computed(() => auth.hasAnyPermission(['user:create', 'member:manage', 'tenant:manage']))
+const canUpdateUser = computed(() => auth.hasAnyPermission(['user:update', 'member:manage', 'tenant:manage']))
+const canDeleteUser = computed(() => auth.hasAnyPermission(['user:delete', 'member:manage', 'tenant:manage']))
+const canManageDept = computed(() => auth.hasAnyPermission(['user:update', 'member:manage', 'tenant:manage']))
 
 const activeTab = ref('tenant')
 
@@ -470,6 +479,7 @@ async function loadTenant() {
 }
 
 async function saveTenant() {
+  if (!canManageTenant.value) return
   if (!tenantForm.tenantName.trim()) {
     message.warning('请填写企业名称')
     return
@@ -499,6 +509,7 @@ async function loadWorkspaces() {
 }
 
 function openWorkspaceCreate() {
+  if (!canManageTenant.value) return
   editingWorkspaceId.value = null
   workspaceForm.workspaceName = ''
   workspaceForm.description = ''
@@ -506,6 +517,7 @@ function openWorkspaceCreate() {
 }
 
 function openWorkspaceEdit(record: WorkspaceItem) {
+  if (!canManageTenant.value) return
   editingWorkspaceId.value = record.id
   workspaceForm.workspaceName = record.workspaceName
   workspaceForm.description = record.description || ''
@@ -519,6 +531,7 @@ function resetWorkspaceForm() {
 }
 
 async function saveWorkspace() {
+  if (!canManageTenant.value) return
   if (!workspaceForm.workspaceName.trim()) {
     message.warning('请填写工作空间名称')
     return
@@ -540,6 +553,7 @@ async function saveWorkspace() {
 }
 
 async function onDeleteWorkspace(id: number) {
+  if (!canManageTenant.value) return
   try {
     await deleteWorkspace(id)
     message.success('工作空间已删除')
@@ -587,6 +601,7 @@ async function loadDepartments() {
 }
 
 function openDeptCreate(parentId: number | null) {
+  if (!canManageDept.value) return
   editingDeptId.value = null
   deptForm.deptName = ''
   deptForm.parentId = parentId || undefined
@@ -603,6 +618,7 @@ function findDept(id: number, nodes: DepartmentItem[] = departments.value): Depa
 }
 
 function openDeptEdit(node: DepartmentItem | { id?: number; key?: number; deptName?: string; title?: string; parentId?: number }) {
+  if (!canManageDept.value) return
   const nodeLike = node as { id?: number; key?: number; deptName?: string; title?: string; parentId?: number }
   const id = Number(nodeLike.id || nodeLike.key)
   const found = findDept(id)
@@ -619,6 +635,7 @@ function resetDeptForm() {
 }
 
 async function saveDepartment() {
+  if (!canManageDept.value) return
   if (!deptForm.deptName.trim()) {
     message.warning('请填写部门名称')
     return
@@ -649,6 +666,7 @@ async function saveDepartment() {
 }
 
 async function onDeleteDept(id: number) {
+  if (!canManageDept.value) return
   try {
     await deleteDepartment(id)
     message.success('部门已删除')
@@ -668,6 +686,7 @@ function onMemberTableChange(pagination: { current?: number }) {
 }
 
 function openInvite() {
+  if (!canInviteUser.value) return
   inviteForm.email = ''
   inviteForm.nickname = ''
   inviteForm.roleCode = 'developer'
@@ -685,6 +704,7 @@ function resetInviteForm() {
 }
 
 async function submitInvite() {
+  if (!canInviteUser.value) return
   if (!inviteForm.email.trim()) {
     message.warning('请填写邮箱')
     return
@@ -709,6 +729,7 @@ function isProtectedMember(record: MemberItem) {
 }
 
 function openMemberEdit(record: MemberItem) {
+  if (!canUpdateUser.value) return
   if (isProtectedMember(record)) {
     message.warning('不能对企业内的受保护角色进行该操作')
     return
@@ -721,6 +742,7 @@ function openMemberEdit(record: MemberItem) {
 }
 
 async function submitMemberUpdate() {
+  if (!canUpdateUser.value) return
   if (!editingMember.value) return
   if (isProtectedMember(editingMember.value)) {
     message.warning('不能对企业内的受保护角色进行该操作')
@@ -744,6 +766,7 @@ async function submitMemberUpdate() {
 }
 
 async function onRemoveMember(id: number) {
+  if (!canDeleteUser.value) return
   try {
     await removeMember(id)
     message.success('成员已移除')
@@ -755,10 +778,17 @@ async function onRemoveMember(id: number) {
 }
 
 onMounted(() => {
-  loadTenant()
-  loadWorkspaces()
-  loadDepartments()
-  loadMembers()
+  if (canManageTenant.value) {
+    activeTab.value = 'tenant'
+    loadTenant()
+    loadWorkspaces()
+  } else if (canReadUsers.value) {
+    activeTab.value = 'member'
+  }
+  if (canReadUsers.value) {
+    loadDepartments()
+    loadMembers()
+  }
 })
 </script>
 

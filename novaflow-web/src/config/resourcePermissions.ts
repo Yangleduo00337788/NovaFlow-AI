@@ -28,5 +28,5 @@ export const RESOURCE_PERMISSION_OPTIONS = {
 export type ResourcePermissionType = keyof typeof RESOURCE_PERMISSION_OPTIONS
 
 export function canManageResourcePermission(hasAnyPermission: (codes?: string[]) => boolean) {
-  return hasAnyPermission(['member:manage', 'tenant:manage'])
+  return hasAnyPermission(['member:manage', 'tenant:manage', 'role:update'])
 }
