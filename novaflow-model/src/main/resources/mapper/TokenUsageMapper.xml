@@ -166,4 +166,48 @@
         LIMIT #{limit}
     </select>
 
+    <sql id="costAllocationSums">
+        COUNT(*) AS calls,
+        COALESCE(SUM(tu.total_tokens), 0) AS tokens,
+        COALESCE(SUM(CASE WHEN tu.currency = 'CNY' THEN tu.cost ELSE 0 END), 0) AS costCny,
+        COALESCE(SUM(CASE WHEN tu.currency = 'USD' THEN tu.cost ELSE 0 END), 0) AS costUsd
+    </sql>
+
+    <select id="allocateByApplication" resultType="ai.novaflow.model.domain.CostAllocationAggregate">
+        SELECT tu.application_id AS dimensionId,
+               COALESCE(NULLIF(a.app_name, ''), '未归属应用') AS dimensionName,
+               <include refid="costAllocationSums"/>
+        FROM token_usage tu
+        LEFT JOIN application a ON tu.application_id = a.id
+        WHERE tu.tenant_id = #{tenantId}
+          AND tu.usage_date &gt;= #{startDate} AND tu.usage_date &lt;= #{endDate}
+        GROUP BY tu.application_id, a.app_name
+        ORDER BY tokens DESC
+    </select>
+
+    <select id="allocateByWorkspace" resultType="ai.novaflow.model.domain.CostAllocationAggregate">
+        SELECT w.id AS dimensionId,
+               COALESCE(NULLIF(w.workspace_name, ''), '未归属工作空间') AS dimensionName,
+               <include refid="costAllocationSums"/>
+        FROM token_usage tu
+        LEFT JOIN application a ON tu.application_id = a.id AND a.is_deleted = 0
+        LEFT JOIN workspace w ON a.workspace_id = w.id AND w.is_deleted = 0
+        WHERE tu.tenant_id = #{tenantId}
+          AND tu.usage_date &gt;= #{startDate} AND tu.usage_date &lt;= #{endDate}
+        GROUP BY w.id, w.workspace_name
+        ORDER BY tokens DESC
+    </select>
+
+    <select id="allocateByUser" resultType="ai.novaflow.model.domain.CostAllocationAggregate">
+        SELECT tu.user_id AS dimensionId,
+               COALESCE(NULLIF(u.nickname, ''), NULLIF(u.email, ''), '未归属用户') AS dimensionName,
+               <include refid="costAllocationSums"/>
+        FROM token_usage tu
+        LEFT JOIN `user` u ON tu.user_id = u.id
+        WHERE tu.tenant_id = #{tenantId}
+          AND tu.usage_date &gt;= #{startDate} AND tu.usage_date &lt;= #{endDate}
+        GROUP BY tu.user_id, u.nickname, u.email
+        ORDER BY tokens DESC
+    </select>
+
 </mapper>

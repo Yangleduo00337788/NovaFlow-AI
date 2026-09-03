@@ -7,10 +7,13 @@ import ai.novaflow.billing.domain.vo.BillingOverviewVO;
 import ai.novaflow.billing.domain.vo.BillingQuotaVO;
 import ai.novaflow.billing.domain.vo.BillingTrendPointVO;
 import ai.novaflow.billing.domain.vo.BillingUsageTypeVO;
+import ai.novaflow.billing.domain.vo.CostAllocationItemVO;
+import ai.novaflow.billing.domain.vo.CostAllocationVO;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.model.domain.BillingCurrency;
+import ai.novaflow.model.domain.CostAllocationAggregate;
 import ai.novaflow.model.domain.ModelUsageAggregate;
 import ai.novaflow.model.domain.TokenUsageLogRow;
 import ai.novaflow.model.domain.UsageTrendPoint;
@@ -101,6 +104,91 @@ public class BillingService {
                 .build();
         billingAlertService.checkAlerts(tenantId);
         return overview;
+    }
+
+    public CostAllocationVO getAllocation(String month, String dimension) {
+        requireBillingViewPermission();
+        Long tenantId = requireTenantId();
+        YearMonth period = resolveMonth(month);
+        String dim = normalizeDimension(dimension);
+        LocalDate startDate = period.atDay(1);
+        LocalDate endDate = period.atEndOfMonth();
+
+        List<CostAllocationAggregate> rows = switch (dim) {
+            case "workspace" -> tokenUsageMapper.allocateByWorkspace(tenantId, startDate, endDate);
+            case "user" -> tokenUsageMapper.allocateByUser(tenantId, startDate, endDate);
+            default -> tokenUsageMapper.allocateByApplication(tenantId, startDate, endDate);
+        };
+        if (rows == null) {
+            rows = List.of();
+        }
+
+        long totalTokens = rows.stream().mapToLong(item -> safeLong(item.getTokens())).sum();
+        long totalCalls = rows.stream().mapToLong(item -> safeLong(item.getCalls())).sum();
+        BigDecimal cny = rows.stream()
+                .map(item -> safeDecimal(item.getCostCny()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal usd = rows.stream()
+                .map(item -> safeDecimal(item.getCostUsd()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<CostAllocationItemVO> items = rows.stream()
+                .map(row -> CostAllocationItemVO.builder()
+                        .id(row.getDimensionId())
+                        .name(StringUtils.hasText(row.getDimensionName()) ? row.getDimensionName() : fallbackName(dim))
+                        .calls(safeLong(row.getCalls()))
+                        .tokens(safeLong(row.getTokens()))
+                        .tokenPercent(tokenPercent(safeLong(row.getTokens()), totalTokens))
+                        .costLabel(formatCombinedCost(
+                                safeDecimal(row.getCostCny()),
+                                safeDecimal(row.getCostUsd())))
+                        .build())
+                .toList();
+
+        return CostAllocationVO.builder()
+                .periodLabel(period.format(DateTimeFormatter.ofPattern("yyyy年M月", Locale.CHINA)))
+                .dimension(dim)
+                .dimensionLabel(dimensionLabel(dim))
+                .totalCalls(totalCalls)
+                .totalTokens(totalTokens)
+                .totalCostLabel(formatCombinedCost(cny, usd))
+                .items(items)
+                .build();
+    }
+
+    static int tokenPercent(long part, long total) {
+        if (total <= 0 || part <= 0) {
+            return 0;
+        }
+        return (int) Math.min(100, Math.round(part * 100.0 / total));
+    }
+
+    private String normalizeDimension(String dimension) {
+        if (!StringUtils.hasText(dimension)) {
+            return "application";
+        }
+        return switch (dimension.trim().toLowerCase(Locale.ROOT)) {
+            case "workspace" -> "workspace";
+            case "user" -> "user";
+            case "application", "app" -> "application";
+            default -> throw new BusinessException("分摊维度无效，请使用 application / workspace / user");
+        };
+    }
+
+    private String dimensionLabel(String dimension) {
+        return switch (dimension) {
+            case "workspace" -> "工作空间";
+            case "user" -> "用户";
+            default -> "应用";
+        };
+    }
+
+    private String fallbackName(String dimension) {
+        return switch (dimension) {
+            case "workspace" -> "未归属工作空间";
+            case "user" -> "未归属用户";
+            default -> "未归属应用";
+        };
     }
 
     public BillingQuotaVO getQuota() {

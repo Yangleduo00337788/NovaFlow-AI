@@ -1,5 +1,6 @@
 package ai.novaflow.model.mapper;
 
+import ai.novaflow.model.domain.CostAllocationAggregate;
 import ai.novaflow.model.domain.ModelUsageAggregate;
 import ai.novaflow.model.domain.TokenUsageLogRow;
 import ai.novaflow.model.domain.UsageTrendPoint;
@@ -61,4 +62,10 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
             Integer success);
 
     List<TokenUsageEntity> listNeedingCostBackfill(Long tenantId, int limit);
+
+    List<CostAllocationAggregate> allocateByApplication(Long tenantId, LocalDate startDate, LocalDate endDate);
+
+    List<CostAllocationAggregate> allocateByWorkspace(Long tenantId, LocalDate startDate, LocalDate endDate);
+
+    List<CostAllocationAggregate> allocateByUser(Long tenantId, LocalDate startDate, LocalDate endDate);
 }
