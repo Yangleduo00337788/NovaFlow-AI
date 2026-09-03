@@ -15,6 +15,8 @@ import ai.novaflow.knowledge.storage.DocumentStorageService;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.support.TenantQuotas;
+import ai.novaflow.common.security.ResourceTypes;
+import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.mybatisflex.core.paginate.Page;
@@ -45,10 +47,14 @@ public class DocumentService {
     private final TenantMapper tenantMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditRecorder auditRecorder;
+    private final ResourceAccessService resourceAccessService;
 
     public PageResult<DocumentVO> page(Long knowledgeBaseId, int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
+        Long tenantId = requireTenantId();
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:read");
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         QueryWrapper query = QueryWrapper.create()
                 .eq("knowledge_base_id", knowledgeBaseId)
@@ -84,6 +90,8 @@ public class DocumentService {
 
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         Long tenantId = knowledgeBase.getTenantId();
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:upload");
         Long userId = StpUtil.getLoginIdAsLong();
         assertStorageQuota(tenantId, file.getSize());
 
@@ -119,6 +127,9 @@ public class DocumentService {
 
     @Transactional
     public void delete(Long knowledgeBaseId, Long documentId) {
+        Long tenantId = requireTenantId();
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:delete");
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         DocumentEntity entity = documentMapper.selectOneByQuery(
                 QueryWrapper.create()
@@ -148,6 +159,9 @@ public class DocumentService {
     }
 
     public void triggerReprocess(Long knowledgeBaseId, Long documentId) {
+        Long tenantId = requireTenantId();
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:upload");
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         DocumentEntity entity = documentMapper.selectOneByQuery(
                 QueryWrapper.create()

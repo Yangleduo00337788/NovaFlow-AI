@@ -15,7 +15,9 @@ import ai.novaflow.knowledge.storage.DocumentStorageService;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.support.TenantQuotas;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
+import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -36,6 +38,7 @@ public class KnowledgeBaseService {
     private final DocumentStorageService documentStorageService;
     private final TenantMapper tenantMapper;
     private final RecentAccessService recentAccessService;
+    private final ResourceAccessService resourceAccessService;
     private final AuditRecorder auditRecorder;
 
     public PageResult<KnowledgeBaseVO> page(int page, int pageSize, String keyword) {
@@ -51,11 +54,18 @@ public class KnowledgeBaseService {
         query.orderBy("updated_at", false);
 
         Page<KnowledgeBaseEntity> result = knowledgeBaseMapper.paginate(Page.of(page, pageSize), query);
-        List<KnowledgeBaseVO> list = result.getRecords().stream().map(this::toVO).toList();
+        long userId = StpUtil.getLoginIdAsLong();
+        List<KnowledgeBaseVO> list = result.getRecords().stream()
+                .filter(entity -> resourceAccessService.canAccessResource(
+                        userId, tenantId, ResourceTypes.KNOWLEDGE, entity.getId(), "knowledge:read"))
+                .map(this::toVO)
+                .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
     public KnowledgeBaseVO detail(Long id) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:read");
         KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
         recordRecentAccess(entity);
         return toVO(entity);
@@ -92,6 +102,8 @@ public class KnowledgeBaseService {
 
     @Transactional
     public KnowledgeBaseVO update(Long id, KnowledgeBaseSaveRequest request) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:create");
         KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
         ensureNameUnique(entity.getTenantId(), request.getKbName(), id);
         applyRequest(entity, request);
@@ -102,6 +114,8 @@ public class KnowledgeBaseService {
 
     @Transactional
     public void delete(Long id) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:delete");
         KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
         List<DocumentEntity> documents = documentMapper.selectListByQuery(
                 QueryWrapper.create()
