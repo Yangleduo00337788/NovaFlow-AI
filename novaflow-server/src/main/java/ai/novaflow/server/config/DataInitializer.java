@@ -62,8 +62,12 @@ public class DataInitializer implements CommandLineRunner {
         }
         RoleEntity superAdminRole = requireSystemRole("super_admin");
         RoleEntity tenantOwnerRole = requireSystemRole("tenant_owner");
+        RoleEntity developerRole = requireSystemRole("developer");
+        RoleEntity operatorRole = requireSystemRole("operator");
         RoleEntity memberRole = requireSystemRole("member");
-        if (superAdminRole == null || tenantOwnerRole == null || memberRole == null) {
+        RoleEntity viewerRole = requireSystemRole("viewer");
+        if (superAdminRole == null || tenantOwnerRole == null || developerRole == null
+                || operatorRole == null || memberRole == null || viewerRole == null) {
             log.warn("System roles not ready, skip demo account bootstrap");
             return;
         }
@@ -97,6 +101,33 @@ public class DataInitializer implements CommandLineRunner {
                 tenant,
                 now
         );
+        ensureDemoUser(
+                "developer@novaflow.ai",
+                "developer",
+                "王开发",
+                "Developer123!",
+                developerRole,
+                tenant,
+                now
+        );
+        ensureDemoUser(
+                "operator@novaflow.ai",
+                "operator",
+                "赵运维",
+                "Operator123!",
+                operatorRole,
+                tenant,
+                now
+        );
+        ensureDemoUser(
+                "viewer@novaflow.ai",
+                "viewer",
+                "钱只读",
+                "Viewer123!",
+                viewerRole,
+                tenant,
+                now
+        );
 
         WorkspaceEntity workspace = ensureDefaultWorkspace(tenant, adminUser.getId(), now);
         ensurePublishedDemoApp(tenant, workspace, adminUser.getId(), now);
@@ -106,7 +137,10 @@ public class DataInitializer implements CommandLineRunner {
                 Demo accounts:
                   平台超管  platform@novaflow.ai
                   企业所有者 admin@novaflow.ai
+                  开发者    developer@novaflow.ai
+                  运维人员  operator@novaflow.ai
                   企业成员  user@novaflow.ai
+                  只读用户  viewer@novaflow.ai
                   （演示入口 /login，密码见项目 README，请勿用于生产）
                 """);
     }

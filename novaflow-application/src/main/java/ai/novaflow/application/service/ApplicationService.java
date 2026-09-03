@@ -174,8 +174,9 @@ public class ApplicationService {
 
     @Transactional
     public ApplicationPublishVO publish(Long id) {
-        resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id, "application:manage");
+        resourceAccessService.requireResourceAccessAny(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id,
+                "application:publish", "application:manage");
         ApplicationEntity entity = getApplicationOrThrow(id);
         if (entity.getDefaultAgentId() == null) {
             throw new BusinessException("发布前请设置默认入口 Agent");
@@ -194,8 +195,9 @@ public class ApplicationService {
 
     @Transactional
     public ApplicationPublishVO unpublish(Long id) {
-        resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id, "application:manage");
+        resourceAccessService.requireResourceAccessAny(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id,
+                "application:publish", "application:manage");
         ApplicationEntity entity = getApplicationOrThrow(id);
         entity.setPublishStatus(PUBLISH_STATUS_OFFLINE);
         entity.setUpdatedAt(LocalDateTime.now());

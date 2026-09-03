@@ -49,6 +49,24 @@ public class ResourceAccessService {
         }
     }
 
+    public void requireResourceAccessAny(
+            long userId,
+            Long tenantId,
+            String resourceType,
+            Long resourceId,
+            String... permissionCodes
+    ) {
+        if (permissionCodes == null || permissionCodes.length == 0) {
+            throw new BusinessException(40301, "无权限访问该资源");
+        }
+        for (String permissionCode : permissionCodes) {
+            if (canAccessResource(userId, tenantId, resourceType, resourceId, permissionCode)) {
+                return;
+            }
+        }
+        throw new BusinessException(40301, "无权限访问该资源");
+    }
+
     public boolean canAccessResource(
             long userId,
             Long tenantId,

@@ -60,7 +60,7 @@
           </div>
           <div v-if="canManage || canRead" class="app-actions">
             <a-button v-if="canRead" type="link" size="small" @click="openPublish(item)">
-              {{ canManage ? '发布信息' : '查看详情' }}
+              {{ canPublish ? '发布信息' : '查看详情' }}
             </a-button>
             <template v-if="canManage">
               <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
@@ -181,7 +181,7 @@
             <router-link :to="publishInfo.portalPath">{{ publishInfo.portalPath }}</router-link>
           </a-descriptions-item>
         </a-descriptions>
-        <div v-if="canManage" class="publish-actions">
+        <div v-if="canPublish" class="publish-actions">
           <a-button
             v-if="(publishInfo?.publishStatus ?? publishTarget.publishStatus) !== 1"
             type="primary"
@@ -233,8 +233,9 @@ import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDraw
 import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 
 const auth = useAuthStore()
-const canRead = computed(() => auth.hasAnyPermission(['application:read', 'application:manage']))
+const canRead = computed(() => auth.hasAnyPermission(['application:read', 'application:publish', 'application:manage']))
 const canManage = computed(() => auth.hasPermission('application:manage'))
+const canPublish = computed(() => auth.hasAnyPermission(['application:publish', 'application:manage']))
 const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
 const applicationPermissionOptions = RESOURCE_PERMISSION_OPTIONS.APPLICATION
 const resourcePermOpen = ref(false)
@@ -427,7 +428,7 @@ async function openPublish(item: ApplicationItem) {
 }
 
 async function onPublish() {
-  if (!canManage.value || !publishTarget.value) return
+  if (!canPublish.value || !publishTarget.value) return
   publishLoading.value = true
   try {
     const res = await publishApplication(publishTarget.value.id)
@@ -442,7 +443,7 @@ async function onPublish() {
 }
 
 async function onUnpublish() {
-  if (!canManage.value || !publishTarget.value) return
+  if (!canPublish.value || !publishTarget.value) return
   publishLoading.value = true
   try {
     const res = await unpublishApplication(publishTarget.value.id)

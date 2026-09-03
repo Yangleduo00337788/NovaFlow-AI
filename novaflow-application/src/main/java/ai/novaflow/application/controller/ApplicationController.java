@@ -79,13 +79,13 @@ public class ApplicationController {
         return ApiResult.ok(applicationService.getPublishInfo(id));
     }
 
-    @SaCheckPermission("application:manage")
+    @SaCheckPermission(value = {"application:publish", "application:manage"}, mode = SaMode.OR)
     @PostMapping("/{id}/publish")
     public ApiResult<ApplicationPublishVO> publish(@PathVariable Long id) {
         return ApiResult.ok(applicationService.publish(id));
     }
 
-    @SaCheckPermission("application:manage")
+    @SaCheckPermission(value = {"application:publish", "application:manage"}, mode = SaMode.OR)
     @PostMapping("/{id}/unpublish")
     public ApiResult<ApplicationPublishVO> unpublish(@PathVariable Long id) {
         return ApiResult.ok(applicationService.unpublish(id));

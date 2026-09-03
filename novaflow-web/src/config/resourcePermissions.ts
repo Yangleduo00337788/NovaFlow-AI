@@ -21,6 +21,7 @@ export const RESOURCE_PERMISSION_OPTIONS = {
   ],
   APPLICATION: [
     { value: 'application:read', label: '查看' },
+    { value: 'application:publish', label: '发布' },
     { value: 'application:manage', label: '管理' },
   ],
 }
