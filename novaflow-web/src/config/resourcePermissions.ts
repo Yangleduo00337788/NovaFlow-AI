@@ -19,6 +19,10 @@ export const RESOURCE_PERMISSION_OPTIONS = {
     { value: 'knowledge:delete', label: '删除' },
     { value: 'knowledge:search', label: '检索' },
   ],
+  APPLICATION: [
+    { value: 'application:read', label: '查看' },
+    { value: 'application:manage', label: '管理' },
+  ],
 }
 
 export type ResourcePermissionType = keyof typeof RESOURCE_PERMISSION_OPTIONS

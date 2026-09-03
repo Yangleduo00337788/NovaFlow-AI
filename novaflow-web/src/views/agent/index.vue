@@ -393,11 +393,12 @@
           <a-descriptions-item v-if="publishInfo.apiKeyPrefix" label="API Key 前缀">
             <span class="key-prefix">{{ publishInfo.apiKeyPrefix }}...</span>
             <a-popconfirm
+              v-if="canRotateApiKey"
               title="轮换后旧 Key 将立即失效，需同步更新所有调用方"
               ok-text="确认轮换"
               @confirm="onRotateKey"
             >
-              <a-button v-if="!revealedApiKey" type="link" size="small">轮换获取新 Key</a-button>
+              <a-button v-if="canRotateApiKey && !revealedApiKey" type="link" size="small">轮换获取新 Key</a-button>
             </a-popconfirm>
           </a-descriptions-item>
         </a-descriptions>
@@ -573,7 +574,8 @@ const canCreate = computed(() => auth.hasPermission('agent:create'))
 const canEdit = computed(() => auth.hasPermission('agent:edit'))
 const canDelete = computed(() => auth.hasPermission('agent:delete'))
 const canPublish = computed(() => auth.hasPermission('agent:publish'))
-const canDebug = computed(() => auth.hasPermission('agent:edit', 'agent:chat'))
+const canDebug = computed(() => auth.hasAnyPermission(['agent:debug', 'agent:edit']))
+const canRotateApiKey = computed(() => auth.hasAnyPermission(['api:create', 'api:update', 'agent:publish']))
 const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
 const agentPermissionOptions = RESOURCE_PERMISSION_OPTIONS.AGENT
 

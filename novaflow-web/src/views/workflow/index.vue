@@ -55,9 +55,9 @@
           <div class="card-footer">
             <span>{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div v-if="canEdit" class="card-actions">
-            <a-button type="link" size="small" @click="openEditor(item.id)">编辑</a-button>
-            <a-popconfirm title="确认删除该工作流？" @confirm="onDelete(item.id)">
+          <div v-if="canEdit || canDelete" class="card-actions">
+            <a-button v-if="canEdit" type="link" size="small" @click="openEditor(item.id)">编辑</a-button>
+            <a-popconfirm v-if="canDelete" title="确认删除该工作流？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
           </div>
@@ -127,6 +127,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const canCreate = computed(() => auth.hasPermission('workflow:create'))
 const canEdit = computed(() => auth.hasPermission('workflow:edit'))
+const canDelete = computed(() => auth.hasPermission('workflow:delete'))
 const loading = ref(false)
 const creating = ref(false)
 const appsLoading = ref(false)
@@ -214,7 +215,7 @@ function openEditor(id: number) {
 }
 
 async function onDelete(id: number) {
-  if (!canEdit.value) return
+  if (!canDelete.value) return
   try {
     await deleteWorkflow(id)
     message.success('已删除')

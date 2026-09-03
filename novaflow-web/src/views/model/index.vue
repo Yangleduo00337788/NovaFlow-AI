@@ -93,7 +93,7 @@
               </div>
             </div>
 
-            <div class="provider-actions">
+            <div v-if="canConfig" class="provider-actions">
               <a-button type="primary" @click="openProviderDrawer(provider)">
                 <template #icon><SettingOutlined /></template>
                 {{ provider.configured ? '编辑配置' : '立即配置' }}
@@ -160,7 +160,7 @@
             <a-select-option value="rerank">Rerank</a-select-option>
           </a-select>
         </a-space>
-        <a-button type="primary" :disabled="configuredProviders.length === 0" @click="openModelDrawer()">
+        <a-button v-if="canConfig" type="primary" :disabled="configuredProviders.length === 0" @click="openModelDrawer()">
           添加模型
         </a-button>
       </div>
@@ -173,7 +173,7 @@
           <template #image>
             <InboxOutlined class="table-empty-icon" />
           </template>
-          <a-button type="primary" :disabled="configuredProviders.length === 0" @click="openModelDrawer()">
+          <a-button v-if="canConfig" type="primary" :disabled="configuredProviders.length === 0" @click="openModelDrawer()">
             <template #icon><PlusOutlined /></template>
             添加模型
           </a-button>
@@ -224,7 +224,7 @@
                   </span>
                 </template>
                 <template v-else-if="column.key === 'action'">
-                  <a-space>
+                  <a-space v-if="canConfig">
                     <a-button type="link" @click="openModelDrawer(record)">编辑</a-button>
                     <a-button v-if="!record.isDefault" type="link" @click="onSetDefault(record.id)">设为默认</a-button>
                     <a-popconfirm title="确认删除该模型？" @confirm="onDeleteConfig(record.id)">
@@ -421,6 +421,10 @@ import {
 import { mergeModelProviders, MODEL_PROVIDER_PRESETS } from '@/constants/modelProviders'
 import { formatCostSummaries, formatMoney } from '@/utils/currency'
 import ProviderIcon from '@/components/common/ProviderIcon.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const canConfig = computed(() => auth.hasPermission('model:config'))
 
 const activeTab = ref('providers')
 const providerRegionFilter = ref('all')

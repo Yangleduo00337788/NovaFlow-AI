@@ -61,9 +61,9 @@
             <a-tag color="green">{{ item.embeddingModel }}</a-tag>
             <span class="kb-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div v-if="canCreate" class="kb-actions" @click.stop>
-            <a-button type="link" @click="openEdit(item)">编辑</a-button>
-            <a-popconfirm title="确认删除该知识库及全部文档？" @confirm="onDelete(item.id)">
+          <div v-if="canCreate || canDelete" class="kb-actions" @click.stop>
+            <a-button v-if="canCreate" type="link" @click="openEdit(item)">编辑</a-button>
+            <a-popconfirm v-if="canDelete" title="确认删除该知识库及全部文档？" @confirm="onDelete(item.id)">
               <a-button type="link" danger>删除</a-button>
             </a-popconfirm>
           </div>
@@ -200,6 +200,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const canCreate = computed(() => auth.hasPermission('knowledge:create'))
+const canDelete = computed(() => auth.hasPermission('knowledge:delete'))
 const loading = ref(false)
 const saving = ref(false)
 const modelsLoading = ref(false)
@@ -337,7 +338,7 @@ async function onSave() {
 }
 
 async function onDelete(id: number) {
-  if (!canCreate.value) return
+  if (!canDelete.value) return
   try {
     await deleteKnowledgeBase(id)
     message.success('已删除')

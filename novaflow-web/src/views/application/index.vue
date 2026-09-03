@@ -58,12 +58,14 @@
           <div class="app-footer">
             <span class="app-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div v-if="canManage" class="app-actions">
-            <a-button type="link" size="small" @click="openPublish(item)">发布</a-button>
-            <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
-            <a-popconfirm title="确认删除该应用？" @confirm="onDelete(item.id)">
-              <a-button type="link" size="small" danger>删除</a-button>
-            </a-popconfirm>
+          <div v-if="canManage || canRead" class="app-actions">
+            <a-button v-if="canRead" type="link" size="small" @click="openPublish(item)">发布信息</a-button>
+            <template v-if="canManage">
+              <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
+              <a-popconfirm title="确认删除该应用？" @confirm="onDelete(item.id)">
+                <a-button type="link" size="small" danger>删除</a-button>
+              </a-popconfirm>
+            </template>
           </div>
         </div>
       </div>
@@ -136,9 +138,26 @@
             :options="knowledgeOptions"
           />
         </a-form-item>
-        <a-button type="primary" :loading="saving" data-testid="save-app-btn" @click="onSave">保存</a-button>
+        <a-button v-if="canManage" type="primary" :loading="saving" data-testid="save-app-btn" @click="onSave">保存</a-button>
+        <a-button
+          v-if="editingId && canManageResource"
+          style="margin-top: 12px"
+          block
+          @click="resourcePermOpen = true"
+        >
+          资源授权
+        </a-button>
       </a-form>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      v-if="canManageResource"
+      :open="resourcePermOpen"
+      resource-type="APPLICATION"
+      :resource-id="editingId"
+      :permission-options="applicationPermissionOptions"
+      @close="resourcePermOpen = false"
+    />
 
     <a-modal v-model:open="publishOpen" title="应用发布" :footer="null" width="640px">
       <div v-if="publishTarget" class="publish-modal">
@@ -208,9 +227,15 @@ import {
 } from '@/api/application'
 import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 
 const auth = useAuthStore()
+const canRead = computed(() => auth.hasAnyPermission(['application:read', 'application:manage']))
 const canManage = computed(() => auth.hasPermission('application:manage'))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const applicationPermissionOptions = RESOURCE_PERMISSION_OPTIONS.APPLICATION
+const resourcePermOpen = ref(false)
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<ApplicationItem[]>([])
@@ -387,7 +412,7 @@ async function onDelete(id: number) {
 }
 
 async function openPublish(item: ApplicationItem) {
-  if (!canManage.value) return
+  if (!canRead.value) return
   publishTarget.value = item
   publishInfo.value = null
   publishOpen.value = true

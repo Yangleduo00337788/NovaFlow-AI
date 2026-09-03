@@ -37,7 +37,7 @@ export const menuGroups: MenuGroup[] = [
     title: '运行与监控',
     items: [
       { key: 'portal', label: '应用门户', path: '/portal', icon: 'application', permissions: ['portal:access'] },
-      { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:manage'] },
+      { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:read', 'application:manage'] },
       { key: 'monitor', label: '运行监控', path: '/monitor', icon: 'monitor', permissions: ['monitor:view'] },
       { key: 'log', label: '调用日志', path: '/log', icon: 'log', permissions: ['log:read', 'monitor:view', 'billing:view'] },
       { key: 'trace', label: '链路分析', path: '/trace', icon: 'trace', beta: true, permissions: ['trace:view'] },
@@ -70,7 +70,7 @@ const routePermissionMap: Record<string, string[]> = {
   '/model': ['model:read', 'model:config'],
   '/tool': ['tool:read', 'agent:edit'],
   '/prompt': ['prompt:read', 'prompt:create', 'prompt:edit'],
-  '/application': ['application:manage'],
+  '/application': ['application:read', 'application:manage'],
   '/monitor': ['monitor:view'],
   '/log': ['log:read', 'monitor:view', 'billing:view'],
   '/trace': ['trace:view'],
