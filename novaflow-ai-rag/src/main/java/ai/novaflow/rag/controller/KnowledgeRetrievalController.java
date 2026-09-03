@@ -23,7 +23,9 @@ public class KnowledgeRetrievalController {
 
     private final KnowledgeRetrievalService knowledgeRetrievalService;
 
-    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            "knowledge:read", "knowledge:search", "knowledge:create", "knowledge:upload"
+    }, mode = SaMode.OR)
     @PostMapping("/{id}/retrieve")
     public ApiResult<RetrievalTestResultVO> retrieve(
             @PathVariable Long id,

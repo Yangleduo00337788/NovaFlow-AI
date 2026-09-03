@@ -71,6 +71,11 @@ public class KnowledgeBaseService {
         return toVO(entity);
     }
 
+    public void requireSearchAccess(Long id) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:search");
+    }
+
     @Transactional
     public KnowledgeBaseVO create(KnowledgeBaseSaveRequest request) {
         Long tenantId = requireTenantId();

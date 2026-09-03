@@ -20,7 +20,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-@SaCheckPermission(value = {"agent:create", "agent:edit", "monitor:view", "application:manage", "tenant:manage"}, mode = SaMode.OR)
+@SaCheckPermission(value = {
+        "dashboard:view",
+        "agent:create", "agent:edit", "agent:read",
+        "monitor:view", "application:manage", "tenant:manage"
+}, mode = SaMode.OR)
 public class DashboardController {
 
     private final DashboardService dashboardService;

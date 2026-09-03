@@ -25,13 +25,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@SaCheckPermission(value = {"prompt:create", "prompt:edit"}, mode = SaMode.OR)
 @RequestMapping("/api/v1/prompts")
 @RequiredArgsConstructor
 public class PromptTemplateController {
 
     private final PromptTemplateService promptTemplateService;
 
+    @SaCheckPermission(value = {
+            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+    }, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<PromptTemplateVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -41,26 +43,37 @@ public class PromptTemplateController {
         return ApiResult.ok(promptTemplateService.page(page, pageSize, keyword, category));
     }
 
+    @SaCheckPermission(value = {
+            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+    }, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<PromptTemplateVO>> options(@RequestParam(required = false) String keyword) {
         return ApiResult.ok(promptTemplateService.listOptions(keyword));
     }
 
+    @SaCheckPermission(value = {
+            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+    }, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<PromptTemplateVO> detail(@PathVariable Long id) {
         return ApiResult.ok(promptTemplateService.detail(id));
     }
 
+    @SaCheckPermission(value = {
+            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+    }, mode = SaMode.OR)
     @GetMapping("/{id}/versions")
     public ApiResult<List<PromptVersionVO>> versions(@PathVariable Long id) {
         return ApiResult.ok(promptTemplateService.listVersions(id));
     }
 
+    @SaCheckPermission("prompt:create")
     @PostMapping
     public ApiResult<PromptTemplateVO> create(@Valid @RequestBody PromptTemplateSaveRequest request) {
         return ApiResult.ok(promptTemplateService.create(request));
     }
 
+    @SaCheckPermission("prompt:edit")
     @PutMapping("/{id}")
     public ApiResult<PromptTemplateVO> update(
             @PathVariable Long id,
@@ -68,6 +81,7 @@ public class PromptTemplateController {
         return ApiResult.ok(promptTemplateService.update(id, request));
     }
 
+    @SaCheckPermission("prompt:edit")
     @PostMapping("/{id}/rollback")
     public ApiResult<PromptTemplateVO> rollback(
             @PathVariable Long id,
@@ -75,12 +89,14 @@ public class PromptTemplateController {
         return ApiResult.ok(promptTemplateService.rollback(id, version));
     }
 
+    @SaCheckPermission(value = {"prompt:delete", "prompt:edit"}, mode = SaMode.OR)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         promptTemplateService.delete(id);
         return ApiResult.ok();
     }
 
+    @SaCheckPermission(value = {"prompt:edit", "prompt:create"}, mode = SaMode.OR)
     @PostMapping("/{id}/test")
     public ApiResult<PromptTestResultVO> test(
             @PathVariable Long id,
