@@ -6,8 +6,13 @@ import ai.novaflow.application.domain.vo.PortalAppDetailVO;
 import ai.novaflow.application.domain.vo.PortalAppVO;
 import ai.novaflow.application.entity.ApplicationEntity;
 import ai.novaflow.application.mapper.ApplicationMapper;
+import ai.novaflow.chat.domain.vo.ConversationMessageVO;
+import ai.novaflow.chat.domain.vo.ConversationVO;
+import ai.novaflow.chat.service.ConversationService;
 import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +28,7 @@ public class PortalService {
 
     private final ApplicationMapper applicationMapper;
     private final AgentMapper agentMapper;
+    private final ConversationService conversationService;
 
     public List<PortalAppVO> listPublishedApps() {
         Long tenantId = requireTenantId();
@@ -52,6 +58,37 @@ public class PortalService {
                 .defaultAgentName(agent.getAgentName())
                 .portalPath(buildPortalPath(entity.getId()))
                 .build();
+    }
+
+    public PageResult<ConversationVO> listMyConversations(Long applicationId, int page, int pageSize) {
+        ApplicationEntity app = getPublishedAppOrThrow(applicationId);
+        return conversationService.pageConversations(
+                app.getDefaultAgentId(),
+                requireTenantId(),
+                null,
+                null,
+                StpUtil.getLoginIdAsLong(),
+                conversationKeyPrefix(applicationId),
+                page,
+                pageSize);
+    }
+
+    public List<ConversationMessageVO> listMyMessages(Long applicationId, String conversationKey) {
+        if (!StringUtils.hasText(conversationKey)
+                || !conversationKey.startsWith(conversationKeyPrefix(applicationId))) {
+            throw new BusinessException("会话不存在");
+        }
+        ApplicationEntity app = getPublishedAppOrThrow(applicationId);
+        return conversationService.listMessages(
+                app.getDefaultAgentId(),
+                requireTenantId(),
+                conversationKey.trim(),
+                null,
+                StpUtil.getLoginIdAsLong());
+    }
+
+    public static String conversationKeyPrefix(Long applicationId) {
+        return "portal-" + applicationId + "-";
     }
 
     public ApplicationEntity getPublishedAppOrThrow(Long applicationId) {

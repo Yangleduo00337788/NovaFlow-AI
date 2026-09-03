@@ -115,12 +115,44 @@
         ref="chatPanelRef"
         :application-id="selectedAppId"
         @loaded="onChatLoaded"
+        @conversation-changed="onConversationChanged"
       />
     </main>
 
-    <!-- 右侧：工具栏（占位，后续扩展） -->
+    <aside v-if="historyOpen" class="portal-history" aria-label="历史对话">
+      <div class="history-head">
+        <strong>我的对话</strong>
+        <button type="button" class="icon-btn" aria-label="关闭历史" @click="historyOpen = false">
+          ×
+        </button>
+      </div>
+      <a-spin :spinning="loadingHistory">
+        <p v-if="!loadingHistory && !historyItems.length" class="history-empty">暂无历史对话</p>
+        <button
+          v-for="item in historyItems"
+          :key="item.conversationKey"
+          type="button"
+          class="history-item"
+          :class="{ active: item.conversationKey === activeConversationKey }"
+          @click="openHistoryItem(item.conversationKey)"
+        >
+          <strong>{{ item.preview || '对话' }}</strong>
+          <span>{{ formatHistoryTime(item.lastMessageAt) }}</span>
+        </button>
+      </a-spin>
+    </aside>
+
+    <!-- 右侧：工具栏 -->
     <aside class="portal-rail" aria-label="快捷工具">
-      <button type="button" class="rail-btn" title="历史对话（即将上线）">
+      <button
+        type="button"
+        class="rail-btn"
+        :class="{ active: historyOpen }"
+        :disabled="!selectedAppId"
+        title="历史对话"
+        aria-label="历史对话"
+        @click="toggleHistory"
+      >
         <FolderOutlined />
       </button>
       <button type="button" class="rail-btn" title="帮助（即将上线）">
@@ -144,7 +176,7 @@ import {
 } from '@ant-design/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import PortalChatPanel from '@/components/portal/PortalChatPanel.vue'
-import { fetchPortalApps, type PortalAppItem } from '@/api/portal'
+import { fetchPortalApps, fetchPortalConversationMessages, fetchPortalConversations, type PortalAppItem, type PortalConversationItem } from '@/api/portal'
 import { getDefaultHomeByRole, isEndUser, portalAppPath } from '@/config/access'
 import { APP_LOGIN_PATH } from '@/config/app'
 import { useAuthStore } from '@/stores/auth'
@@ -161,6 +193,10 @@ const selectedAppId = ref<number | null>(null)
 const currentTitle = ref('NovaFlow')
 const chatPanelRef = ref<InstanceType<typeof PortalChatPanel> | null>(null)
 const chatBusy = ref(false)
+const historyOpen = ref(false)
+const loadingHistory = ref(false)
+const historyItems = ref<PortalConversationItem[]>([])
+const activeConversationKey = ref('')
 
 const userName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
 const tenantName = computed(() => auth.tenant?.tenantName || '')
@@ -203,6 +239,51 @@ function startNewChat() {
   chatPanelRef.value?.startNewConversation()
 }
 
+function formatHistoryTime(value?: string) {
+  if (!value) return ''
+  return value.replace('T', ' ').slice(0, 16)
+}
+
+async function refreshHistory() {
+  if (!selectedAppId.value) {
+    historyItems.value = []
+    return
+  }
+  loadingHistory.value = true
+  try {
+    const res = await fetchPortalConversations(selectedAppId.value, { page: 1, pageSize: 50 })
+    historyItems.value = res.data.data?.list || []
+  } catch {
+    historyItems.value = []
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+async function toggleHistory() {
+  if (!selectedAppId.value) return
+  historyOpen.value = !historyOpen.value
+  if (historyOpen.value) {
+    await refreshHistory()
+  }
+}
+
+async function openHistoryItem(conversationKey: string) {
+  if (!selectedAppId.value) return
+  const res = await fetchPortalConversationMessages(selectedAppId.value, conversationKey)
+  chatPanelRef.value?.loadHistory(conversationKey, res.data.data || [])
+  activeConversationKey.value = conversationKey
+}
+
+function onConversationChanged(conversationKey?: string) {
+  if (conversationKey) {
+    activeConversationKey.value = conversationKey
+  }
+  if (historyOpen.value) {
+    refreshHistory()
+  }
+}
+
 function goStudio() {
   router.push(getDefaultHomeByRole(auth.roleCode))
 }
@@ -236,8 +317,13 @@ watch(
     if (selectedAppId.value) {
       const app = apps.value.find((item) => item.id === selectedAppId.value)
       currentTitle.value = app?.defaultAgentName || app?.appName || 'AI 助手'
+      if (historyOpen.value) {
+        refreshHistory()
+      }
     } else {
       currentTitle.value = 'NovaFlow'
+      historyItems.value = []
+      activeConversationKey.value = ''
     }
   },
   { immediate: true },
@@ -527,6 +613,72 @@ onMounted(loadApps)
   color: var(--text-secondary);
 }
 
+.portal-history {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 14px 10px;
+}
+
+.history-head strong {
+  font-size: 14px;
+}
+
+.portal-history :deep(.ant-spin-nested-loading),
+.portal-history :deep(.ant-spin-container) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.history-empty {
+  margin: 24px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.history-item {
+  width: calc(100% - 16px);
+  margin: 0 8px 6px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-item:hover,
+.history-item.active {
+  background: var(--hover-bg);
+}
+
+.history-item strong {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .portal-rail {
   width: 52px;
   flex-shrink: 0;
@@ -552,8 +704,18 @@ onMounted(loadApps)
   justify-content: center;
 }
 
-.rail-btn:hover {
+.rail-btn:hover:not(:disabled) {
   background: var(--hover-bg);
   color: var(--primary);
+}
+
+.rail-btn.active {
+  background: var(--hover-bg);
+  color: var(--primary);
+}
+
+.rail-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

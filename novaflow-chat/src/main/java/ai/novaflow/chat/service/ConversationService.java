@@ -44,6 +44,18 @@ public class ConversationService {
             String callerId,
             int page,
             int pageSize) {
+        return pageConversations(agentId, tenantId, channel, callerId, null, null, page, pageSize);
+    }
+
+    public PageResult<ConversationVO> pageConversations(
+            Long agentId,
+            Long tenantId,
+            String channel,
+            String callerId,
+            Long userId,
+            String conversationKeyPrefix,
+            int page,
+            int pageSize) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
         QueryWrapper query = QueryWrapper.create()
@@ -54,6 +66,12 @@ public class ConversationService {
         }
         if (StringUtils.hasText(callerId)) {
             query.eq("caller_id", callerId.trim());
+        }
+        if (userId != null) {
+            query.eq("user_id", userId);
+        }
+        if (StringUtils.hasText(conversationKeyPrefix)) {
+            query.like("conversation_key", conversationKeyPrefix);
         }
         query.orderBy("last_message_at", false).orderBy("id", false);
 
@@ -72,7 +90,16 @@ public class ConversationService {
             Long tenantId,
             String conversationKey,
             String callerId) {
-        ConversationEntity conversation = getConversationOrThrow(agentId, tenantId, conversationKey, callerId);
+        return listMessages(agentId, tenantId, conversationKey, callerId, null);
+    }
+
+    public List<ConversationMessageVO> listMessages(
+            Long agentId,
+            Long tenantId,
+            String conversationKey,
+            String callerId,
+            Long userId) {
+        ConversationEntity conversation = getConversationOrThrow(agentId, tenantId, conversationKey, callerId, userId);
         List<ConversationMessageEntity> messages = conversationMessageMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("conversation_id", conversation.getId())
@@ -86,13 +113,17 @@ public class ConversationService {
             Long agentId,
             Long tenantId,
             String conversationKey,
-            String callerId) {
+            String callerId,
+            Long userId) {
         QueryWrapper query = QueryWrapper.create()
                 .eq("agent_id", agentId)
                 .eq("tenant_id", tenantId)
                 .eq("conversation_key", conversationKey);
         if (StringUtils.hasText(callerId)) {
             query.eq("caller_id", callerId.trim());
+        }
+        if (userId != null) {
+            query.eq("user_id", userId);
         }
         ConversationEntity conversation = conversationMapper.selectOneByQuery(query.limit(1));
         if (conversation == null) {

@@ -152,7 +152,7 @@ public class AgentController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations")
     public ApiResult<PageResult<ConversationVO>> listDebugConversations(
             @PathVariable Long id,
@@ -163,7 +163,7 @@ public class AgentController {
                 id, TenantContext.getTenantId(), "debug", null, page, pageSize));
     }
 
-    @SaCheckPermission(value = {"agent:chat", "agent:edit", "portal:access"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"agent:chat", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations/messages")
     public ApiResult<List<ConversationMessageVO>> listDebugConversationMessages(
             @PathVariable Long id,

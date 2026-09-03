@@ -81,6 +81,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   loaded: [payload: { appName: string; description?: string; agentName?: string }]
   error: [message: string]
+  conversationChanged: [conversationKey?: string]
 }>()
 
 const input = ref('')
@@ -94,6 +95,7 @@ const agentId = ref<number | null>(null)
 const conversationId = ref('')
 const messageListRef = ref<HTMLElement>()
 let seq = 1
+let loadGeneration = 0
 let abortController: AbortController | null = null
 
 function scrollToBottom() {
@@ -120,11 +122,13 @@ function resetState() {
 }
 
 async function loadApp(applicationId: number) {
+  const generation = ++loadGeneration
   resetState()
   loading.value = true
   conversationId.value = `portal-${applicationId}-${Date.now()}`
   try {
     const res = await fetchPortalApp(applicationId)
+    if (generation !== loadGeneration) return
     const detail = res.data.data
     agentId.value = detail.defaultAgentId
     emit('loaded', {
@@ -132,25 +136,50 @@ async function loadApp(applicationId: number) {
       description: detail.description,
       agentName: detail.defaultAgentName,
     })
+    emit('conversationChanged', conversationId.value)
 
     const welcomeRes = await fetchAgentDebugWelcome(detail.defaultAgentId)
+    if (generation !== loadGeneration) return
     if (welcomeRes.data.data.reply) {
       messages.value.push({ id: seq++, role: 'assistant', content: welcomeRes.data.data.reply })
     }
     ready.value = true
   } catch (e) {
+    if (generation !== loadGeneration) return
     const message = e instanceof Error ? e.message : '加载应用失败'
     errorMessage.value = message
     emit('error', message)
   } finally {
-    loading.value = false
-    scrollToBottom()
+    if (generation === loadGeneration) {
+      loading.value = false
+      scrollToBottom()
+    }
   }
 }
 
 function startNewConversation() {
   if (!props.applicationId) return
   loadApp(props.applicationId)
+}
+
+async function loadHistory(conversationKey: string, history: { role: string; content: string; tokensUsed?: number; latencyMs?: number }[]) {
+  loadGeneration++
+  abortController?.abort()
+  sending.value = false
+  conversationId.value = conversationKey
+  messages.value = history
+    .filter((item) => item.role === 'user' || item.role === 'assistant')
+    .map((item) => ({
+      id: seq++,
+      role: item.role as 'user' | 'assistant',
+      content: item.content,
+      meta: formatMeta(item.tokensUsed, item.latencyMs),
+    }))
+  errorMessage.value = ''
+  ready.value = true
+  loading.value = false
+  emit('conversationChanged', conversationKey)
+  scrollToBottom()
 }
 
 async function onSend() {
@@ -199,6 +228,7 @@ async function onSend() {
     if (target) target.streaming = false
     sending.value = false
     scrollToBottom()
+    emit('conversationChanged', conversationId.value)
   }
 }
 
@@ -217,7 +247,7 @@ watch(
 
 onUnmounted(() => abortController?.abort())
 
-defineExpose({ startNewConversation })
+defineExpose({ startNewConversation, loadHistory, getConversationId: () => conversationId.value })
 </script>
 
 <style scoped>
