@@ -88,7 +88,9 @@ export interface MemberUpdateRequest {
 export const ROLE_OPTIONS = [
   { value: 'tenant_admin', label: '企业管理员' },
   { value: 'developer', label: '开发者' },
-  { value: 'user', label: '普通用户' },
+  { value: 'operator', label: '运维人员' },
+  { value: 'member', label: '企业成员' },
+  { value: 'viewer', label: '只读用户' },
 ]
 
 export function fetchTenant() {

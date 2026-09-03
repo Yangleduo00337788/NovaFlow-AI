@@ -1,4 +1,5 @@
 import { getRoutePermissions } from '@/config/menu'
+import { RoleCodes } from '@/config/roles'
 
 export interface RouteAccessContext {
   roleCode: string
@@ -15,12 +16,12 @@ export function portalAppPath(applicationId: number): string {
   return `${PORTAL_HOME}/apps/${applicationId}`
 }
 
-export function isEndUser(roleCode: string): boolean {
-  return roleCode === 'user'
+/** 仅门户入口角色（当前无；Member/Viewer 可进工作台） */
+export function isPortalOnlyRole(roleCode: string): boolean {
+  return false
 }
 
-/** 普通用户仅使用门户与关于页；管理/开发角色可进入全部有权限的区域（含预览门户） */
-export function isAllowedForEndUser(path: string): boolean {
+export function isAllowedForPortalOnlyRole(path: string): boolean {
   return isPortalPath(path) || path === '/about' || path.startsWith('/about/')
 }
 
@@ -33,13 +34,10 @@ export function canAccessRoute(path: string, ctx: RouteAccessContext): boolean {
   return true
 }
 
-/** 登录后按角色进入对应区域：超管 → 总控，普通用户 → 门户，其余 → 工作台 */
+/** 登录后按角色进入对应区域 */
 export function getDefaultHomeByRole(roleCode: string): string {
-  if (roleCode === 'super_admin') {
+  if (roleCode === RoleCodes.PLATFORM_ADMIN) {
     return '/platform'
-  }
-  if (isEndUser(roleCode)) {
-    return PORTAL_HOME
   }
   return '/dashboard'
 }
@@ -53,7 +51,7 @@ export function resolvePostLoginPath(
   if (!redirect || !redirect.startsWith('/')) {
     return defaultHome
   }
-  if (isEndUser(roleCode) && !isAllowedForEndUser(redirect)) {
+  if (isPortalOnlyRole(roleCode) && !isAllowedForPortalOnlyRole(redirect)) {
     return defaultHome
   }
   if (!canAccess(redirect)) {

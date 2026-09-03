@@ -38,7 +38,7 @@
             </div>
             <div class="detail-tags">
               <a-tag color="blue">系统内置角色（只读）</a-tag>
-              <a-tag v-if="selectedRole.roleCode === 'super_admin'" color="purple">不可在组织内分配</a-tag>
+              <a-tag v-if="isProtectedMemberRole(selectedRole.roleCode)" color="purple">不可在组织内分配</a-tag>
             </div>
           </div>
 
@@ -113,6 +113,7 @@ import {
 } from '@/api/permission'
 import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
+import { isProtectedMemberRole } from '@/config/roles'
 
 const auth = useAuthStore()
 const rolesLoading = ref(false)

@@ -16,15 +16,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { isPortalPath } from '@/config/access'
 import { fetchCurrentUser } from '@/api/auth'
-import { isEndUser } from '@/config/access'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 
+const route = useRoute()
 const collapsed = ref(false)
 const auth = useAuthStore()
-const showStudioChrome = computed(() => !isEndUser(auth.roleCode))
+const showStudioChrome = computed(() => !isPortalPath(route.path))
 
 onMounted(async () => {
   if (!auth.isLoggedIn()) {

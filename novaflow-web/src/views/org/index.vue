@@ -215,7 +215,7 @@
                 {{ formatDateTime(record.lastLoginAt) }}
               </template>
               <template v-else-if="column.key === 'actions'">
-                <span v-if="isPlatformMember(record)" class="member-locked">平台账号</span>
+                <span v-if="isProtectedMember(record)" class="member-locked">受保护角色</span>
                 <a-space v-else>
                   <a-button type="link" size="small" @click="openMemberEdit(record)">编辑</a-button>
                   <a-popconfirm title="确认移除该成员？" @confirm="onRemoveMember(record.id)">
@@ -362,6 +362,7 @@ import {
   type TenantInfo,
   type WorkspaceItem,
 } from '@/api/org'
+import { isProtectedMemberRole } from '@/config/roles'
 import { formatDateTime } from '@/utils/datetime'
 
 const activeTab = ref('tenant')
@@ -702,13 +703,13 @@ async function submitInvite() {
   }
 }
 
-function isPlatformMember(record: MemberItem) {
-  return record.roleCode === 'super_admin'
+function isProtectedMember(record: MemberItem) {
+  return isProtectedMemberRole(record.roleCode || '')
 }
 
 function openMemberEdit(record: MemberItem) {
-  if (isPlatformMember(record)) {
-    message.warning('不能对企业内的平台超级管理员进行该操作')
+  if (isProtectedMember(record)) {
+    message.warning('不能对企业内的受保护角色进行该操作')
     return
   }
   editingMember.value = record
@@ -720,8 +721,8 @@ function openMemberEdit(record: MemberItem) {
 
 async function submitMemberUpdate() {
   if (!editingMember.value) return
-  if (isPlatformMember(editingMember.value)) {
-    message.warning('不能对企业内的平台超级管理员进行该操作')
+  if (isProtectedMember(editingMember.value)) {
+    message.warning('不能对企业内的受保护角色进行该操作')
     return
   }
   updatingMember.value = true

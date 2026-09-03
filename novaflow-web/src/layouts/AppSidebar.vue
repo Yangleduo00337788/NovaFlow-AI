@@ -100,7 +100,7 @@ import { useRoute } from 'vue-router'
 import { DashboardOutlined, CrownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import { fetchPlanSummary } from '@/api/org'
-import { canAccessRoute, isEndUser } from '@/config/access'
+import { canAccessRoute } from '@/config/access'
 import { filterMenuGroups } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
 import { useAuthStore } from '@/stores/auth'
@@ -117,15 +117,8 @@ const routeAccess = computed(() => ({
   hasAnyPermission: auth.hasAnyPermission.bind(auth),
 }))
 
-const visibleMenuGroups = computed(() => {
-  if (isEndUser(auth.roleCode)) {
-    return []
-  }
-  return filterMenuGroups(routeAccess.value)
-})
-const showDashboard = computed(
-  () => !isEndUser(auth.roleCode) && canAccessRoute('/dashboard', routeAccess.value),
-)
+const visibleMenuGroups = computed(() => filterMenuGroups(routeAccess.value))
+const showDashboard = computed(() => canAccessRoute('/dashboard', routeAccess.value))
 
 const planInfo = reactive({
   planType: '企业版',

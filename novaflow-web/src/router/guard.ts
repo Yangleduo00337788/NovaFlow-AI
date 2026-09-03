@@ -1,11 +1,7 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getRoutePermissions } from '@/config/menu'
-import {
-  getDefaultHomeByRole,
-  isAllowedForEndUser,
-  isEndUser,
-} from '@/config/access'
+import { getDefaultHomeByRole } from '@/config/access'
 import { APP_LOGIN_PATH } from '@/config/app'
 
 export function installRouterGuard(router: Router) {
@@ -24,11 +20,6 @@ export function installRouterGuard(router: Router) {
         return { path: APP_LOGIN_PATH, query: { redirect: to.fullPath } }
       }
       return true
-    }
-
-    // 普通用户只使用门户能力；管理员/开发者可按权限进入门户预览
-    if (isEndUser(auth.roleCode) && !isAllowedForEndUser(to.path)) {
-      return '/portal'
     }
 
     const requiredPermissions =
