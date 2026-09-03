@@ -111,6 +111,22 @@ public class OrganizationService {
         return toTenantVO(tenant, countActiveMembers(tenantId));
     }
 
+    @Transactional
+    public void deleteOwnedTenant() {
+        Long tenantId = requireTenantId();
+        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), tenantId, "tenant:delete");
+        TenantEntity tenant = getTenantOrThrow(tenantId);
+        if ("demo".equalsIgnoreCase(tenant.getTenantCode())) {
+            throw new BusinessException("演示企业不可删除");
+        }
+        tenant.setIsDeleted(1);
+        tenant.setStatus(0);
+        tenant.setUpdatedAt(LocalDateTime.now());
+        tenantMapper.update(tenant);
+        kickTenantSessions(tenantId);
+        auditLogService.record("tenant.delete", "tenant", tenantId, "企业所有者删除企业: " + tenant.getTenantName());
+    }
+
     public List<WorkspaceVO> listWorkspaces() {
         Long tenantId = requireTenantId();
         requireTenantManagePermission();
@@ -675,5 +691,15 @@ public class OrganizationService {
                 "member:manage",
                 "tenant:manage"
         );
+    }
+
+    private void kickTenantSessions(Long tenantId) {
+        List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
+                QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0));
+        for (TenantMemberEntity member : members) {
+            if (member.getUserId() != null) {
+                StpUtil.logout(member.getUserId());
+            }
+        }
     }
 }

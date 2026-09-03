@@ -101,6 +101,10 @@ export function updateTenant(data: TenantUpdateRequest) {
   return request.put<ApiResult<TenantInfo>>('/v1/org/tenant', data)
 }
 
+export function deleteTenant() {
+  return request.delete<ApiResult<void>>('/v1/org/tenant')
+}
+
 export function fetchPlanSummary() {
   return request.get<ApiResult<TenantPlanSummary>>('/v1/org/plan-summary')
 }

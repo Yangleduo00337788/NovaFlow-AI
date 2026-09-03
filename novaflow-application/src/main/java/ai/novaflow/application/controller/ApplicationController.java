@@ -29,7 +29,7 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
 
-    @SaCheckPermission(value = {"application:read", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"application:read", "application:publish", "application:manage"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<ApplicationVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -39,14 +39,15 @@ public class ApplicationController {
     }
 
     @SaCheckPermission(value = {
-            "application:read", "application:manage", "agent:create", "agent:edit", "workflow:create"
+            "application:read", "application:publish", "application:manage",
+            "agent:create", "agent:edit", "workflow:create"
     }, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<ApplicationVO>> options() {
         return ApiResult.ok(applicationService.listOptions());
     }
 
-    @SaCheckPermission(value = {"application:read", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"application:read", "application:publish", "application:manage"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<ApplicationVO> detail(@PathVariable Long id) {
         return ApiResult.ok(applicationService.detail(id));
@@ -73,7 +74,7 @@ public class ApplicationController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"application:read", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"application:read", "application:publish", "application:manage"}, mode = SaMode.OR)
     @GetMapping("/{id}/publish")
     public ApiResult<ApplicationPublishVO> publishInfo(@PathVariable Long id) {
         return ApiResult.ok(applicationService.getPublishInfo(id));

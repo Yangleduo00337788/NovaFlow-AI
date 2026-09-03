@@ -46,6 +46,13 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.updateTenant(request));
     }
 
+    @SaCheckPermission("tenant:delete")
+    @DeleteMapping("/tenant")
+    public ApiResult<Void> deleteTenant() {
+        organizationService.deleteOwnedTenant();
+        return ApiResult.ok();
+    }
+
     @SaCheckPermission(value = {"dashboard:view", "billing:view", "tenant:manage"}, mode = SaMode.OR)
     @GetMapping("/plan-summary")
     public ApiResult<TenantPlanSummaryVO> planSummary() {

@@ -76,6 +76,20 @@
               <div class="form-actions">
                 <a-button type="primary" :loading="savingTenant" @click="saveTenant">保存企业信息</a-button>
               </div>
+
+              <div v-if="canDeleteTenant" class="section-block danger-zone">
+                <h3 class="section-title danger">危险操作</h3>
+                <p class="danger-hint">删除企业将不可恢复，所有成员将被强制退出登录。</p>
+                <a-popconfirm
+                  title="确认删除该企业？此操作不可恢复"
+                  ok-text="确认删除"
+                  ok-type="danger"
+                  cancel-text="取消"
+                  @confirm="onDeleteTenant"
+                >
+                  <a-button danger :loading="deletingTenant">删除企业</a-button>
+                </a-popconfirm>
+              </div>
             </a-form>
           </a-spin>
         </div>
@@ -339,6 +353,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined, UserAddOutlined } from '@ant-design/icons-vue'
 import {
@@ -346,6 +361,7 @@ import {
   createDepartment,
   createWorkspace,
   deleteDepartment,
+  deleteTenant,
   deleteWorkspace,
   fetchDepartments,
   fetchMembers,
@@ -366,8 +382,10 @@ import { isProtectedMemberRole } from '@/config/roles'
 import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
 
+const router = useRouter()
 const auth = useAuthStore()
 const canManageTenant = computed(() => auth.hasPermission('tenant:manage'))
+const canDeleteTenant = computed(() => auth.hasPermission('tenant:delete'))
 const canReadUsers = computed(() => auth.hasAnyPermission(['user:read', 'member:manage', 'tenant:manage']))
 const canInviteUser = computed(() => auth.hasAnyPermission(['user:create', 'member:manage', 'tenant:manage']))
 const canUpdateUser = computed(() => auth.hasAnyPermission(['user:update', 'member:manage', 'tenant:manage']))
@@ -378,6 +396,7 @@ const activeTab = ref('tenant')
 
 const tenantLoading = ref(false)
 const savingTenant = ref(false)
+const deletingTenant = ref(false)
 const tenantInfo = ref<TenantInfo | null>(null)
 const tenantForm = reactive({
   tenantName: '',
@@ -493,6 +512,21 @@ async function saveTenant() {
     message.error('保存失败')
   } finally {
     savingTenant.value = false
+  }
+}
+
+async function onDeleteTenant() {
+  if (!canDeleteTenant.value) return
+  deletingTenant.value = true
+  try {
+    await deleteTenant()
+    auth.clear()
+    message.success('企业已删除')
+    await router.replace('/login')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '删除失败')
+  } finally {
+    deletingTenant.value = false
   }
 }
 
@@ -865,5 +899,21 @@ onMounted(() => {
   margin-top: 4px;
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.danger-zone {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.section-title.danger {
+  color: #cf1322;
+}
+
+.danger-hint {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 </style>
