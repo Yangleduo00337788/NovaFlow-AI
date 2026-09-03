@@ -48,6 +48,7 @@ data/
 
 # --- 本地开发笔记（不入库）---
 开发提示词.md
+.workbuddy/
 
 # --- E2E / 调试产物 ---
 .playwright-mcp/
@@ -55,6 +56,11 @@ test-results/
 playwright-report/
 brand-center-check.png
 sidebar-brand-check.png
+login.json
+login_resp.json
+agents.json
+resp.json
+stats.json
 
 # --- JVM 崩溃转储 ---
 hs_err_pid*
