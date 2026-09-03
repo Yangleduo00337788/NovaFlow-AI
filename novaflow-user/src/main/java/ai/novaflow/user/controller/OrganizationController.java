@@ -83,8 +83,9 @@ public class OrganizationController {
     public ApiResult<PageResult<MemberVO>> members(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(required = false) String keyword) {
-        return ApiResult.ok(organizationService.pageMembers(page, pageSize, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long departmentId) {
+        return ApiResult.ok(organizationService.pageMembers(page, pageSize, keyword, departmentId));
     }
 
     @SaCheckPermission(value = {"member:manage", "tenant:manage"}, mode = SaMode.OR)

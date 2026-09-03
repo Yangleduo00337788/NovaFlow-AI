@@ -4,6 +4,7 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.security.ratelimit.AuthRateLimiter;
 import ai.novaflow.security.ratelimit.LoginFailureLockService;
+import ai.novaflow.security.session.SessionTenantIds;
 import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
@@ -224,7 +225,7 @@ public class AuthService {
 
     public LoginVO currentUser() {
         long userId = StpUtil.getLoginIdAsLong();
-        Long tenantId = (Long) StpUtil.getSession().get("tenantId");
+        Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
 
         UserEntity user = userMapper.selectOneById(userId);
         TenantEntity tenant = tenantMapper.selectOneById(tenantId);
@@ -236,7 +237,7 @@ public class AuthService {
     public void logout() {
         if (StpUtil.isLogin()) {
             long userId = StpUtil.getLoginIdAsLong();
-            Long tenantId = (Long) StpUtil.getSession().get("tenantId");
+            Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
             auditLogService.record("auth.logout", "user", userId, "用户登出", tenantId, userId);
         }
         StpUtil.logout();

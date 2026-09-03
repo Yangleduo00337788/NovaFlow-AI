@@ -112,7 +112,9 @@ import {
   type RoleItem,
 } from '@/api/permission'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
+const auth = useAuthStore()
 const rolesLoading = ref(false)
 const permissionsLoading = ref(false)
 const membersLoading = ref(false)
@@ -140,7 +142,8 @@ async function loadRoles() {
     const res = await fetchRoles()
     roles.value = res.data.data || []
     if (roles.value.length && !selectedRoleId.value) {
-      selectRole(roles.value[0])
+      const mine = roles.value.find((item) => item.roleCode === auth.roleCode)
+      selectRole(mine || roles.value[0])
     }
   } catch {
     message.error('加载角色失败')

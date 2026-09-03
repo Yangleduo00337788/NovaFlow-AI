@@ -13,14 +13,16 @@ import ai.novaflow.user.domain.vo.TenantPlanSummaryVO;
 import ai.novaflow.user.domain.vo.TenantVO;
 import ai.novaflow.user.domain.vo.WorkspaceVO;
 import ai.novaflow.user.entity.RoleEntity;
+import ai.novaflow.tenant.entity.DepartmentEntity;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
-import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
+import ai.novaflow.tenant.mapper.DepartmentMapper;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
-import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
+import ai.novaflow.user.entity.UserEntity;
+import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.common.application.ApplicationWorkspaceChecker;
 import ai.novaflow.model.mapper.TokenUsageMapper;
 import cn.dev33.satoken.stp.StpUtil;
@@ -52,6 +54,7 @@ public class OrganizationService {
 
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
+    private final DepartmentMapper departmentMapper;
     private final WorkspaceMapper workspaceMapper;
     private final ApplicationWorkspaceChecker applicationWorkspaceChecker;
     private final UserMapper userMapper;
@@ -173,7 +176,7 @@ public class OrganizationService {
         auditLogService.record("workspace.delete", "workspace", entity.getId(), "删除工作空间: " + entity.getWorkspaceName());
     }
 
-    public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword) {
+    public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword, Long departmentId) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
@@ -182,6 +185,9 @@ public class OrganizationService {
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
+        if (departmentId != null && departmentId > 0) {
+            query.eq("department_id", departmentId);
+        }
         if (StringUtils.hasText(keyword)) {
             List<Long> userIds = userMapper.selectListByQuery(
                     QueryWrapper.create()
@@ -199,8 +205,13 @@ public class OrganizationService {
         Page<TenantMemberEntity> result = tenantMemberMapper.paginate(Page.of(page, pageSize), query);
         Map<Long, UserEntity> userMap = loadUsers(result.getRecords());
         Map<Long, RoleEntity> roleMap = loadRoles(result.getRecords());
+        Map<Long, DepartmentEntity> departmentMap = loadDepartments(result.getRecords());
         List<MemberVO> list = result.getRecords().stream()
-                .map(member -> toMemberVO(member, userMap.get(member.getUserId()), roleMap.get(member.getRoleId())))
+                .map(member -> toMemberVO(
+                        member,
+                        userMap.get(member.getUserId()),
+                        roleMap.get(member.getRoleId()),
+                        departmentMap.get(member.getDepartmentId())))
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
@@ -256,6 +267,7 @@ public class OrganizationService {
         member.setTenantId(tenantId);
         member.setUserId(user.getId());
         member.setRoleId(role.getId());
+        member.setDepartmentId(resolveDepartmentId(request.getDepartmentId(), tenantId));
         member.setStatus(1);
         member.setJoinedAt(now);
         member.setIsDeleted(0);
@@ -267,7 +279,7 @@ public class OrganizationService {
                 "member",
                 member.getId(),
                 "邀请成员: " + email + "，角色 " + role.getRoleCode());
-        return toMemberVO(member, user, role);
+        return toMemberVO(member, user, role, loadDepartment(member.getDepartmentId(), tenantId));
     }
 
     @Transactional
@@ -279,6 +291,7 @@ public class OrganizationService {
         TenantMemberEntity member = getMemberOrThrow(memberId, tenantId);
         UserEntity user = userMapper.selectOneById(member.getUserId());
         RoleEntity currentRole = permissionService.resolveRole(member.getUserId(), tenantId);
+        ensureNotPlatformAdminRole(currentRole);
 
         if (request.getRoleCode() != null) {
             RoleEntity newRole = requireAssignableRole(request.getRoleCode());
@@ -314,6 +327,12 @@ public class OrganizationService {
             }
         }
 
+        if (request.getDepartmentId() != null) {
+            Long departmentId = resolveDepartmentId(request.getDepartmentId(), tenantId);
+            member.setDepartmentId(departmentId);
+            tenantMemberMapper.updateDepartmentId(member.getId(), tenantId, departmentId);
+        }
+
         member.setUpdatedAt(LocalDateTime.now());
         tenantMemberMapper.update(member);
         String detail = "更新成员: " + (user != null ? user.getEmail() : member.getUserId());
@@ -323,8 +342,11 @@ public class OrganizationService {
         if (request.getStatus() != null) {
             detail += "，状态 " + request.getStatus();
         }
+        if (request.getDepartmentId() != null) {
+            detail += "，部门 " + (request.getDepartmentId() <= 0 ? "未分配" : request.getDepartmentId());
+        }
         auditLogService.record("member.update", "member", member.getId(), detail);
-        return toMemberVO(member, user, currentRole);
+        return toMemberVO(member, user, currentRole, loadDepartment(member.getDepartmentId(), tenantId));
     }
 
     @Transactional
@@ -338,6 +360,7 @@ public class OrganizationService {
             throw new BusinessException("不能移除自己");
         }
         RoleEntity role = permissionService.resolveRole(member.getUserId(), tenantId);
+        ensureNotPlatformAdminRole(role);
         if (role != null && "tenant_admin".equals(role.getRoleCode())) {
             ensureAnotherTenantAdminExists(tenantId, member.getUserId());
         }
@@ -456,6 +479,43 @@ public class OrganizationService {
         return permissionService.getRolesByIds(roleIds);
     }
 
+    private Map<Long, DepartmentEntity> loadDepartments(List<TenantMemberEntity> members) {
+        List<Long> departmentIds = members.stream()
+                .map(TenantMemberEntity::getDepartmentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (departmentIds.isEmpty()) {
+            return Map.of();
+        }
+        return departmentMapper.selectListByQuery(QueryWrapper.create().in("id", departmentIds).eq("is_deleted", 0))
+                .stream()
+                .collect(Collectors.toMap(DepartmentEntity::getId, item -> item, (a, b) -> a));
+    }
+
+    private DepartmentEntity loadDepartment(Long departmentId, Long tenantId) {
+        if (departmentId == null) {
+            return null;
+        }
+        return departmentMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("id", departmentId)
+                        .eq("tenant_id", tenantId)
+                        .eq("is_deleted", 0)
+                        .limit(1));
+    }
+
+    private Long resolveDepartmentId(Long departmentId, Long tenantId) {
+        if (departmentId == null || departmentId <= 0) {
+            return null;
+        }
+        DepartmentEntity department = loadDepartment(departmentId, tenantId);
+        if (department == null) {
+            throw new BusinessException("部门不存在");
+        }
+        return department.getId();
+    }
+
     private TenantVO toTenantVO(TenantEntity tenant, int memberCount) {
         return TenantVO.builder()
                 .id(tenant.getId())
@@ -490,7 +550,7 @@ public class OrganizationService {
                 .build();
     }
 
-    private MemberVO toMemberVO(TenantMemberEntity member, UserEntity user, RoleEntity role) {
+    private MemberVO toMemberVO(TenantMemberEntity member, UserEntity user, RoleEntity role, DepartmentEntity department) {
         return MemberVO.builder()
                 .id(member.getId())
                 .userId(member.getUserId())
@@ -499,6 +559,8 @@ public class OrganizationService {
                 .email(user != null ? user.getEmail() : null)
                 .roleCode(role != null ? role.getRoleCode() : null)
                 .roleName(role != null ? role.getRoleName() : null)
+                .departmentId(member.getDepartmentId())
+                .departmentName(department != null ? department.getDeptName() : null)
                 .status(member.getStatus())
                 .joinedAt(member.getJoinedAt())
                 .lastLoginAt(user != null ? user.getLastLoginAt() : null)
@@ -588,6 +650,12 @@ public class OrganizationService {
             throw new BusinessException("不能分配该角色");
         }
         return permissionService.requireSystemRole(roleCode);
+    }
+
+    private void ensureNotPlatformAdminRole(RoleEntity role) {
+        if (role != null && "super_admin".equals(role.getRoleCode())) {
+            throw new BusinessException("不能对企业内的平台超级管理员进行该操作");
+        }
     }
 
     private void requireMemberManagePermission() {

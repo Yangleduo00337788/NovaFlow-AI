@@ -5,7 +5,7 @@
         <h1>应用管理</h1>
         <p>聚合 Agent 与知识库，作为统一发布与访问入口</p>
       </div>
-      <a-button type="primary" data-testid="create-app-btn" @click="openCreate">
+      <a-button v-if="canManage" type="primary" data-testid="create-app-btn" @click="openCreate">
         <PlusOutlined />
         创建应用
       </a-button>
@@ -58,7 +58,7 @@
           <div class="app-footer">
             <span class="app-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div class="app-actions">
+          <div v-if="canManage" class="app-actions">
             <a-button type="link" size="small" @click="openPublish(item)">发布</a-button>
             <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
             <a-popconfirm title="确认删除该应用？" @confirm="onDelete(item.id)">
@@ -67,7 +67,7 @@
           </div>
         </div>
       </div>
-      <a-empty v-else description="暂无应用，点击右上角创建" />
+      <a-empty v-else :description="canManage ? '暂无应用，点击右上角创建' : '暂无应用'" />
         </a-spin>
 
         <div v-if="total > pageSize" class="pagination-wrap">
@@ -160,7 +160,7 @@
             <router-link :to="publishInfo.portalPath">{{ publishInfo.portalPath }}</router-link>
           </a-descriptions-item>
         </a-descriptions>
-        <div class="publish-actions">
+        <div v-if="canManage" class="publish-actions">
           <a-button
             v-if="(publishInfo?.publishStatus ?? publishTarget.publishStatus) !== 1"
             type="primary"
@@ -207,7 +207,10 @@ import {
   type ApplicationSaveRequest,
 } from '@/api/application'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
+const auth = useAuthStore()
+const canManage = computed(() => auth.hasPermission('application:manage'))
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<ApplicationItem[]>([])
@@ -315,6 +318,7 @@ function resetForm() {
 }
 
 function openCreate() {
+  if (!canManage.value) return
   resetForm()
   loadAgents()
   loadKnowledgeBases()
@@ -322,6 +326,7 @@ function openCreate() {
 }
 
 async function openEdit(item: ApplicationItem) {
+  if (!canManage.value) return
   resetForm()
   loadAgents()
   loadKnowledgeBases()
@@ -347,6 +352,7 @@ function onAgentIdsChange(values: number[]) {
 }
 
 async function onSave() {
+  if (!canManage.value) return
   if (!form.appName?.trim()) {
     message.warning('请输入应用名称')
     return
@@ -370,6 +376,7 @@ async function onSave() {
 }
 
 async function onDelete(id: number) {
+  if (!canManage.value) return
   try {
     await deleteApplication(id)
     message.success('删除成功')
@@ -380,6 +387,7 @@ async function onDelete(id: number) {
 }
 
 async function openPublish(item: ApplicationItem) {
+  if (!canManage.value) return
   publishTarget.value = item
   publishInfo.value = null
   publishOpen.value = true
@@ -392,7 +400,7 @@ async function openPublish(item: ApplicationItem) {
 }
 
 async function onPublish() {
-  if (!publishTarget.value) return
+  if (!canManage.value || !publishTarget.value) return
   publishLoading.value = true
   try {
     const res = await publishApplication(publishTarget.value.id)
@@ -407,7 +415,7 @@ async function onPublish() {
 }
 
 async function onUnpublish() {
-  if (!publishTarget.value) return
+  if (!canManage.value || !publishTarget.value) return
   publishLoading.value = true
   try {
     const res = await unpublishApplication(publishTarget.value.id)

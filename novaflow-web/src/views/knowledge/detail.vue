@@ -12,8 +12,8 @@
         </div>
       </div>
       <a-space>
-        <a-button @click="openEdit">编辑配置</a-button>
-        <a-popconfirm title="确认删除该知识库及全部文档？" @confirm="onDeleteKb">
+        <a-button v-if="canCreate" @click="openEdit">编辑配置</a-button>
+        <a-popconfirm v-if="canCreate" title="确认删除该知识库及全部文档？" @confirm="onDeleteKb">
           <a-button danger>删除知识库</a-button>
         </a-popconfirm>
       </a-space>
@@ -38,7 +38,7 @@
       </div>
     </div>
 
-    <div class="page-card upload-section">
+    <div v-if="canUpload" class="page-card upload-section">
       <div class="section-title">上传文档</div>
       <p class="section-desc">支持 PDF、Word、Excel、PPT、TXT、Markdown、HTML，单文件最大 50MB</p>
       <a-upload-dragger
@@ -199,13 +199,13 @@
           <template v-else-if="column.key === 'action'">
             <a-space>
               <a-button
-                v-if="record.processStatus === 0 || record.processStatus === 3"
+                v-if="canUpload && (record.processStatus === 0 || record.processStatus === 3)"
                 type="link"
                 @click="onReprocess(record.id)"
               >
                 重新处理
               </a-button>
-              <a-popconfirm title="确认删除该文档？" @confirm="onDeleteDocument(record.id)">
+              <a-popconfirm v-if="canCreate" title="确认删除该文档？" @confirm="onDeleteDocument(record.id)">
                 <a-button type="link" danger>删除</a-button>
               </a-popconfirm>
             </a-space>
@@ -306,9 +306,13 @@ import {
 import { fetchEmbeddingOptions, fetchModelConfigs } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
 import { formatFileSize } from '@/utils/filesize'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
+const canCreate = computed(() => auth.hasPermission('knowledge:create'))
+const canUpload = computed(() => auth.hasPermission('knowledge:upload'))
 const kbId = computed(() => Number(route.params.id))
 
 const detail = ref<KnowledgeBaseItem | null>(null)
@@ -349,15 +353,20 @@ const editForm = reactive<KnowledgeBaseSaveRequest>({
   visibility: 'private',
 })
 
-const columns = [
-  { title: '文档名称', key: 'docName', dataIndex: 'docName' },
-  { title: '类型', dataIndex: 'docType', key: 'docType', width: 90 },
-  { title: '大小', key: 'fileSize', width: 100 },
-  { title: '分块数', dataIndex: 'chunkCount', key: 'chunkCount', width: 90 },
-  { title: '状态', key: 'processStatus', width: 110 },
-  { title: '上传时间', key: 'createdAt', width: 170 },
-  { title: '操作', key: 'action', width: 150 },
-]
+const columns = computed(() => {
+  const base = [
+    { title: '文档名称', key: 'docName', dataIndex: 'docName' },
+    { title: '类型', dataIndex: 'docType', key: 'docType', width: 90 },
+    { title: '大小', key: 'fileSize', width: 100 },
+    { title: '分块数', dataIndex: 'chunkCount', key: 'chunkCount', width: 90 },
+    { title: '状态', key: 'processStatus', width: 110 },
+    { title: '上传时间', key: 'createdAt', width: 170 },
+  ]
+  if (canCreate.value || canUpload.value) {
+    base.push({ title: '操作', key: 'action', width: 150 })
+  }
+  return base
+})
 
 const pagination = computed(() => ({
   current: page.value,
@@ -552,6 +561,9 @@ async function reloadAll() {
 }
 
 const beforeUpload: UploadProps['beforeUpload'] = async (file) => {
+  if (!canUpload.value) {
+    return false
+  }
   uploading.value = true
   uploadingCount.value += 1
   try {
@@ -574,7 +586,7 @@ function onTableChange(pag: { current?: number; pageSize?: number }) {
 }
 
 function openEdit() {
-  if (!detail.value) return
+  if (!canCreate.value || !detail.value) return
   editForm.kbName = detail.value.kbName
   editForm.description = detail.value.description || ''
   editForm.embeddingModel = detail.value.embeddingModel
@@ -592,6 +604,7 @@ function resetEditForm() {
 }
 
 async function onSaveEdit() {
+  if (!canCreate.value) return
   saving.value = true
   try {
     await updateKnowledgeBase(kbId.value, editForm)
@@ -606,6 +619,7 @@ async function onSaveEdit() {
 }
 
 async function onDeleteDocument(documentId: number) {
+  if (!canCreate.value) return
   try {
     await deleteDocument(kbId.value, documentId)
     message.success('文档已删除')
@@ -616,6 +630,7 @@ async function onDeleteDocument(documentId: number) {
 }
 
 async function onReprocess(documentId: number) {
+  if (!canUpload.value) return
   try {
     await reprocessDocument(kbId.value, documentId)
     message.success('已提交重新处理')
@@ -644,6 +659,7 @@ function stopPolling() {
 }
 
 async function onDeleteKb() {
+  if (!canCreate.value) return
   try {
     await deleteKnowledgeBase(kbId.value)
     message.success('知识库已删除')

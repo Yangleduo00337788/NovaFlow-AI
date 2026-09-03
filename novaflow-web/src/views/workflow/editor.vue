@@ -12,15 +12,15 @@
         <a-tag :color="getWorkflowStatusColor(detail.status)">{{ getWorkflowStatusLabel(detail.status) }}</a-tag>
       </div>
       <a-space>
-        <a-button :loading="saving" @click="saveWorkflow">
+        <a-button v-if="canEdit" :loading="saving" @click="saveWorkflow">
           <SaveOutlined />
           保存
         </a-button>
-        <a-button :loading="publishing" @click="publishWorkflowAction">
+        <a-button v-if="canEdit" :loading="publishing" @click="publishWorkflowAction">
           <CloudUploadOutlined />
           发布
         </a-button>
-        <a-button type="primary" :loading="running" @click="openRun">
+        <a-button v-if="canRun" type="primary" :loading="running" @click="openRun">
           <PlayCircleOutlined />
           试运行
         </a-button>
@@ -35,6 +35,7 @@
             v-for="item in palette"
             :key="item.type"
             class="palette-item"
+            :disabled="!canEdit"
             @click="addNode(item.type, item.label)"
           >
             <span class="palette-icon" :class="item.type">{{ item.icon }}</span>
@@ -48,6 +49,9 @@
           v-model:nodes="nodes"
           v-model:edges="edges"
           :node-types="nodeTypes"
+          :nodes-draggable="canEdit"
+          :nodes-connectable="canEdit"
+          :edges-updatable="canEdit"
           fit-view-on-init
           @node-click="onNodeClick"
           @pane-click="selectedNodeId = null"
@@ -63,6 +67,7 @@
       <div class="config-panel page-card">
         <div class="panel-title">节点配置</div>
         <template v-if="selectedNode">
+          <fieldset class="config-fieldset" :disabled="!canEdit">
           <a-form layout="vertical">
             <a-form-item label="节点名称">
               <a-input v-model:value="selectedNode.data.label" />
@@ -164,6 +169,7 @@
               <a-empty description="该节点无需额外配置" />
             </template>
           </a-form>
+          </fieldset>
         </template>
         <a-empty v-else description="点击画布中的节点进行配置" />
       </div>
@@ -174,7 +180,7 @@
         <a-form-item label="输入内容">
           <a-textarea v-model:value="runInput" :rows="4" placeholder="输入测试内容" />
         </a-form-item>
-        <a-button type="primary" :loading="running" block @click="runWorkflowAction">开始运行</a-button>
+        <a-button v-if="canRun" type="primary" :loading="running" block @click="runWorkflowAction">开始运行</a-button>
       </a-form>
       <div v-if="runResult" class="run-result">
         <a-alert
@@ -228,9 +234,13 @@ import {
 } from '@/api/workflow'
 import type { WorkflowDetail, WorkflowRunResult } from '@/types/workflow'
 import { getWorkflowStatusColor, getWorkflowStatusLabel } from '@/types/workflow'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
+const canEdit = computed(() => auth.hasPermission('workflow:edit'))
+const canRun = computed(() => auth.hasPermission('workflow:create', 'workflow:edit'))
 const workflowId = Number(route.params.id)
 
 const nodeTypes: NodeTypesObject = {
@@ -390,6 +400,7 @@ function onNodeClick({ node }: { node: WorkflowFlowNode }) {
 }
 
 function onConnect(connection: Connection) {
+  if (!canEdit.value) return
   edges.value = addEdge(
     {
       ...connection,
@@ -408,6 +419,7 @@ function onEdgesChange(changes: EdgeChange[]) {
 }
 
 function addNode(type: string, label: string) {
+  if (!canEdit.value) return
   const id = `${type}-${Date.now()}`
   nodes.value.push({
     id,
@@ -549,6 +561,7 @@ async function loadModels() {
 }
 
 async function saveWorkflow() {
+  if (!canEdit.value) return
   saving.value = true
   try {
     const res = await updateWorkflow(workflowId, {
@@ -569,6 +582,7 @@ async function saveWorkflow() {
 }
 
 async function publishWorkflowAction() {
+  if (!canEdit.value) return
   publishing.value = true
   try {
     await saveWorkflow()
@@ -583,14 +597,18 @@ async function publishWorkflowAction() {
 }
 
 function openRun() {
+  if (!canRun.value) return
   runOpen.value = true
   runResult.value = null
 }
 
 async function runWorkflowAction() {
+  if (!canRun.value) return
   running.value = true
   try {
-    await saveWorkflow()
+    if (canEdit.value) {
+      await saveWorkflow()
+    }
     const res = await runWorkflow(workflowId, runInput.value)
     runResult.value = res.data.data
   } catch (e) {
@@ -669,6 +687,13 @@ watch(
   overflow: auto;
 }
 
+.config-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .palette-list {
   display: flex;
   flex-direction: column;
@@ -686,7 +711,12 @@ watch(
   cursor: pointer;
 }
 
-.palette-item:hover {
+.palette-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.palette-item:not(:disabled):hover {
   border-color: #6366f1;
   background: #f8fafc;
 }

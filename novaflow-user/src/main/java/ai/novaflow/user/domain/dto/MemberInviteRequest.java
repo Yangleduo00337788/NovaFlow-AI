@@ -19,4 +19,6 @@ public class MemberInviteRequest {
     private String roleCode;
 
     private String password;
+
+    private Long departmentId;
 }

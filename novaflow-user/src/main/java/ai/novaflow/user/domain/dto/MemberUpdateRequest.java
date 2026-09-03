@@ -10,4 +10,6 @@ public class MemberUpdateRequest {
     private String roleCode;
 
     private Integer status;
+
+    private Long departmentId;
 }

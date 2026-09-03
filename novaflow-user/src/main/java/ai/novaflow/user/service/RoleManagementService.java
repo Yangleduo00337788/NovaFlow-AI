@@ -18,6 +18,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class RoleManagementService {
+
+    private static final List<String> ROLE_DISPLAY_ORDER = List.of(
+            "tenant_admin", "developer", "user", "super_admin");
 
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
@@ -46,6 +50,10 @@ public class RoleManagementService {
         );
         Map<Long, Long> memberCountMap = countMembersByRole(tenantId);
         return roles.stream()
+                .sorted(Comparator.comparingInt(role -> {
+                    int index = ROLE_DISPLAY_ORDER.indexOf(role.getRoleCode());
+                    return index < 0 ? 99 : index;
+                }))
                 .map(role -> toRoleVO(role, memberCountMap.getOrDefault(role.getId(), 0L)))
                 .toList();
     }
