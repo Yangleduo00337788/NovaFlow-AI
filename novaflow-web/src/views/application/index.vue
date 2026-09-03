@@ -59,7 +59,9 @@
             <span class="app-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
           <div v-if="canManage || canRead" class="app-actions">
-            <a-button v-if="canRead" type="link" size="small" @click="openPublish(item)">发布信息</a-button>
+            <a-button v-if="canRead" type="link" size="small" @click="openPublish(item)">
+              {{ canManage ? '发布信息' : '查看详情' }}
+            </a-button>
             <template v-if="canManage">
               <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
               <a-popconfirm title="确认删除该应用？" @confirm="onDelete(item.id)">

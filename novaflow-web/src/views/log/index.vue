@@ -5,7 +5,7 @@
         <h1>调用日志</h1>
         <p>查看 Agent 与模型的 Token 消耗、耗时与成本明细</p>
       </div>
-      <a-button :loading="exporting" @click="onExport">导出 CSV</a-button>
+      <a-button v-if="canExport" :loading="exporting" @click="onExport">导出 CSV</a-button>
     </div>
 
     <div class="list-panel page-card">
@@ -124,15 +124,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons-vue'
 import { fetchAgents } from '@/api/agent'
 import { fetchTokenUsageLogs, exportTokenUsageLogs, type TokenUsageLogItem } from '@/api/log'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
+const canExport = computed(() => auth.hasPermission('log:read'))
 const loading = ref(false)
 const exporting = ref(false)
 const agentsLoading = ref(false)
@@ -237,6 +240,7 @@ function onSearch() {
 }
 
 async function onExport() {
+  if (!canExport.value) return
   exporting.value = true
   try {
     const res = await exportTokenUsageLogs({

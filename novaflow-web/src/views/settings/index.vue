@@ -8,6 +8,7 @@
     </div>
 
     <div class="settings-panel page-card">
+      <a-empty v-if="!settingGroups.length" description="当前账号暂无可访问的设置项" />
       <section v-for="group in settingGroups" :key="group.title" class="settings-group">
         <h3 class="group-title">{{ group.title }}</h3>
         <div class="settings-grid">
@@ -31,6 +32,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import type { Component } from 'vue'
 import {
   ApartmentOutlined,
   ApiOutlined,
@@ -41,8 +44,25 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
 } from '@ant-design/icons-vue'
+import { canAccessRoute } from '@/config/access'
+import { useAuthStore } from '@/stores/auth'
 
-const settingGroups = [
+interface SettingItem {
+  key: string
+  title: string
+  desc: string
+  path: string
+  icon: Component
+}
+
+const auth = useAuthStore()
+
+const routeAccessCtx = computed(() => ({
+  roleCode: auth.roleCode,
+  hasAnyPermission: auth.hasAnyPermission.bind(auth),
+}))
+
+const allSettingGroups: Array<{ title: string; items: SettingItem[] }> = [
   {
     title: '组织与权限',
     items: [
@@ -66,6 +86,15 @@ const settingGroups = [
     ],
   },
 ]
+
+const settingGroups = computed(() =>
+  allSettingGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccessRoute(item.path, routeAccessCtx.value)),
+    }))
+    .filter((group) => group.items.length > 0),
+)
 </script>
 
 <style scoped>

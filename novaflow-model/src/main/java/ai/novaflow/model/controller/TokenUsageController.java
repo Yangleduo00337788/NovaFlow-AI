@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@SaCheckPermission(value = {"monitor:view", "billing:view", "log:read"}, mode = SaMode.OR)
 @RequestMapping("/api/v1/token-usage")
 @RequiredArgsConstructor
 public class TokenUsageController {
 
     private final TokenUsageLogService tokenUsageLogService;
 
+    @SaCheckPermission(value = {"monitor:view", "billing:view", "log:read"}, mode = SaMode.OR)
     @GetMapping("/logs")
     public ApiResult<PageResult<TokenUsageLogVO>> pageLogs(
             @RequestParam(defaultValue = "1") int page,
@@ -34,6 +34,7 @@ public class TokenUsageController {
         return ApiResult.ok(tokenUsageLogService.page(page, pageSize, agentId, keyword, success, usageType));
     }
 
+    @SaCheckPermission("log:read")
     @GetMapping("/logs/export")
     public ResponseEntity<byte[]> exportLogs(
             @RequestParam(required = false) Long agentId,

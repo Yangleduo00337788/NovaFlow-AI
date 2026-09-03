@@ -23,7 +23,7 @@ import java.util.List;
 @SaCheckPermission(value = {
         "dashboard:view",
         "agent:create", "agent:edit", "agent:read",
-        "monitor:view", "application:manage", "tenant:manage"
+        "monitor:view", "application:read", "application:manage", "tenant:manage"
 }, mode = SaMode.OR)
 public class DashboardController {
 

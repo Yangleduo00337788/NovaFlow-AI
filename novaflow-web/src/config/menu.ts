@@ -63,7 +63,7 @@ export const menuGroups: MenuGroup[] = [
 ]
 
 const routePermissionMap: Record<string, string[]> = {
-  '/dashboard': ['dashboard:view', 'agent:read', 'monitor:view', 'application:manage', 'tenant:manage'],
+  '/dashboard': ['dashboard:view', 'agent:read', 'monitor:view', 'application:read', 'application:manage', 'tenant:manage'],
   '/agent': ['agent:read', 'agent:create', 'agent:edit'],
   '/workflow': ['workflow:read', 'workflow:create', 'workflow:edit'],
   '/knowledge': ['knowledge:read', 'knowledge:create', 'knowledge:upload'],
