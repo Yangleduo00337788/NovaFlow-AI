@@ -77,6 +77,28 @@
                 <a-button type="primary" :loading="savingTenant" @click="saveTenant">保存企业信息</a-button>
               </div>
 
+              <div v-if="canTransferOwner" class="section-block owner-transfer">
+                <h3 class="section-title">转移所有权</h3>
+                <p class="danger-hint">将企业最高权限转移给其他成员后，您将降级为企业管理员。</p>
+                <div class="transfer-row">
+                  <a-select
+                    v-model:value="transferMemberId"
+                    allow-clear
+                    placeholder="选择新所有者"
+                    style="width: 280px"
+                    :options="transferableMemberOptions"
+                  />
+                  <a-popconfirm
+                    title="确认转移企业所有权？"
+                    ok-text="确认"
+                    cancel-text="取消"
+                    @confirm="onTransferOwner"
+                  >
+                    <a-button :loading="transferringOwner" :disabled="!transferMemberId">转移所有权</a-button>
+                  </a-popconfirm>
+                </div>
+              </div>
+
               <div v-if="canDeleteTenant" class="section-block danger-zone">
                 <h3 class="section-title danger">危险操作</h3>
                 <p class="danger-hint">删除企业将不可恢复，所有成员将被强制退出登录。</p>
@@ -369,6 +391,7 @@ import {
   fetchWorkspaces,
   inviteMember,
   removeMember,
+  transferTenantOwner,
   updateDepartment,
   updateMember,
   updateTenant,
@@ -378,6 +401,7 @@ import {
   type TenantInfo,
   type WorkspaceItem,
 } from '@/api/org'
+import { fetchCurrentUser } from '@/api/auth'
 import { isProtectedMemberRole } from '@/config/roles'
 import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
@@ -386,17 +410,29 @@ const router = useRouter()
 const auth = useAuthStore()
 const canManageTenant = computed(() => auth.hasPermission('tenant:manage'))
 const canDeleteTenant = computed(() => auth.hasPermission('tenant:delete'))
+const canTransferOwner = computed(() => auth.hasPermission('tenant:delete'))
 const canReadUsers = computed(() => auth.hasAnyPermission(['user:read', 'member:manage', 'tenant:manage']))
 const canInviteUser = computed(() => auth.hasAnyPermission(['user:create', 'member:manage', 'tenant:manage']))
 const canUpdateUser = computed(() => auth.hasAnyPermission(['user:update', 'member:manage', 'tenant:manage']))
 const canDeleteUser = computed(() => auth.hasAnyPermission(['user:delete', 'member:manage', 'tenant:manage']))
 const canManageDept = computed(() => auth.hasAnyPermission(['user:update', 'member:manage', 'tenant:manage']))
 
+const transferableMemberOptions = computed(() =>
+  members.value
+    .filter((m) => m.status === 1 && !isProtectedMemberRole(m.roleCode || ''))
+    .map((m) => ({
+      value: m.id,
+      label: `${m.nickname || m.username || m.email}（${m.roleName || m.roleCode}）`,
+    })),
+)
+
 const activeTab = ref('tenant')
 
 const tenantLoading = ref(false)
 const savingTenant = ref(false)
 const deletingTenant = ref(false)
+const transferringOwner = ref(false)
+const transferMemberId = ref<number | undefined>(undefined)
 const tenantInfo = ref<TenantInfo | null>(null)
 const tenantForm = reactive({
   tenantName: '',
@@ -527,6 +563,24 @@ async function onDeleteTenant() {
     message.error(e instanceof Error ? e.message : '删除失败')
   } finally {
     deletingTenant.value = false
+  }
+}
+
+async function onTransferOwner() {
+  if (!canTransferOwner.value || !transferMemberId.value) return
+  transferringOwner.value = true
+  try {
+    await transferTenantOwner(transferMemberId.value)
+    const me = await fetchCurrentUser()
+    auth.setAuth(me.data.data)
+    message.success('所有权已转移，您已成为企业管理员')
+    transferMemberId.value = undefined
+    await loadMembers()
+    await loadTenant()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '转移失败')
+  } finally {
+    transferringOwner.value = false
   }
 }
 
@@ -819,7 +873,7 @@ onMounted(() => {
   } else if (canReadUsers.value) {
     activeTab.value = 'member'
   }
-  if (canReadUsers.value) {
+  if (canReadUsers.value || canTransferOwner.value) {
     loadDepartments()
     loadMembers()
   }
@@ -915,5 +969,18 @@ onMounted(() => {
   margin: 0 0 12px;
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+.owner-transfer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.transfer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 </style>

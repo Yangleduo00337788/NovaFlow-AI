@@ -380,9 +380,14 @@ npm run dev     # http://localhost:3000 （需后端 8080 已运行）
 
 **演示账号**（首次启动自动初始化）：
 
-| 邮箱 | 密码 |
-|------|------|
-| `admin@novaflow.ai` | `Admin123!` |
+| 邮箱 | 密码 | 角色 |
+|------|------|------|
+| `platform@novaflow.ai` | `Platform123!` | 平台超管 |
+| `admin@novaflow.ai` | `Admin123!` | 企业所有者 |
+| `developer@novaflow.ai` | `Developer123!` | 开发者 |
+| `operator@novaflow.ai` | `Operator123!` | 运维人员 |
+| `user@novaflow.ai` | `User123!` | 企业成员 |
+| `viewer@novaflow.ai` | `Viewer123!` | 只读用户 |
 
 ---
 

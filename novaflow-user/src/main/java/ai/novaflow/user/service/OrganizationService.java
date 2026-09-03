@@ -127,6 +127,55 @@ public class OrganizationService {
         auditLogService.record("tenant.delete", "tenant", tenantId, "企业所有者删除企业: " + tenant.getTenantName());
     }
 
+    @Transactional
+    public void transferOwnership(Long targetMemberId) {
+        Long tenantId = requireTenantId();
+        long currentUserId = StpUtil.getLoginIdAsLong();
+        RoleEntity currentRole = permissionService.resolveRole(currentUserId, tenantId);
+        if (currentRole == null || !RoleCodes.TENANT_OWNER.equals(currentRole.getRoleCode())) {
+            throw new BusinessException("仅企业所有者可转移所有权");
+        }
+
+        TenantMemberEntity targetMember = getMemberOrThrow(targetMemberId, tenantId);
+        if (Objects.equals(targetMember.getUserId(), currentUserId)) {
+            throw new BusinessException("不能转移给自己");
+        }
+        if (targetMember.getStatus() == null || targetMember.getStatus() != 1) {
+            throw new BusinessException("目标成员不可用");
+        }
+        RoleEntity targetRole = permissionService.resolveRole(targetMember.getUserId(), tenantId);
+        if (targetRole != null && RoleCodes.isProtectedMemberRole(targetRole.getRoleCode())) {
+            throw new BusinessException("不能将所有权转移给该成员");
+        }
+
+        TenantMemberEntity currentMember = tenantMemberMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", tenantId)
+                        .eq("user_id", currentUserId)
+                        .eq("is_deleted", 0)
+        );
+        if (currentMember == null) {
+            throw new BusinessException("当前成员记录不存在");
+        }
+
+        RoleEntity ownerRole = permissionService.requireSystemRole(RoleCodes.TENANT_OWNER);
+        RoleEntity adminRole = permissionService.requireSystemRole(RoleCodes.TENANT_ADMIN);
+        LocalDateTime now = LocalDateTime.now();
+        currentMember.setRoleId(adminRole.getId());
+        currentMember.setUpdatedAt(now);
+        targetMember.setRoleId(ownerRole.getId());
+        targetMember.setUpdatedAt(now);
+        tenantMemberMapper.update(currentMember);
+        tenantMemberMapper.update(targetMember);
+
+        UserEntity targetUser = userMapper.selectOneById(targetMember.getUserId());
+        auditLogService.record(
+                "tenant.transfer_owner",
+                "tenant",
+                tenantId,
+                "转移所有权至: " + (targetUser != null ? targetUser.getEmail() : targetMember.getUserId()));
+    }
+
     public List<WorkspaceVO> listWorkspaces() {
         Long tenantId = requireTenantId();
         requireTenantManagePermission();

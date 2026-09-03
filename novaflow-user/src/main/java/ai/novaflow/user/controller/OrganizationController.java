@@ -5,6 +5,7 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.user.domain.dto.MemberInviteRequest;
 import ai.novaflow.user.domain.dto.MemberUpdateRequest;
 import ai.novaflow.user.domain.dto.TenantUpdateRequest;
+import ai.novaflow.user.domain.dto.TransferOwnerRequest;
 import ai.novaflow.user.domain.dto.WorkspaceSaveRequest;
 import ai.novaflow.user.domain.vo.MemberVO;
 import ai.novaflow.user.domain.vo.TenantPlanSummaryVO;
@@ -50,6 +51,13 @@ public class OrganizationController {
     @DeleteMapping("/tenant")
     public ApiResult<Void> deleteTenant() {
         organizationService.deleteOwnedTenant();
+        return ApiResult.ok();
+    }
+
+    @SaCheckPermission("tenant:delete")
+    @PostMapping("/tenant/transfer-owner")
+    public ApiResult<Void> transferOwner(@Valid @RequestBody TransferOwnerRequest request) {
+        organizationService.transferOwnership(request.getMemberId());
         return ApiResult.ok();
     }
 

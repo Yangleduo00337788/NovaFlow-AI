@@ -105,6 +105,10 @@ export function deleteTenant() {
   return request.delete<ApiResult<void>>('/v1/org/tenant')
 }
 
+export function transferTenantOwner(memberId: number) {
+  return request.post<ApiResult<void>>('/v1/org/tenant/transfer-owner', { memberId })
+}
+
 export function fetchPlanSummary() {
   return request.get<ApiResult<TenantPlanSummary>>('/v1/org/plan-summary')
 }
