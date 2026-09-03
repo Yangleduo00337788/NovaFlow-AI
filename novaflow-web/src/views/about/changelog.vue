@@ -2,6 +2,24 @@
   <div class="about-body">
     <div class="about-block intro-block">
       <div class="release-head">
+        <h3 class="release-version">NovaFlow v1.1.0</h3>
+        <a-tag color="green">正式发布</a-tag>
+      </div>
+      <p class="about-block-lead">
+        应用门户、RBAC 对齐、部门组织、成本分摊与账单外部告警。SSO 仍延后。
+      </p>
+      <div class="release-meta">发布日期 2026-09-03</div>
+    </div>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.1 已交付</h3>
+      <ul class="fix-list">
+        <li v-for="item in v11Items" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <div class="about-block intro-block">
+      <div class="release-head">
         <h3 class="release-version">NovaFlow v1.0.1</h3>
         <a-tag color="green">补丁版本</a-tag>
       </div>
@@ -32,7 +50,7 @@
       </div>
       <p class="about-block-lead">
         企业管理端（Studio，含 AI 应用开发）首个正式发布版本，覆盖 Agent 编排、工作流、知识库、
-        私有化部署与租户内平台治理能力。终端用户通过 Embed / Open API 接入；应用门户规划于 v1.1。
+        私有化部署与租户内平台治理能力。终端用户通过 Embed / Open API 接入；同站应用门户见 v1.1。
       </p>
       <div class="release-meta">发布日期 2026-08-31</div>
     </div>
@@ -66,12 +84,20 @@
 
     <div class="about-block roadmap-block">
       <span class="roadmap-label">后续规划</span>
-      <span class="roadmap-text">v1.1：应用门户 · 部门组织架构 · 成本分摊 · 外部告警｜v1.2：SSO（按需）</span>
+      <span class="roadmap-text">v1.2：SSO（OAuth2/OIDC，按需）</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const v11Items = [
+  '应用门户：已发布应用列表、对话、当前用户会话历史。',
+  'RBAC 对齐：保护超管成员、权限页默认当前角色、Studio 写按钮按权限码隐藏。',
+  '部门组织：树形部门与成员归属（不替代角色权限）。',
+  '成本分摊：账单页按应用 / 工作空间 / 用户汇总 Token 与费用。',
+  '外部告警：账单配额预警可发站内信、邮件与公网 Webhook。',
+]
+
 const v101Fixes = [
   '修复企业注册时租户配额字段未写入导致注册失败的问题。',
   '修复审计日志在部分场景下 tenant_id 为空导致写入/查询异常的问题。',
@@ -89,7 +115,7 @@ const v101Engineering = [
 
 const productForm = [
   '企业管理端（Studio）：控制台主体，含 AI 应用开发与企业治理，面向企业管理员与开发者。',
-  '应用门户：v1.0 未完整交付；业务用户通过 Embed 或 Open API 使用已发布应用；v1.1 交付同站应用中心。',
+  '应用门户：v1.1 已交付同站应用中心、对话与会话历史；v1.0 另可通过 Embed / Open API 使用已发布应用。',
   '总控：v1.0 提供 /platform、/audit，与 Studio 同一套登录、同一应用。',
 ]
 

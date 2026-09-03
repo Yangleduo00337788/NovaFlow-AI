@@ -26,7 +26,7 @@
 
 [![Gitee Stars](https://gitee.com/yangleduo7788/nova-flow-ai/badge/star.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/stargazers)
 [![Gitee Forks](https://gitee.com/yangleduo7788/nova-flow-ai/badge/fork.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/members)
-[![Version](https://img.shields.io/badge/version-1.0.1-informational)](./pom.xml)
+[![Version](https://img.shields.io/badge/version-1.1.0-informational)](./pom.xml)
 
 <br/>
 
@@ -45,18 +45,26 @@ NovaFlow 是 **单一 Web 应用**（`http://localhost:3000`），**一套登录
 
 | 功能区 | 路由 | 主要角色 | 说明 |
 |--------|------|----------|------|
-| **总控** | `/platform`、`/audit` | 平台超管 `super_admin` | 租户管理、审计日志 |
-| **工作台 / Studio** | `/dashboard`、Agent / 工作流 / 知识库等 | 企业管理员 `tenant_admin`、开发者 `developer` | AI 应用开发与企业治理 |
-| **应用门户** | `/portal`、`/portal/apps/:id` | 业务用户 `user` | 使用已发布应用；管理员/开发者可预览 |
+| **总控** | `/platform` | 平台超管 `super_admin` | 跨租户租户管理（独有 `platform:manage`） |
+| **工作台 / Studio** | `/dashboard`、Agent / 工作流 / 知识库、组织、审计等 | 企管 `tenant_admin`、开发者 `developer`；超管同样可见有权限的菜单 | AI 开发与企业治理；开发者无组织/权限/设置/审计 |
+| **应用门户** | `/portal`、`/portal/apps/:id` | 普通用户 `user` | 仅已发布应用；管理员/开发者/超管可预览 |
 
 **对外接入（不经过控制台登录）：**
 
 - **网页嵌入**：`/embed/agents/{id}` + `nf_embed_` Token + `X-Caller-Id`
 - **服务端集成**：Open API + `nf_live_` API Key
 
-### v1.0 范围说明
+### v1.1 范围说明
 
-**本版本包含：**
+**本版本包含（在 v1.0.1 之上）：**
+
+- **应用门户**：同站 `/portal` 应用中心、对话、当前用户会话历史。
+- **RBAC 对齐**：四个系统角色不变；组织内不可改动超管成员；权限页默认当前角色；Studio 写按钮按权限码隐藏。
+- **部门组织**：树形部门与成员归属（不替代角色权限）。
+- **成本分摊**：账单页按应用 / 工作空间 / 用户汇总 Token 与费用。
+- **外部告警**：账单配额预警可发站内信、邮件与公网 Webhook。
+
+**v1.0 已包含：**
 
 - **Multi-Agent 工作流节点**：工作流编排器支持 Agent 节点，可在流程中调用已发布 Agent。
 - **私有化一键部署**：`deploy/docker-compose.prod.yml` 提供 Server + Web 镜像与完整基础设施栈。
@@ -65,11 +73,10 @@ NovaFlow 是 **单一 Web 应用**（`http://localhost:3000`），**一套登录
 - **Open API 安全**：服务端集成使用 `nf_live_` API Key；网页嵌入使用受限 `nf_embed_` Token，且必须携带 `X-Caller-Id` 隔离终端用户会话。
 - **生产部署**：使用 `spring.profiles.active=prod` 启动，并设置强随机 `NOVAFLOW_CRYPTO_KEY`；或使用 Docker Compose 一键部署（见下方「生产部署」章节）。
 
-**后续版本规划（未纳入 v1.0）：**
+**后续版本规划：**
 
 | 版本 | 规划能力 |
 |------|----------|
-| **v1.1** | **用户端 Portal** 能力完善、部门组织架构、成本分摊、外部告警 |
 | **v1.2** | SSO（OAuth2/OIDC，需 IdP 环境） |
 
 ---
@@ -352,7 +359,7 @@ docker compose -f docker-compose.local.yml up -d
 
 ```bash
 mvn clean package -DskipTests
-java -jar novaflow-server/target/novaflow-server-1.0.1.jar
+java -jar novaflow-server/target/novaflow-server-1.1.0.jar
 ```
 
 | 服务 | 地址 |
@@ -461,7 +468,7 @@ docker compose up -d
 export SPRING_PROFILES_ACTIVE=prod
 export NOVAFLOW_CRYPTO_KEY=your-strong-key
 mvn -pl novaflow-server -am package -DskipTests
-java -jar novaflow-server/target/novaflow-server-1.0.1.jar
+java -jar novaflow-server/target/novaflow-server-1.1.0.jar
 
 # 前端构建后由 Nginx 托管 dist
 cd novaflow-web && npm ci && npm run build
@@ -492,7 +499,8 @@ cd novaflow-web && npm ci && npm run build
 | 文档 | 说明 |
 |------|------|
 | [PRD](docs/PRD.md) | 产品需求与功能设计 |
-| [v1.1 开发计划](docs/v1.1-plan.md) | 下一版本任务清单与里程碑 |
+| [权限体系](docs/权限体系.md) | 现状 4 角色、1.1 对齐清单、Phase 2 不做的范围 |
+| [v1.1 开发计划](docs/v1.1-plan.md) | v1.1 任务清单（已交付，SSO 延后） |
 | [系统架构设计](docs/系统架构设计.md) | 模块拆分、核心流程、部署架构 |
 | [数据库设计](docs/数据库设计.md) | 表结构与 ER 关系 |
 | 安全与隐私说明 | 控制台「关于 → 安全与隐私」页面 |

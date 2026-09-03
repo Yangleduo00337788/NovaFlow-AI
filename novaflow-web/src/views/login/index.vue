@@ -97,7 +97,7 @@
 
       <div v-else-if="copy.showSsoTab" class="auth-sso-placeholder">
         <SafetyCertificateOutlined class="auth-sso-placeholder__icon" />
-        <p>企业 SSO（OAuth2/OIDC）计划在 v1.1 提供，当前 v1.0 请使用邮箱密码登录</p>
+        <p>企业 SSO（OAuth2/OIDC）计划在后续版本提供，当前请使用邮箱密码登录</p>
         <a-button type="link" @click="activeTab = 'password'">返回账号密码登录</a-button>
       </div>
 

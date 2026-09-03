@@ -11,7 +11,7 @@
 | 项 | 说明 |
 |----|------|
 | 产品名 | NovaFlow AI — 企业级 AI Agent 平台 |
-| 版本 | 1.0.1 |
+| 版本 | 1.1.0 |
 | 定位 | 单 Web 应用 + RBAC 功能分区；模块化单体（Modular Monolith） |
 | 仓库结构 | Maven 多模块后端 + `novaflow-web` 独立前端 |
 | 默认端口 | 后端 `8080` · 前端 `3000` |
@@ -103,15 +103,16 @@ NovaFlow-AI/
 
 | 功能区 | 路由 | 角色 | 说明 |
 |--------|------|------|------|
-| 总控 | `/platform`、`/audit` | `super_admin` | 租户管理、审计 |
-| Studio | `/dashboard`、Agent/工作流/知识库等 | `tenant_admin`、`developer` | 开发与治理 |
+| 总控 | `/platform` | `super_admin` | 跨租户租户管理 |
+| Studio | `/dashboard`、Agent/工作流/知识库、组织、`/audit` 等 | `tenant_admin`、`developer`；超管按权限码可见 | 开发与治理；审计企管也可看 |
 | 应用门户 | `/portal`、`/portal/apps/:id` | `user` | 使用已发布应用 |
 | 网页嵌入 | `/embed/agents/:id` | 公开 + `nf_embed_` Token | 需 `X-Caller-Id` |
 | Open API | `/api/v1/open/**` | `nf_live_` API Key | 服务端集成 |
 
-**系统角色（种子数据 V11/V24/V25）：** `super_admin` · `tenant_admin` · `developer` · `user`
+**系统角色（种子 V11/V24/V25/V26）：** `super_admin` · `tenant_admin` · `developer` · `user`  
+完整码表与 1.1 改动清单：[docs/权限体系.md](../docs/权限体系.md)。
 
-**权限码示例：** `agent:*`、`workflow:*`、`knowledge:*`、`model:config`、`application:manage`、`billing:*`、`monitor:view`、`trace:view`、`tenant:manage`、`member:manage`、`platform:manage`、`audit:view`、`search:global`、`portal:access`
+**权限码：** `agent:*`、`workflow:*`、`knowledge:*`、`model:config`、`application:manage`、`billing:*`、`monitor:view`、`trace:view`、`tenant:manage`、`member:manage`、`platform:manage`、`audit:view`、`search:global`、`portal:access`（共 23 个；`user` 仅 `portal:access`）
 
 ---
 
@@ -144,6 +145,7 @@ NovaFlow-AI/
 1. 用户注册/登录 → `tenant_member` 绑定租户与角色
 2. 业务数据带 `tenant_id` 隔离
 3. `@SaCheckPermission` + 前端路由权限码双重控制
+4. 1.1 待补：禁止组织操作 `super_admin` 成员；session `tenantId` 按 Number 解析（[权限体系 §三](../docs/权限体系.md)）
 
 ### 5.5 应用发布与门户
 
