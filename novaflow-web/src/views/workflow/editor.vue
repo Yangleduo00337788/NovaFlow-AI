@@ -12,11 +12,12 @@
         <a-tag :color="getWorkflowStatusColor(detail.status)">{{ getWorkflowStatusLabel(detail.status) }}</a-tag>
       </div>
       <a-space>
+        <a-button v-if="canManageResource" @click="resourcePermOpen = true">资源授权</a-button>
         <a-button v-if="canEdit" :loading="saving" @click="saveWorkflow">
           <SaveOutlined />
           保存
         </a-button>
-        <a-button v-if="canEdit" :loading="publishing" @click="publishWorkflowAction">
+        <a-button v-if="canPublish" :loading="publishing" @click="publishWorkflowAction">
           <CloudUploadOutlined />
           发布
         </a-button>
@@ -201,6 +202,15 @@
         </div>
       </div>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      v-if="canManageResource"
+      :open="resourcePermOpen"
+      resource-type="WORKFLOW"
+      :resource-id="workflowId"
+      :permission-options="workflowPermissionOptions"
+      @close="resourcePermOpen = false"
+    />
   </div>
 </template>
 
@@ -235,12 +245,20 @@ import {
 import type { WorkflowDetail, WorkflowRunResult } from '@/types/workflow'
 import { getWorkflowStatusColor, getWorkflowStatusLabel } from '@/types/workflow'
 import { useAuthStore } from '@/stores/auth'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const canEdit = computed(() => auth.hasPermission('workflow:edit'))
-const canRun = computed(() => auth.hasPermission('workflow:create', 'workflow:edit'))
+const canPublish = computed(() => auth.hasPermission('workflow:publish'))
+const canRun = computed(() =>
+  auth.hasAnyPermission(['workflow:execute', 'workflow:edit', 'workflow:create']),
+)
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const workflowPermissionOptions = RESOURCE_PERMISSION_OPTIONS.WORKFLOW
+const resourcePermOpen = ref(false)
 const workflowId = Number(route.params.id)
 
 const nodeTypes: NodeTypesObject = {

@@ -12,8 +12,9 @@
         </div>
       </div>
       <a-space>
+        <a-button v-if="canManageResource" @click="resourcePermOpen = true">资源授权</a-button>
         <a-button v-if="canCreate" @click="openEdit">编辑配置</a-button>
-        <a-popconfirm v-if="canCreate" title="确认删除该知识库及全部文档？" @confirm="onDeleteKb">
+        <a-popconfirm v-if="canDelete" title="确认删除该知识库及全部文档？" @confirm="onDeleteKb">
           <a-button danger>删除知识库</a-button>
         </a-popconfirm>
       </a-space>
@@ -60,7 +61,7 @@
       </div>
     </div>
 
-    <div class="page-card retrieval-section">
+    <div v-if="canRetrieve" class="page-card retrieval-section">
       <div class="section-title">检索测试</div>
       <p class="section-desc">输入问题测试向量检索效果，查看召回的分块内容与相似度分数</p>
       <div class="retrieval-form">
@@ -205,7 +206,7 @@
               >
                 重新处理
               </a-button>
-              <a-popconfirm v-if="canCreate" title="确认删除该文档？" @confirm="onDeleteDocument(record.id)">
+              <a-popconfirm v-if="canDelete" title="确认删除该文档？" @confirm="onDeleteDocument(record.id)">
                 <a-button type="link" danger>删除</a-button>
               </a-popconfirm>
             </a-space>
@@ -279,6 +280,15 @@
         <a-button type="primary" block :loading="saving" @click="onSaveEdit">保存修改</a-button>
       </a-form>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      v-if="canManageResource"
+      :open="resourcePermOpen"
+      resource-type="KNOWLEDGE"
+      :resource-id="kbId"
+      :permission-options="knowledgePermissionOptions"
+      @close="resourcePermOpen = false"
+    />
   </div>
 </template>
 
@@ -307,12 +317,19 @@ import { fetchEmbeddingOptions, fetchModelConfigs } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
 import { formatFileSize } from '@/utils/filesize'
 import { useAuthStore } from '@/stores/auth'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const canCreate = computed(() => auth.hasPermission('knowledge:create'))
+const canDelete = computed(() => auth.hasPermission('knowledge:delete'))
 const canUpload = computed(() => auth.hasPermission('knowledge:upload'))
+const canRetrieve = computed(() => auth.hasAnyPermission(['knowledge:read', 'knowledge:search']))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const knowledgePermissionOptions = RESOURCE_PERMISSION_OPTIONS.KNOWLEDGE
+const resourcePermOpen = ref(false)
 const kbId = computed(() => Number(route.params.id))
 
 const detail = ref<KnowledgeBaseItem | null>(null)
@@ -619,7 +636,7 @@ async function onSaveEdit() {
 }
 
 async function onDeleteDocument(documentId: number) {
-  if (!canCreate.value) return
+  if (!canDelete.value) return
   try {
     await deleteDocument(kbId.value, documentId)
     message.success('文档已删除')
@@ -659,7 +676,7 @@ function stopPolling() {
 }
 
 async function onDeleteKb() {
-  if (!canCreate.value) return
+  if (!canDelete.value) return
   try {
     await deleteKnowledgeBase(kbId.value)
     message.success('知识库已删除')

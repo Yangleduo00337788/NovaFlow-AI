@@ -515,6 +515,7 @@ import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
 import FormLabelTip from '@/components/common/FormLabelTip.vue'
 import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 import {
   createAgent,
   deleteAgent,
@@ -573,14 +574,8 @@ const canEdit = computed(() => auth.hasPermission('agent:edit'))
 const canDelete = computed(() => auth.hasPermission('agent:delete'))
 const canPublish = computed(() => auth.hasPermission('agent:publish'))
 const canDebug = computed(() => auth.hasPermission('agent:edit', 'agent:chat'))
-const canManageResource = computed(() => auth.hasAnyPermission(['member:manage', 'tenant:manage']))
-
-const agentPermissionOptions = [
-  { value: 'agent:read', label: '查看' },
-  { value: 'agent:edit', label: '编辑' },
-  { value: 'agent:publish', label: '发布' },
-  { value: 'agent:delete', label: '删除' },
-]
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const agentPermissionOptions = RESOURCE_PERMISSION_OPTIONS.AGENT
 
 const loading = ref(false)
 const saving = ref(false)
