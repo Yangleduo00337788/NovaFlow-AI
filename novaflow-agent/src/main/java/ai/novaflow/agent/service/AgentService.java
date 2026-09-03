@@ -18,6 +18,7 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.agent.util.AgentExtraConfigUtils;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.common.util.RetrievalConfigUtils;
 import ai.novaflow.prompt.service.PromptTemplateService;
 import ai.novaflow.tenant.entity.TenantEntity;
@@ -27,7 +28,9 @@ import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.workflow.entity.WorkflowEntity;
 import ai.novaflow.workflow.service.WorkflowService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
+import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
@@ -52,15 +55,19 @@ public class AgentService {
     private final AgentKnowledgeMapper agentKnowledgeMapper;
     private final AgentToolMapper agentToolMapper;
     private final AgentSkillMapper agentSkillMapper;
+    private final ai.novaflow.agent.mapper.ApplicationAccessMapper applicationAccessMapper;
     private final ToolDefinitionService toolDefinitionService;
     private final PromptTemplateService promptTemplateService;
     private final TenantMapper tenantMapper;
     private final RecentAccessService recentAccessService;
+    private final ResourceAccessService resourceAccessService;
     private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
     private final AuditRecorder auditRecorder;
 
     public PageResult<AgentVO> page(int page, int pageSize, String keyword, String agentType) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
@@ -74,7 +81,12 @@ public class AgentService {
         query.orderBy("updated_at", false);
 
         Page<AgentEntity> result = agentMapper.paginate(Page.of(page, pageSize), query);
-        List<AgentVO> list = result.getRecords().stream().map(this::toSimpleVO).toList();
+        long userId = StpUtil.getLoginIdAsLong();
+        List<AgentVO> list = result.getRecords().stream()
+                .filter(agent -> resourceAccessService.canAccessResource(
+                        userId, tenantId, ResourceTypes.AGENT, agent.getId(), "agent:read"))
+                .map(this::toSimpleVO)
+                .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
@@ -88,6 +100,13 @@ public class AgentService {
 
     private AgentVO detail(Long id, boolean recordAccess) {
         AgentEntity agent = getAgentOrThrow(id);
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                requireTenantId(),
+                ResourceTypes.AGENT,
+                id,
+                "agent:read"
+        );
         AgentConfigEntity config = agentConfigMapper.selectOneByQuery(
                 QueryWrapper.create().eq("agent_id", id).limit(1)
         );
@@ -134,6 +153,8 @@ public class AgentService {
 
     @Transactional
     public AgentVO update(Long id, AgentSaveRequest request) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.AGENT, id, "agent:edit");
         AgentEntity agent = getAgentOrThrow(id);
         agent.setAgentName(request.getAgentName());
         agent.setDescription(request.getDescription());
@@ -162,6 +183,8 @@ public class AgentService {
 
     @Transactional
     public void delete(Long id) {
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.AGENT, id, "agent:delete");
         AgentEntity agent = getAgentOrThrow(id);
         agent.setIsDeleted(1);
         agent.setUpdatedAt(LocalDateTime.now());
@@ -312,7 +335,24 @@ public class AgentService {
         if (agent == null) {
             throw new BusinessException("Agent不存在");
         }
+        assertPortalAccess(agent);
         return agent;
+    }
+
+    /**
+     * Studio 编辑/创建权限可访问租户内 Agent。
+     * 仅门户或仅对话权限时，只能访问已被已发布应用引用的 Agent。
+     */
+    private void assertPortalAccess(AgentEntity agent) {
+        if (StpUtil.hasPermission("agent:edit") || StpUtil.hasPermission("agent:create")) {
+            return;
+        }
+        Long applicationId = agent.getApplicationId();
+        boolean publishedRef = applicationId != null
+                && applicationAccessMapper.countPublishedApp(applicationId, requireTenantId()) > 0;
+        if (!publishedRef) {
+            throw new BusinessException("无权访问该Agent");
+        }
     }
 
     private Long requireTenantId() {
@@ -324,7 +364,8 @@ public class AgentService {
     }
 
     private void assertAgentQuota(Long tenantId) {
-        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        TenantEntity tenant = tenantMapper.selectOneByQuery(
+                QueryWrapper.create().eq("id", tenantId).forUpdate());
         if (tenant == null) {
             return;
         }

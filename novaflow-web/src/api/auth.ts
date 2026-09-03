@@ -1,11 +1,9 @@
 import request from './request'
 import type { ApiResult } from '@/types/dashboard'
-import type { LoginTerminal } from '@/config/terminal'
 
 export interface LoginRequest {
   email: string
   password: string
-  terminal?: LoginTerminal
 }
 
 export interface RegisterRequest {

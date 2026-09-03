@@ -1,0 +1,109 @@
+{
+  "CC05": {
+    "sampleErrors": [],
+    "apiCodes": "0:10",
+    "p95Ms": 257,
+    "fail": 0,
+    "avgMs": 206.0,
+    "count": 10,
+    "label": "CC-05 document upload x10",
+    "ok": 10
+  },
+  "CC02": {
+    "sampleErrors": [],
+    "apiCodes": "0:50",
+    "p95Ms": 281,
+    "fail": 0,
+    "avgMs": 202.0,
+    "count": 50,
+    "label": "CC-02 duplicate publish x50",
+    "ok": 50
+  },
+  "CC04": {
+    "sampleErrors": [],
+    "apiCodes": "0:10",
+    "p95Ms": 38237,
+    "fail": 0,
+    "avgMs": 26936.0,
+    "count": 10,
+    "label": "CC-04 workflow run x10",
+    "ok": 10
+  },
+  "CC03_post": {
+    "favoriteRowsForAgent": 0
+  },
+  "CC01": {
+    "sampleErrors": [
+      {
+        "i": 1,
+        "ok": false,
+        "apiCode": 40001,
+        "http": 400,
+        "ms": 89,
+        "snippet": "{\"code\":40001,\"message\":\"X-Caller-Id 鏍煎紡鏃犳晥锛?-128 浣嶅瓧姣嶆暟瀛楀強 ._:-锛?,\"data\":null,\""
+      },
+      {
+        "i": 2,
+        "ok": false,
+        "apiCode": 40001,
+        "http": 400,
+        "ms": 102,
+        "snippet": "{\"code\":40001,\"message\":\"X-Caller-Id 鏍煎紡鏃犳晥锛?-128 浣嶅瓧姣嶆暟瀛楀強 ._:-锛?,\"data\":null,\""
+      },
+      {
+        "i": 3,
+        "ok": false,
+        "apiCode": 40001,
+        "http": 400,
+        "ms": 121,
+        "snippet": "{\"code\":40001,\"message\":\"X-Caller-Id 鏍煎紡鏃犳晥锛?-128 浣嶅瓧姣嶆暟瀛楀強 ._:-锛?,\"data\":null,\""
+      }
+    ],
+    "apiCodes": "40001:10",
+    "p95Ms": 155,
+    "fail": 10,
+    "avgMs": 133.0,
+    "count": 10,
+    "label": "CC-01 Open API chat x10",
+    "ok": 0
+  },
+  "timestamp": "2026-09-02 17:58:18",
+  "CC03": {
+    "sampleErrors": [
+      {
+        "i": 20,
+        "ok": false,
+        "apiCode": 50000,
+        "http": 500,
+        "ms": 470
+      },
+      {
+        "i": 57,
+        "ok": false,
+        "apiCode": 50000,
+        "http": 500,
+        "ms": 91
+      },
+      {
+        "i": 60,
+        "ok": false,
+        "apiCode": 50000,
+        "http": 500,
+        "ms": 94
+      }
+    ],
+    "apiCodes": "0:94, 50000:6",
+    "p95Ms": 450,
+    "fail": 6,
+    "avgMs": 143.0,
+    "count": 100,
+    "label": "CC-03 favorite toggle x100",
+    "ok": 94
+  },
+  "agentId": 222,
+  "CC02_post": {
+    "prefix": "nf_live_CjcL4LzS",
+    "successCount": 50,
+    "version": "9"
+  }
+}

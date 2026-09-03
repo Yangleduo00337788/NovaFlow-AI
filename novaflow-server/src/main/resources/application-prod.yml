@@ -24,6 +24,21 @@ management:
         include: health
 
 novaflow:
+  web:
+    base-url: ${NOVAFLOW_WEB_BASE_URL:http://localhost:3000}
+    print-urls-on-startup: ${NOVAFLOW_PRINT_URLS_ON_STARTUP:true}
+
+  demo:
+    enabled: ${NOVAFLOW_DEMO_ENABLED:false}
+
+  auth:
+    registration-enabled: ${NOVAFLOW_REGISTRATION_ENABLED:false}
+
+  cors:
+    allowed-origins:
+      - ${CORS_ALLOWED_ORIGIN}
+    allow-localhost: ${NOVAFLOW_CORS_ALLOW_LOCALHOST:false}
+
   conversation:
     retention-enabled: true
     retention-days: 90

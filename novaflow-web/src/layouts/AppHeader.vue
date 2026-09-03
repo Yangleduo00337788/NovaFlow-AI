@@ -1,7 +1,7 @@
 <template>
   <a-layout-header class="header">
     <div class="left">
-      <a-button type="text" class="icon-btn" @click="$emit('toggle')">
+      <a-button v-if="showSiderToggle" type="text" class="icon-btn" @click="$emit('toggle')">
         <MenuUnfoldOutlined v-if="collapsed" />
         <MenuFoldOutlined v-else />
       </a-button>
@@ -11,7 +11,7 @@
       </router-link>
     </div>
 
-    <div class="center">
+    <div v-if="canGlobalSearch" class="center">
       <div class="global-search" :class="{ open: searchOpen }">
         <SearchOutlined class="search-prefix" />
         <input
@@ -144,7 +144,9 @@ import { formatDateTime } from '@/utils/datetime'
 import { globalSearch, type GlobalSearchItem } from '@/api/search'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
-defineProps<{ collapsed: boolean }>()
+withDefaults(defineProps<{ collapsed: boolean; showSiderToggle?: boolean }>(), {
+  showSiderToggle: true,
+})
 defineEmits<{ toggle: [] }>()
 
 const route = useRoute()
@@ -152,6 +154,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const breadcrumb = computed(() => getBreadcrumbByPath(route.path))
 const breadcrumbIcon = computed(() => getMenuIcon(breadcrumb.value.icon))
+const canGlobalSearch = computed(() => auth.hasPermission('search:global'))
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
 const roleName = computed(() => auth.user?.roleName || '用户')
 const userInitial = computed(() => {

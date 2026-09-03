@@ -1,12 +1,16 @@
 package ai.novaflow.server.integration;
 
+import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,7 +27,17 @@ public abstract class IntegrationTestSupport {
      */
     @BeforeEach
     void configureIntegrationRestTemplate() {
-        restTemplate.getRestTemplate().setRequestFactory(new HttpComponentsClientHttpRequestFactory());
+        var httpClient = HttpClients.custom().disableRedirectHandling().build();
+        var requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        var raw = restTemplate.getRestTemplate();
+        raw.setRequestFactory(requestFactory);
+        // 保留 4xx/5xx 响应体与状态码，供 assertApiCode 校验（默认 ErrorHandler 会直接抛异常）
+        raw.setErrorHandler(new DefaultResponseErrorHandler() {
+            @Override
+            public boolean hasError(ClientHttpResponse response) throws IOException {
+                return false;
+            }
+        });
     }
 
     protected void assertHealthUp(TestRestTemplate restTemplate) {

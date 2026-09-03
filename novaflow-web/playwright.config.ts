@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const adminAuthFile = 'e2e/.auth/admin.json'
+const platformAuthFile = 'e2e/.auth/platform.json'
+const portalAuthFile = 'e2e/.auth/portal.json'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -14,11 +18,62 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'setup',
+      testMatch: /global\.setup\.ts/,
+    },
+    {
+      name: 'chromium-auth',
       use: {
         ...devices['Desktop Chrome'],
         channel: 'chrome',
       },
+      testMatch: /auth\.spec\.ts/,
+    },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        storageState: adminAuthFile,
+      },
+      dependencies: ['setup'],
+      testIgnore: [
+        /auth\.spec\.ts/,
+        /global\.setup\.ts/,
+        /portal\.spec\.ts/,
+        /embed\.spec\.ts/,
+        /xss\.spec\.ts/,
+      ],
+      grepInvert: /平台超管页面可加载/,
+    },
+    {
+      name: 'chromium-platform',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        storageState: platformAuthFile,
+      },
+      dependencies: ['setup'],
+      testMatch: /smoke-pages\.spec\.ts/,
+      grep: /平台超管页面可加载/,
+    },
+    {
+      name: 'chromium-portal',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        storageState: portalAuthFile,
+      },
+      dependencies: ['setup'],
+      testMatch: /portal\.spec\.ts/,
+    },
+    {
+      name: 'chromium-embed',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+      },
+      testMatch: /embed\.spec\.ts|xss\.spec\.ts/,
     },
   ],
   webServer: {

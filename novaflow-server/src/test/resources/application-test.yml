@@ -19,3 +19,7 @@ logging:
 novaflow:
   auth:
     login-rate-limit-per-minute: 10000
+  storage:
+    access-key: minioadmin
+    secret-key: minioadmin123
+    endpoint: http://localhost:9000

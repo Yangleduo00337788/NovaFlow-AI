@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test'
-import { login } from './helpers/auth'
 
 const aboutPages = [
   { path: '/about', heading: '关于 NovaFlow' },
@@ -12,8 +11,6 @@ const aboutPages = [
 ]
 
 test.describe('关于页面', () => {
-  test.beforeEach(async ({ page }) => login(page))
-
   for (const { path, heading } of aboutPages) {
     test(`${path} 可加载`, async ({ page }) => {
       await page.goto(path)

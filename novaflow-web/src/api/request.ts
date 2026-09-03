@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type { ApiResult } from '@/types/dashboard'
 import { useAuthStore } from '@/stores/auth'
+import { APP_LOGIN_PATH } from '@/config/app'
 
 const AUTH_ERROR_CODES = new Set([40101, 401])
 
@@ -8,7 +9,8 @@ function handleUnauthorized(message?: string) {
   const auth = useAuthStore()
   auth.clear()
   const redirect = encodeURIComponent(window.location.pathname + window.location.search)
-  window.location.href = `/login?redirect=${redirect}${message ? `&reason=${encodeURIComponent(message)}` : ''}`
+  const loginPath = APP_LOGIN_PATH
+  window.location.href = `${loginPath}?redirect=${redirect}${message ? `&reason=${encodeURIComponent(message)}` : ''}`
 }
 
 const request = axios.create({

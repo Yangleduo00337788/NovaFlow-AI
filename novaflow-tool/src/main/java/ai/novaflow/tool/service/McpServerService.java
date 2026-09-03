@@ -4,6 +4,7 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.tool.domain.dto.McpServerSaveRequest;
 import ai.novaflow.tool.domain.vo.McpConnectResultVO;
 import ai.novaflow.tool.domain.vo.McpDiscoveredToolVO;
@@ -44,6 +45,8 @@ public class McpServerService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)

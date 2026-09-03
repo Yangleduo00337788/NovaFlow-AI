@@ -5,7 +5,7 @@
         <h1>Agent Studio</h1>
         <p>创建和管理 AI Agent</p>
       </div>
-      <a-button type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
+      <a-button v-if="canCreate" type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
     </div>
 
     <div class="list-panel page-card">
@@ -49,16 +49,16 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
-              <a-button type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
-              <a-button type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
+              <a-button v-if="canEdit" type="link" :data-testid="`edit-agent-${record.id}`" @click="openEdit(record.id)">编辑</a-button>
+              <a-button v-if="canDebug" type="link" :data-testid="`debug-agent-${record.id}`" @click="openDebug(record.id)">调试</a-button>
               <a-button
-                v-if="record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool' || record.agentType === 'workflow'"
+                v-if="canPublish && (record.agentType === 'chat' || record.agentType === 'rag' || record.agentType === 'tool' || record.agentType === 'workflow')"
                 type="link"
                 @click="openPublish(record.id)"
               >
                 {{ record.status === 1 ? '发布管理' : '发布' }}
               </a-button>
-              <a-popconfirm title="确认删除？" @confirm="onDelete(record.id)">
+              <a-popconfirm v-if="canDelete" title="确认删除？" @confirm="onDelete(record.id)">
                 <a-button type="link" danger>删除</a-button>
               </a-popconfirm>
             </a-space>
@@ -81,7 +81,7 @@
               <template #label>
                 <FormLabelTip label="名称" :tip="AGENT_FIELD_TIPS.agentName" />
               </template>
-              <a-input v-model:value="form.agentName" data-testid="agent-name-input" maxlength="128" :show-count="true" />
+              <a-input v-model:value="form.agentName" data-testid="agent-name-input" :maxlength="128" :show-count="true" />
             </a-form-item>
             <a-form-item>
               <template #label>
@@ -334,7 +334,15 @@
                 </a-form-item>
               </a-col>
             </a-row>
-            <a-button type="primary" :loading="saving" data-testid="save-agent-btn" @click="onSave">保存</a-button>
+            <a-space>
+              <a-button type="primary" :loading="saving" data-testid="save-agent-btn" @click="onSave">保存</a-button>
+              <a-button
+                v-if="editingId && canManageResource"
+                @click="resourcePermOpen = true"
+              >
+                资源授权
+              </a-button>
+            </a-space>
           </a-form>
         </div>
         <AgentDebugPanel v-if="editingId" :agent-id="editingId" class="debug-side" />
@@ -358,6 +366,14 @@
       />
     </a-drawer>
 
+    <ResourcePermissionDrawer
+      :open="resourcePermOpen"
+      resource-type="AGENT"
+      :resource-id="editingId"
+      :permission-options="agentPermissionOptions"
+      @close="resourcePermOpen = false"
+    />
+
     <a-modal
       v-model:open="publishModalOpen"
       title="Agent 发布与 API"
@@ -377,11 +393,12 @@
           <a-descriptions-item v-if="publishInfo.apiKeyPrefix" label="API Key 前缀">
             <span class="key-prefix">{{ publishInfo.apiKeyPrefix }}...</span>
             <a-popconfirm
+              v-if="canRotateApiKey"
               title="轮换后旧 Key 将立即失效，需同步更新所有调用方"
               ok-text="确认轮换"
               @confirm="onRotateKey"
             >
-              <a-button v-if="!revealedApiKey" type="link" size="small">轮换获取新 Key</a-button>
+              <a-button v-if="canRotateApiKey && !revealedApiKey" type="link" size="small">轮换获取新 Key</a-button>
             </a-popconfirm>
           </a-descriptions-item>
         </a-descriptions>
@@ -459,7 +476,7 @@
 
         <div class="publish-actions">
           <a-button
-            v-if="publishInfo.status !== 1"
+            v-if="canPublish && publishInfo.status !== 1"
             type="primary"
             :loading="publishLoading"
             @click="onPublish"
@@ -498,6 +515,8 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import AgentDebugPanel from '@/components/agent/AgentDebugPanel.vue'
 import FormLabelTip from '@/components/common/FormLabelTip.vue'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 import {
   createAgent,
   deleteAgent,
@@ -520,6 +539,7 @@ import { fetchPromptOptions, type PromptTemplate } from '@/api/prompt'
 import { fetchApplicationOptions, type ApplicationItem } from '@/api/application'
 import { fetchWorkflowOptions } from '@/api/workflow'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
 const AGENT_FIELD_TIPS = {
   agentName: 'Agent 的显示名称，会出现在列表、调试对话和对外 API 的标识中。',
@@ -549,6 +569,15 @@ const AGENT_FIELD_TIPS = {
 } as const
 
 const route = useRoute()
+const auth = useAuthStore()
+const canCreate = computed(() => auth.hasPermission('agent:create'))
+const canEdit = computed(() => auth.hasPermission('agent:edit'))
+const canDelete = computed(() => auth.hasPermission('agent:delete'))
+const canPublish = computed(() => auth.hasPermission('agent:publish'))
+const canDebug = computed(() => auth.hasAnyPermission(['agent:debug', 'agent:edit']))
+const canRotateApiKey = computed(() => auth.hasAnyPermission(['api:create', 'api:update', 'agent:publish']))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const agentPermissionOptions = RESOURCE_PERMISSION_OPTIONS.AGENT
 
 const loading = ref(false)
 const saving = ref(false)
@@ -575,6 +604,7 @@ const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const drawerOpen = ref(false)
+const resourcePermOpen = ref(false)
 const debugOnlyOpen = ref(false)
 const debugWideLayout = ref(false)
 const editingId = ref<number | null>(null)

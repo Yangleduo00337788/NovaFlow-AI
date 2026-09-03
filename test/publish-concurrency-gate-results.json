@@ -1,0 +1,25 @@
+{
+  "script": "publish-concurrency-gate",
+  "timestamp": "2026-09-02 21:44:38",
+  "passed": true,
+  "baseUrl": "http://localhost:8080",
+  "details": {
+    "versionAfter": 52,
+    "checks": [
+      {
+        "name": "CC-02 all HTTP success",
+        "passed": true,
+        "detail": "success=50/50"
+      },
+      {
+        "name": "CC-02 version +50",
+        "passed": true,
+        "detail": "before=2 after=52 delta=50"
+      }
+    ],
+    "delta": 50,
+    "versionBefore": 2,
+    "successCount": 50,
+    "agentId": 255
+  }
+}

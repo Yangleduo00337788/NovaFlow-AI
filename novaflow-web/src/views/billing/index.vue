@@ -42,6 +42,8 @@
     </div>
 
     <a-spin :spinning="loading">
+      <a-tabs v-model:activeKey="billingTab" type="card" class="billing-tabs">
+        <a-tab-pane key="overview" tab="用量概览">
       <div class="billing-body">
       <div class="metrics-grid">
         <div v-for="item in overview.metrics" :key="item.key" class="metric-card page-card">
@@ -183,6 +185,53 @@
         </a-table>
       </div>
       </div>
+        </a-tab-pane>
+
+        <a-tab-pane key="allocation" tab="成本分摊">
+          <div class="page-card allocation-card">
+            <div class="section-head">
+              <div>
+                <div class="section-title">按{{ allocation.dimensionLabel }}分摊</div>
+                <p class="allocation-summary">
+                  {{ allocation.periodLabel }} · {{ formatNumber(allocation.totalCalls) }} 次 ·
+                  {{ formatNumber(allocation.totalTokens) }} tokens · {{ allocation.totalCostLabel }}
+                </p>
+              </div>
+              <a-radio-group
+                v-model:value="allocationDimension"
+                button-style="solid"
+                @change="loadAllocation"
+              >
+                <a-radio-button value="application">应用</a-radio-button>
+                <a-radio-button value="workspace">工作空间</a-radio-button>
+                <a-radio-button value="user">用户</a-radio-button>
+              </a-radio-group>
+            </div>
+            <a-table
+              :columns="allocationColumns"
+              :data-source="allocation.items"
+              :loading="allocationLoading"
+              :pagination="false"
+              :row-key="allocationRowKey"
+            >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'tokens'">
+                  {{ formatNumber(record.tokens) }}
+                </template>
+                <template v-else-if="column.key === 'calls'">
+                  {{ formatNumber(record.calls) }}
+                </template>
+                <template v-else-if="column.key === 'share'">
+                  <div class="share-cell">
+                    <a-progress :percent="record.tokenPercent" size="small" :show-info="false" />
+                    <span>{{ record.tokenPercent }}%</span>
+                  </div>
+                </template>
+              </template>
+            </a-table>
+          </div>
+        </a-tab-pane>
+      </a-tabs>
     </a-spin>
 
     <BillingReceiptPrinter
@@ -213,7 +262,7 @@
         <a-alert
           type="info"
           show-icon
-          message="配额用于控制本月 Token 消耗上限，达到预警阈值时将发送站内通知。"
+          message="配额用于控制本月 Token 消耗上限，达到预警阈值时可发送站内信、邮件或 Webhook。"
         />
       </a-form>
     </a-modal>
@@ -221,10 +270,38 @@
     <a-drawer
       v-model:open="alertDrawerOpen"
       title="配额预警配置"
-      width="420"
+      width="520"
       :footer-style="{ textAlign: 'right' }"
     >
       <a-spin :spinning="alertsLoading">
+        <div class="channel-config">
+          <div class="section-title">外部通道</div>
+          <a-form layout="vertical">
+            <a-form-item label="邮件">
+              <a-switch v-model:checked="channelForm.emailEnabled" />
+              <a-input
+                v-model:value="channelForm.emailRecipients"
+                class="channel-input"
+                placeholder="收件人，逗号分隔；空则使用企业联系人/管理员邮箱"
+              />
+              <div v-if="!channelForm.mailConfigured" class="field-tip">未配置 SMTP（SPRING_MAIL_HOST）时不会真正发信</div>
+            </a-form-item>
+            <a-form-item label="Webhook">
+              <a-switch v-model:checked="channelForm.webhookEnabled" />
+              <a-input
+                v-model:value="channelForm.webhookUrl"
+                class="channel-input"
+                placeholder="https://example.com/hooks/novaflow"
+              />
+              <a-input-password
+                v-model:value="channelForm.webhookSecret"
+                class="channel-input"
+                :placeholder="channelForm.webhookSecretSet ? '已设置签名密钥，留空则不修改' : '可选签名密钥'"
+              />
+            </a-form-item>
+            <a-button type="primary" :loading="channelSaving" @click="saveChannelConfig">保存通道</a-button>
+          </a-form>
+        </div>
         <div v-for="alert in alerts" :key="alert.id" class="alert-item">
           <div class="alert-head">
             <div>
@@ -242,9 +319,11 @@
               @change="(checked: boolean) => toggleAlert(alert, checked)"
             />
           </div>
-          <div class="alert-channels">
-            通知渠道：{{ alert.notifyChannels?.join('、') || '站内信' }}
-          </div>
+          <a-checkbox-group
+            :value="alert.notifyChannels"
+            :options="channelOptions"
+            @change="(checked: string[]) => saveAlertChannels(alert, checked)"
+          />
         </div>
       </a-spin>
     </a-drawer>
@@ -265,12 +344,19 @@ import { fetchAgents } from '@/api/agent'
 import {
   downloadBillingExport,
   fetchBillingAlerts,
+  fetchBillingAllocation,
   fetchBillingOverview,
   fetchBillingRecords,
+  fetchNotifyChannels,
   saveBillingAlert,
+  saveNotifyChannels,
   updateBillingQuota,
   type BillingAlert,
   type BillingOverview,
+  type CostAllocation,
+  type CostAllocationDimension,
+  type CostAllocationItem,
+  type NotifyChannelConfig,
 } from '@/api/billing'
 import type { TokenUsageLogItem } from '@/api/log'
 import { formatDateTime } from '@/utils/datetime'
@@ -283,6 +369,7 @@ const auth = useAuthStore()
 const canManageBilling = computed(() => auth.hasPermission('billing:manage'))
 
 const loading = ref(false)
+const billingTab = ref('overview')
 const recordsLoading = ref(false)
 const selectedMonth = ref<Dayjs>(dayjs())
 const overview = ref<BillingOverview>({
@@ -319,6 +406,21 @@ const alertDrawerOpen = ref(false)
 const alertsLoading = ref(false)
 const alertSavingId = ref<number | null>(null)
 const alerts = ref<BillingAlert[]>([])
+const channelSaving = ref(false)
+const channelForm = reactive({
+  emailEnabled: false,
+  emailRecipients: '',
+  webhookEnabled: false,
+  webhookUrl: '',
+  webhookSecret: '',
+  webhookSecretSet: false,
+  mailConfigured: false,
+})
+const channelOptions = [
+  { label: '站内信', value: 'site' },
+  { label: '邮件', value: 'email' },
+  { label: 'Webhook', value: 'webhook' },
+]
 const quotaForm = reactive({
   monthlyTokenQuota: undefined as number | undefined,
 })
@@ -326,6 +428,25 @@ const agentOptions = ref<Array<{ label: string; value: number }>>([])
 const usageTypeOptions = [
   { label: '对话', value: 'chat' },
   { label: '工作流', value: 'workflow' },
+]
+
+const allocationLoading = ref(false)
+const allocationDimension = ref<CostAllocationDimension>('application')
+const allocation = ref<CostAllocation>({
+  periodLabel: '',
+  dimension: 'application',
+  dimensionLabel: '应用',
+  totalCalls: 0,
+  totalTokens: 0,
+  totalCostLabel: '¥0.00',
+  items: [],
+})
+const allocationColumns = [
+  { title: '名称', dataIndex: 'name', key: 'name' },
+  { title: '调用次数', key: 'calls', width: 120 },
+  { title: 'Tokens', key: 'tokens', width: 140 },
+  { title: '占比', key: 'share', width: 220 },
+  { title: '费用', dataIndex: 'costLabel', key: 'costLabel', width: 160 },
 ]
 
 const columns = [
@@ -368,6 +489,10 @@ const trendOption = computed(() => ({
 
 function currentMonth() {
   return selectedMonth.value.format('YYYY-MM')
+}
+
+function allocationRowKey(row: CostAllocationItem) {
+  return String(row.id ?? row.name)
 }
 
 function formatNumber(value?: number) {
@@ -413,10 +538,20 @@ async function loadRecords() {
   }
 }
 
+async function loadAllocation() {
+  allocationLoading.value = true
+  try {
+    const res = await fetchBillingAllocation(currentMonth(), allocationDimension.value)
+    allocation.value = res.data.data
+  } finally {
+    allocationLoading.value = false
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
-    await Promise.all([loadOverview(), loadRecords()])
+    await Promise.all([loadOverview(), loadRecords(), loadAllocation()])
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载账单数据失败')
   } finally {
@@ -471,12 +606,60 @@ async function openAlertDrawer() {
   alertDrawerOpen.value = true
   alertsLoading.value = true
   try {
-    const res = await fetchBillingAlerts()
-    alerts.value = res.data.data
+    const [alertRes, channelRes] = await Promise.all([fetchBillingAlerts(), fetchNotifyChannels()])
+    alerts.value = alertRes.data.data
+    applyChannelConfig(channelRes.data.data)
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载预警配置失败')
   } finally {
     alertsLoading.value = false
+  }
+}
+
+function applyChannelConfig(config: NotifyChannelConfig) {
+  channelForm.emailEnabled = config.emailEnabled
+  channelForm.emailRecipients = config.emailRecipients || ''
+  channelForm.webhookEnabled = config.webhookEnabled
+  channelForm.webhookUrl = config.webhookUrl || ''
+  channelForm.webhookSecret = ''
+  channelForm.webhookSecretSet = !!config.webhookSecretSet
+  channelForm.mailConfigured = !!config.mailConfigured
+}
+
+async function saveChannelConfig() {
+  channelSaving.value = true
+  try {
+    const res = await saveNotifyChannels({
+      emailEnabled: channelForm.emailEnabled,
+      emailRecipients: channelForm.emailRecipients,
+      webhookEnabled: channelForm.webhookEnabled,
+      webhookUrl: channelForm.webhookUrl,
+      webhookSecret: channelForm.webhookSecret || undefined,
+    })
+    applyChannelConfig(res.data.data)
+    message.success('告警通道已保存')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '保存通道失败')
+  } finally {
+    channelSaving.value = false
+  }
+}
+
+async function saveAlertChannels(alert: BillingAlert, notifyChannels: string[]) {
+  try {
+    const res = await saveBillingAlert({
+      id: alert.id,
+      alertName: alert.alertName,
+      thresholdPercent: alert.thresholdPercent,
+      enabled: alert.enabled,
+      notifyChannels,
+    })
+    const index = alerts.value.findIndex((item) => item.id === alert.id)
+    if (index >= 0) {
+      alerts.value[index] = res.data.data
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '保存渠道失败')
   }
 }
 
@@ -648,9 +831,50 @@ onMounted(async () => {
   margin-bottom: 0;
 }
 
+.billing-tabs {
+  margin-top: 4px;
+}
+
+.billing-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 16px;
+}
+
+.allocation-summary {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.share-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.share-cell .ant-progress {
+  flex: 1;
+  margin: 0;
+}
+
 .alert-item {
   padding: 14px 0;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.channel-config {
+  margin-bottom: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.channel-input {
+  margin-top: 8px;
+}
+
+.field-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .alert-head {

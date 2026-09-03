@@ -26,4 +26,9 @@ class UrlSafetyValidatorTest {
     void blocksMetadataIp() {
         assertThrows(Exception.class, () -> UrlSafetyValidator.validateHttpUrl("http://169.254.169.254/latest/meta-data"));
     }
+
+    @Test
+    void blocksUniqueLocalIpv6() {
+        assertThrows(Exception.class, () -> UrlSafetyValidator.validateHttpUrl("http://[fd12:3456:789a::1]/internal"));
+    }
 }

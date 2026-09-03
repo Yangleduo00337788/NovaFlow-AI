@@ -4,6 +4,8 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.UrlSafetyValidator;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.tool.domain.McpToolDefinition;
 import ai.novaflow.tool.domain.SkillDefinition;
@@ -44,6 +46,8 @@ public class ToolDefinitionService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<ToolDefinitionVO> page(int page, int pageSize, String keyword, String toolType) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
@@ -338,6 +342,7 @@ public class ToolDefinitionService {
         if (!StringUtils.hasText(tool.getUrl())) {
             throw new BusinessException("请求 URL 不能为空");
         }
+        UrlSafetyValidator.validateHttpUrl(tool.getUrl().trim());
     }
 
     private void ensureToolNameUnique(Long tenantId, String toolName, Long excludeId) {

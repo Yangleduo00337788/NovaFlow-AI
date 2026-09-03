@@ -52,7 +52,7 @@ public class AgentDebugService {
                     request,
                     requireTenantId(),
                     StpUtil.getLoginIdAsLong(),
-                    "debug");
+                    resolveChannel(request.getConversationId()));
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -76,7 +76,8 @@ public class AgentDebugService {
                     streamMockResponse(emitter, agent, request, tenantId, userId);
                     return;
                 }
-                agentChatService.streamChat(agent, request, tenantId, userId, "debug", emitter);
+                agentChatService.streamChat(
+                        agent, request, tenantId, userId, resolveChannel(request.getConversationId()), emitter);
             } catch (BusinessException e) {
                 completeWithError(emitter, e);
             } catch (Exception e) {
@@ -181,7 +182,7 @@ public class AgentDebugService {
                     .tenantId(tenantId)
                     .agentId(agentId)
                     .conversationKey(request.getConversationId())
-                    .channel("debug")
+                    .channel(resolveChannel(request.getConversationId()))
                     .userId(userId)
                     .userMessage(request.getMessage().trim())
                     .assistantReply(response.getReply())
@@ -247,6 +248,13 @@ public class AgentDebugService {
                     "【Chat 调试】%s\n\n%s",
                     agent.getAgentName(), message);
         };
+    }
+
+    static String resolveChannel(String conversationId) {
+        if (StringUtils.hasText(conversationId) && conversationId.startsWith("portal-")) {
+            return "portal";
+        }
+        return "debug";
     }
 
     private Long requireTenantId() {

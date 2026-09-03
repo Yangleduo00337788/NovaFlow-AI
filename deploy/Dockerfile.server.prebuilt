@@ -1,0 +1,10 @@
+# syntax=docker/dockerfile:1
+# 本机已 package 的 JAR，供 Compose 冒烟（不在容器内跑 Maven）
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S novaflow && adduser -S novaflow -G novaflow
+COPY novaflow-server/target/novaflow-server-1.0.1.jar app.jar
+USER novaflow
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -344,7 +344,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  background: #f3f4f6;
+  background: var(--bg-subtle);
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;

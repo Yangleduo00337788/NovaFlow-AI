@@ -1,6 +1,7 @@
 package ai.novaflow.security.filter;
 
 import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.security.session.SessionTenantIds;
 import cn.dev33.satoken.stp.StpUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,11 +22,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             if (StpUtil.isLogin()) {
-                Object tenantId = StpUtil.getSession().get("tenantId");
-                if (tenantId instanceof Long id) {
-                    TenantContext.setTenantId(id);
-                } else if (tenantId instanceof Integer id) {
-                    TenantContext.setTenantId(id.longValue());
+                Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
+                if (tenantId != null) {
+                    TenantContext.setTenantId(tenantId);
                 }
             }
             filterChain.doFilter(request, response);

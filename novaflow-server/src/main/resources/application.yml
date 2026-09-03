@@ -44,6 +44,12 @@ spring:
       max-file-size: 50MB
       max-request-size: 100MB
 
+  mail:
+    host: ${SPRING_MAIL_HOST:}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+
 # MyBatis-Flex：下划线字段自动映射驼峰；手写 SQL 统一放在各模块 resources/mapper/ 下
 mybatis-flex:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -75,18 +81,24 @@ liteflow:
 
 # NovaFlow 业务配置
 novaflow:
+  web:
+    base-url: ${NOVAFLOW_WEB_BASE_URL:http://localhost:3000}
+    print-urls-on-startup: ${NOVAFLOW_PRINT_URLS_ON_STARTUP:true}
+
   monitor:
     qdrant-health-url: ${QDRANT_HEALTH_URL:http://localhost:6333/readyz}
     health-timeout-ms: 3000
 
   security:
-    crypto-key: ${NOVAFLOW_CRYPTO_KEY}
+    crypto-key: ${NOVAFLOW_SECURITY_CRYPTO_KEY:${NOVAFLOW_CRYPTO_KEY}}
 
   cors:
     allowed-origins:
+      - http://localhost:3000
       - ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
 
   auth:
+    registration-enabled: ${NOVAFLOW_REGISTRATION_ENABLED:true}
     login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:120}
     login-failure-threshold: ${LOGIN_FAILURE_THRESHOLD:5}
     login-lock-minutes: ${LOGIN_LOCK_MINUTES:15}
@@ -100,14 +112,17 @@ novaflow:
     retention-days: ${CONVERSATION_RETENTION_DAYS:90}
     retention-cron: ${CONVERSATION_RETENTION_CRON:0 30 3 * * *}
 
+  alert:
+    mail-from: ${NOVAFLOW_ALERT_MAIL_FROM:}
+
   mcp:
     allowed-commands: ${NOVAFLOW_MCP_ALLOWED_COMMANDS:npx,node,uvx,uv,python,python3}
     node-path: ${NOVAFLOW_NODE_PATH:}
 
   storage:
     endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-    access-key: ${MINIO_ACCESS_KEY}
-    secret-key: ${MINIO_SECRET_KEY}
+    access-key: ${NOVAFLOW_STORAGE_ACCESS_KEY:${MINIO_ACCESS_KEY}}
+    secret-key: ${NOVAFLOW_STORAGE_SECRET_KEY:${MINIO_SECRET_KEY}}
     bucket: ${MINIO_BUCKET:novaflow}
 
   qdrant:

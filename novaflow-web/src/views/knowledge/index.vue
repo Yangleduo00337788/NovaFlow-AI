@@ -5,7 +5,7 @@
         <h1>知识库 Hub</h1>
         <p>管理企业知识文档，为 RAG Agent 提供检索数据源</p>
       </div>
-      <a-button type="primary" data-testid="create-kb-btn" @click="openCreate">
+      <a-button v-if="canCreate" type="primary" data-testid="create-kb-btn" @click="openCreate">
         <PlusOutlined />
         创建知识库
       </a-button>
@@ -61,15 +61,15 @@
             <a-tag color="green">{{ item.embeddingModel }}</a-tag>
             <span class="kb-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div class="kb-actions" @click.stop>
-            <a-button type="link" @click="openEdit(item)">编辑</a-button>
-            <a-popconfirm title="确认删除该知识库及全部文档？" @confirm="onDelete(item.id)">
+          <div v-if="canCreate || canDelete" class="kb-actions" @click.stop>
+            <a-button v-if="canCreate" type="link" @click="openEdit(item)">编辑</a-button>
+            <a-popconfirm v-if="canDelete" title="确认删除该知识库及全部文档？" @confirm="onDelete(item.id)">
               <a-button type="link" danger>删除</a-button>
             </a-popconfirm>
           </div>
         </div>
       </div>
-      <a-empty v-else description="暂无知识库，点击右上角创建" />
+      <a-empty v-else :description="canCreate ? '暂无知识库，点击右上角创建' : '暂无知识库'" />
         </a-spin>
 
         <div v-if="total > pageSize" class="pagination-wrap">
@@ -91,7 +91,7 @@
     >
       <a-form layout="vertical" :model="form">
         <a-form-item label="名称" required>
-          <a-input v-model:value="form.kbName" placeholder="产品手册知识库" data-testid="kb-name-input" maxlength="128" :show-count="true" />
+          <a-input v-model:value="form.kbName" placeholder="产品手册知识库" data-testid="kb-name-input" :maxlength="128" :show-count="true" />
         </a-form-item>
         <a-form-item label="描述">
           <a-textarea v-model:value="form.description" :rows="3" placeholder="简要说明知识库用途" />
@@ -194,9 +194,13 @@ import {
 import { fetchEmbeddingOptions } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
 import { formatFileSize } from '@/utils/filesize'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
+const canCreate = computed(() => auth.hasPermission('knowledge:create'))
+const canDelete = computed(() => auth.hasPermission('knowledge:delete'))
 const loading = ref(false)
 const saving = ref(false)
 const modelsLoading = ref(false)
@@ -282,11 +286,13 @@ function resetForm() {
 }
 
 function openCreate() {
+  if (!canCreate.value) return
   resetForm()
   drawerOpen.value = true
 }
 
 function openEdit(item: KnowledgeBaseItem) {
+  if (!canCreate.value) return
   editingId.value = item.id
   form.kbName = item.kbName
   form.description = item.description || ''
@@ -301,6 +307,7 @@ function openEdit(item: KnowledgeBaseItem) {
 }
 
 async function onSave() {
+  if (!canCreate.value) return
   if (!form.kbName.trim()) {
     message.warning('请输入知识库名称')
     return
@@ -331,6 +338,7 @@ async function onSave() {
 }
 
 async function onDelete(id: number) {
+  if (!canDelete.value) return
   try {
     await deleteKnowledgeBase(id)
     message.success('已删除')

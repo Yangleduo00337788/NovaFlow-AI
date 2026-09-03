@@ -2,6 +2,7 @@ package ai.novaflow.user.service;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.user.domain.vo.AuditLogVO;
 import ai.novaflow.user.entity.AuditLogEntity;
 import ai.novaflow.user.mapper.AuditLogMapper;
@@ -32,6 +33,8 @@ public class AuditLogQueryService {
             LocalDate startDate,
             LocalDate endDate,
             String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         long userId = StpUtil.getLoginIdAsLong();
         Long tenantId = TenantContext.getTenantId();
         permissionService.requireAnyPermission(userId, tenantId, "audit:view", "platform:manage");

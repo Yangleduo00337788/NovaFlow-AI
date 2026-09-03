@@ -7,6 +7,7 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.service.ModelResolutionService;
 import ai.novaflow.prompt.domain.PromptVariable;
@@ -49,6 +50,8 @@ public class PromptTemplateService {
     private final AuditRecorder auditRecorder;
 
     public PageResult<PromptTemplateVO> page(int page, int pageSize, String keyword, String category) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)

@@ -17,4 +17,5 @@ public class ApplicationPublishVO {
     private String chatEndpoint;
     private String streamEndpoint;
     private String embedPath;
+    private String portalPath;
 }

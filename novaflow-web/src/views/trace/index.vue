@@ -221,7 +221,7 @@ onMounted(() => {
 }
 
 .trace-link {
-  color: #1677ff;
+  color: var(--primary);
   cursor: pointer;
 }
 

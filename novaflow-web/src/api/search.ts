@@ -10,7 +10,7 @@ export interface GlobalSearchItem {
 }
 
 export function globalSearch(keyword: string, limit = 20) {
-  return request.get<ApiResult<GlobalSearchItem[]>>('/api/v1/search', {
+  return request.get<ApiResult<GlobalSearchItem[]>>('/v1/search', {
     params: { keyword, limit },
   })
 }

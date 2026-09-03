@@ -5,7 +5,7 @@
         <h1>{{ pageMeta.title }}</h1>
         <p>{{ pageMeta.subtitle }}</p>
       </div>
-      <span v-if="isHome" class="version-badge">v1.0.1</span>
+      <span v-if="isHome" class="version-badge">v1.1.0</span>
     </div>
 
     <div class="about-panel page-card">
@@ -14,7 +14,7 @@
           <span class="brand-dot" />
           <span class="brand-text">
             <span class="brand-name">关于 NovaFlow</span>
-            <span class="brand-version">v1.0.1</span>
+            <span class="brand-version">v1.1.0</span>
           </span>
         </router-link>
         <nav class="about-nav-list">
