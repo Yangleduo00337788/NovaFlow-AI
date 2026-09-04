@@ -1,0 +1,41 @@
+{
+  "script": "fault-injection",
+  "timestamp": "2026-09-02 22:05:14",
+  "passed": true,
+  "baseUrl": "http://localhost:8080",
+  "details": {
+    "checks": [
+      {
+        "name": "baseline auth/me",
+        "passed": true,
+        "detail": "code=0"
+      },
+      {
+        "name": "F-02 redis down observed",
+        "passed": true,
+        "detail": "healthHttp=503 loginCode=50000 meCode="
+      },
+      {
+        "name": "F-02 redis recovered",
+        "passed": true,
+        "detail": "health UP after start"
+      },
+      {
+        "name": "F-02 login after redis",
+        "passed": true,
+        "detail": "code=0"
+      },
+      {
+        "name": "F-01 mysql down observed",
+        "passed": true,
+        "detail": "healthHttp=503 healthCode=50300 loginCode="
+      },
+      {
+        "name": "F-01 mysql recovered",
+        "passed": true,
+        "detail": "health UP after start"
+      }
+    ],
+    "redisContainer": "redis"
+  }
+}

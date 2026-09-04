@@ -1,0 +1,25 @@
+# 覆盖生产 Compose 的 build：使用本机产物，不在 Docker 内编译
+# 并用 JVM -D 绑定密钥（Spring 对 MINIO_* / NOVAFLOW_CRYPTO_KEY 的 YAML 占位符在容器内可能绑不上）
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.server.prebuilt
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -Dnovaflow.security.crypto-key=NovaFlowAI-SmokeKey-32bytes-min!!!!
+        -Dnovaflow.storage.access-key=minioadmin
+        -Dnovaflow.storage.secret-key=change-me-minio
+        -Dnovaflow.storage.endpoint=http://minio:9000
+        -Dnovaflow.storage.bucket=novaflow
+        -Dspring.data.redis.host=redis
+        -Dspring.data.redis.port=6379
+        -Dspring.data.redis.password=change-me-redis
+        -Dnovaflow.qdrant.host=qdrant
+        -Dnovaflow.qdrant.port=6334
+        -Dnovaflow.monitor.qdrant-health-url=http://qdrant:6333/readyz
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web.prebuilt

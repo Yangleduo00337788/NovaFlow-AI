@@ -4,10 +4,11 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.security.ratelimit.AuthRateLimiter;
 import ai.novaflow.security.ratelimit.LoginFailureLockService;
-import ai.novaflow.user.domain.LoginTerminal;
+import ai.novaflow.security.session.SessionTenantIds;
 import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
@@ -24,6 +25,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,9 @@ public class AuthService {
     private final AuthRateLimiter authRateLimiter;
     private final LoginFailureLockService loginFailureLockService;
     private final AuditLogService auditLogService;
+
+    @Value("${novaflow.auth.registration-enabled:true}")
+    private boolean registrationEnabled;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.getEmail();
@@ -83,14 +88,19 @@ public class AuthService {
         if (member == null) {
             throw new BusinessException("用户未加入任何企业");
         }
+        if (member.getStatus() == null || member.getStatus() != 1) {
+            throw new BusinessException("账号已被禁用");
+        }
 
         TenantEntity tenant = tenantMapper.selectOneById(member.getTenantId());
-        RoleEntity role = roleMapper.selectOneById(member.getRoleId());
-
-        LoginTerminal terminal = LoginTerminal.from(request.getTerminal());
-        if (terminal != null) {
-            terminal.validateRole(role);
+        if (tenant == null || Integer.valueOf(1).equals(tenant.getIsDeleted())
+                || tenant.getStatus() == null || tenant.getStatus() != 1) {
+            throw new BusinessException("企业已停用，请联系管理员");
         }
+        if (tenant.getExpireAt() != null && tenant.getExpireAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("企业已到期，请联系管理员续期");
+        }
+        RoleEntity role = roleMapper.selectOneById(member.getRoleId());
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
@@ -116,6 +126,9 @@ public class AuthService {
 
     @Transactional
     public LoginVO register(RegisterRequest request, HttpServletRequest httpRequest) {
+        if (!registrationEnabled) {
+            throw new BusinessException("当前环境未开放自助注册，请联系管理员邀请");
+        }
         String clientIp = httpRequest.getRemoteAddr();
         authRateLimiter.checkRegister(request.getEmail(), clientIp);
         if (!request.getPassword().equals(request.getConfirmPassword())) {
@@ -130,13 +143,13 @@ public class AuthService {
             throw new BusinessException("该邮箱已被注册");
         }
 
-        RoleEntity adminRole = roleMapper.selectOneByQuery(
+        RoleEntity ownerRole = roleMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", 0)
-                        .eq("role_code", "tenant_admin")
+                        .eq("role_code", RoleCodes.TENANT_OWNER)
                         .eq("is_deleted", 0)
         );
-        if (adminRole == null) {
+        if (ownerRole == null) {
             throw new BusinessException("系统角色未初始化，请联系管理员");
         }
 
@@ -172,7 +185,7 @@ public class AuthService {
         TenantMemberEntity member = new TenantMemberEntity();
         member.setTenantId(tenant.getId());
         member.setUserId(user.getId());
-        member.setRoleId(adminRole.getId());
+        member.setRoleId(ownerRole.getId());
         member.setStatus(1);
         member.setIsDeleted(0);
         member.setJoinedAt(now);
@@ -192,7 +205,7 @@ public class AuthService {
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
-        StpUtil.getSession().set("roleCode", adminRole.getRoleCode());
+        StpUtil.getSession().set("roleCode", ownerRole.getRoleCode());
 
         user.setLastLoginAt(now);
         user.setLastLoginIp(httpRequest.getRemoteAddr());
@@ -208,12 +221,12 @@ public class AuthService {
                 tenant.getId(),
                 user.getId());
 
-        return buildLoginVO(user, tenant, adminRole);
+        return buildLoginVO(user, tenant, ownerRole);
     }
 
     public LoginVO currentUser() {
         long userId = StpUtil.getLoginIdAsLong();
-        Long tenantId = (Long) StpUtil.getSession().get("tenantId");
+        Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
 
         UserEntity user = userMapper.selectOneById(userId);
         TenantEntity tenant = tenantMapper.selectOneById(tenantId);
@@ -225,7 +238,7 @@ public class AuthService {
     public void logout() {
         if (StpUtil.isLogin()) {
             long userId = StpUtil.getLoginIdAsLong();
-            Long tenantId = (Long) StpUtil.getSession().get("tenantId");
+            Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
             auditLogService.record("auth.logout", "user", userId, "用户登出", tenantId, userId);
         }
         StpUtil.logout();

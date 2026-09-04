@@ -35,7 +35,7 @@ public class WorkflowController {
     private final WorkflowService workflowService;
     private final WorkflowExecutionService workflowExecutionService;
 
-    @SaCheckPermission(value = {"workflow:create", "workflow:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"workflow:read", "workflow:create", "workflow:edit"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<WorkflowVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -45,13 +45,13 @@ public class WorkflowController {
         return ApiResult.ok(workflowService.page(page, pageSize, keyword, applicationId));
     }
 
-    @SaCheckPermission(value = {"workflow:create", "workflow:edit", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"workflow:read", "workflow:create", "workflow:edit", "agent:edit"}, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<WorkflowVO>> options(@RequestParam(required = false) Long applicationId) {
         return ApiResult.ok(workflowService.listPublishedOptions(applicationId));
     }
 
-    @SaCheckPermission(value = {"workflow:create", "workflow:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"workflow:read", "workflow:create", "workflow:edit"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<WorkflowDetailVO> detail(@PathVariable Long id) {
         return ApiResult.ok(workflowService.detail(id));
@@ -71,13 +71,13 @@ public class WorkflowController {
         return ApiResult.ok(workflowService.update(id, request));
     }
 
-    @SaCheckPermission("workflow:edit")
+    @SaCheckPermission("workflow:publish")
     @PostMapping("/{id}/publish")
     public ApiResult<WorkflowDetailVO> publish(@PathVariable Long id) {
         return ApiResult.ok(workflowService.publish(id));
     }
 
-    @SaCheckPermission(value = {"workflow:create", "workflow:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"workflow:execute", "workflow:edit"}, mode = SaMode.OR)
     @PostMapping("/{id}/run")
     public ApiResult<WorkflowRunResultVO> run(
             @PathVariable Long id,
@@ -93,7 +93,7 @@ public class WorkflowController {
         return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
     }
 
-    @SaCheckPermission("workflow:edit")
+    @SaCheckPermission("workflow:delete")
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         workflowService.delete(id);

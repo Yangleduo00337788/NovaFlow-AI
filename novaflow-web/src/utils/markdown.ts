@@ -13,5 +13,7 @@ export function renderMarkdown(content: string): string {
   const html = marked.parse(content, { async: false }) as string
   return DOMPurify.sanitize(html, {
     ADD_ATTR: ['target', 'rel'],
+    FORBID_TAGS: ['svg', 'math'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick'],
   })
 }

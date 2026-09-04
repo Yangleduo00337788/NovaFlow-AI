@@ -65,6 +65,13 @@ public final class UrlSafetyValidator {
                 || address.isLoopbackAddress()
                 || address.isLinkLocalAddress()
                 || address.isSiteLocalAddress()
-                || address.isMulticastAddress();
+                || address.isMulticastAddress()
+                || isUniqueLocalIpv6(address);
+    }
+
+    /** IPv6 ULA (fc00::/7) 不被 InetAddress.isSiteLocalAddress 视为内网。 */
+    private static boolean isUniqueLocalIpv6(InetAddress address) {
+        byte[] bytes = address.getAddress();
+        return bytes != null && bytes.length == 16 && (bytes[0] & 0xFE) == 0xFC;
     }
 }

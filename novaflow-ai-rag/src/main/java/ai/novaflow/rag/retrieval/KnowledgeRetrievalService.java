@@ -38,6 +38,7 @@ public class KnowledgeRetrievalService {
     private final RerankClient rerankClient;
 
     public RetrievalTestResultVO testRetrieve(Long knowledgeBaseId, Long tenantId, RetrievalTestRequest request) {
+        knowledgeBaseService.requireSearchAccess(knowledgeBaseId);
         long start = System.currentTimeMillis();
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         int topK = request.getTopK() != null ? request.getTopK() : effectiveTopK(knowledgeBase);

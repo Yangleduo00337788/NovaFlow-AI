@@ -5,6 +5,7 @@ import type { LoginResponse } from '@/api/auth'
 const TOKEN_KEY = 'novaflow_token'
 const USER_KEY = 'novaflow_user'
 const PERMISSIONS_KEY = 'novaflow_permissions'
+const LEGACY_TERMINAL_KEY = 'novaflow_login_terminal'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '')
@@ -24,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem(TOKEN_KEY, data.token)
     localStorage.setItem(USER_KEY, JSON.stringify(data.user))
     localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permissions.value))
+    localStorage.removeItem(LEGACY_TERMINAL_KEY)
   }
 
   function clear() {
@@ -34,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
     localStorage.removeItem(PERMISSIONS_KEY)
+    localStorage.removeItem(LEGACY_TERMINAL_KEY)
   }
 
   const isLoggedIn = () => !!token.value
@@ -42,9 +45,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   function hasPermission(...codes: string[]) {
     if (codes.length === 0) {
-      return true
-    }
-    if (roleCode.value === 'tenant_admin' || roleCode.value === 'super_admin') {
       return true
     }
     return codes.some((code) => permissions.value.includes(code))

@@ -176,8 +176,12 @@ function formatNumber(value?: number) {
 }
 
 async function loadStats() {
-  const res = await fetchPlatformStats()
-  stats.value = res.data.data
+  try {
+    const res = await fetchPlatformStats()
+    stats.value = res.data.data
+  } catch {
+    message.error('加载平台统计失败')
+  }
 }
 
 async function loadTenants() {
@@ -186,6 +190,8 @@ async function loadTenants() {
     const res = await fetchPlatformTenants({ page: page.value, pageSize: pageSize.value, keyword: keyword.value || undefined })
     tenants.value = res.data.data.list
     total.value = res.data.data.total
+  } catch {
+    message.error('加载租户列表失败')
   } finally {
     loading.value = false
   }
@@ -236,8 +242,8 @@ async function removeTenant(id: number) {
   await Promise.all([loadTenants(), loadStats()])
 }
 
-onMounted(async () => {
-  await Promise.all([loadStats(), loadTenants()])
+onMounted(() => {
+  void Promise.allSettled([loadStats(), loadTenants()])
 })
 </script>
 

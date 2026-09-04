@@ -1,6 +1,7 @@
 package ai.novaflow.user.service;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.PermissionEntity;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.RolePermissionEntity;
@@ -68,6 +69,7 @@ public class PermissionService {
                 QueryWrapper.create()
                         .eq("user_id", userId)
                         .eq("tenant_id", tenantId)
+                        .eq("status", 1)
                         .eq("is_deleted", 0)
                         .limit(1)
         );
@@ -81,10 +83,6 @@ public class PermissionService {
         if (permissionCodes == null || permissionCodes.length == 0) {
             return;
         }
-        RoleEntity role = resolveRole(userId, tenantId);
-        if (role != null && isAdminRole(role.getRoleCode())) {
-            return;
-        }
         List<String> granted = getPermissionCodes(userId, tenantId);
         boolean matched = Arrays.stream(permissionCodes).anyMatch(granted::contains);
         if (!matched) {
@@ -92,13 +90,9 @@ public class PermissionService {
         }
     }
 
-    public boolean isAdminRole(String roleCode) {
-        return "tenant_admin".equals(roleCode) || "super_admin".equals(roleCode);
-    }
-
     public void requireSuperAdmin(long userId, Long tenantId) {
         RoleEntity role = resolveRole(userId, tenantId);
-        if (role == null || !"super_admin".equals(role.getRoleCode())) {
+        if (role == null || !RoleCodes.PLATFORM_ADMIN.equals(role.getRoleCode())) {
             throw new BusinessException("需要平台超级管理员权限");
         }
     }

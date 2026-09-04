@@ -168,8 +168,8 @@ class FullFeatureLocalIntegrationTest extends AbstractLocalIntegrationTest {
                 new HttpEntity<>(null, headers),
                 Map.class
         );
-        // 空画布无法发布，仅验证接口可达（可能返回业务错误）
-        assertEquals(HttpStatus.OK, published.getStatusCode());
+        // 空画布无法发布，验证接口可达且返回预期业务错误
+        OpenApiIntegrationFixtures.assertApiCode(published, 40000);
 
         restTemplate.exchange(
                 "/api/v1/workflows/" + workflowId,

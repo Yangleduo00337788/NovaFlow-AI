@@ -45,7 +45,7 @@ public class AgentPublishService {
     @Transactional
     public AgentPublishVO publish(Long agentId) {
         Long tenantId = requireTenantId();
-        AgentEntity agent = agentService.getAgentEntityOrThrow(agentId);
+        AgentEntity agent = lockAgentForUpdate(agentId, tenantId);
         AgentVO detail = agentService.detail(agentId);
         validatePublishable(detail);
 
@@ -188,5 +188,19 @@ public class AgentPublishService {
             throw new BusinessException("租户上下文缺失");
         }
         return tenantId;
+    }
+
+    private AgentEntity lockAgentForUpdate(Long agentId, Long tenantId) {
+        AgentEntity agent = agentMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("id", agentId)
+                        .eq("tenant_id", tenantId)
+                        .eq("is_deleted", 0)
+                        .forUpdate()
+        );
+        if (agent == null) {
+            throw new BusinessException("Agent不存在");
+        }
+        return agent;
     }
 }

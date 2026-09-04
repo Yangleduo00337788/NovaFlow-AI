@@ -8,6 +8,7 @@ import ai.novaflow.tool.domain.vo.McpServerVO;
 import ai.novaflow.tool.domain.vo.McpSyncResultVO;
 import ai.novaflow.tool.service.McpServerService;
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,13 +21,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@SaCheckPermission("agent:edit")
 @RequestMapping("/api/v1/mcp-servers")
 @RequiredArgsConstructor
 public class McpServerController {
 
     private final McpServerService mcpServerService;
 
+    @SaCheckPermission(value = {"mcp:read", "agent:edit", "agent:create"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<McpServerVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -35,26 +36,31 @@ public class McpServerController {
         return ApiResult.ok(mcpServerService.page(page, pageSize, keyword));
     }
 
+    @SaCheckPermission(value = {"mcp:read", "agent:edit", "agent:create"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<McpServerVO> detail(@PathVariable Long id) {
         return ApiResult.ok(mcpServerService.detail(id));
     }
 
+    @SaCheckPermission(value = {"mcp:update", "agent:edit"}, mode = SaMode.OR)
     @PostMapping("/{id}/connect")
     public ApiResult<McpConnectResultVO> connect(@PathVariable Long id) {
         return ApiResult.ok(mcpServerService.connect(id));
     }
 
+    @SaCheckPermission(value = {"mcp:update", "agent:edit"}, mode = SaMode.OR)
     @PostMapping("/{id}/sync-tools")
     public ApiResult<McpSyncResultVO> syncTools(@PathVariable Long id) {
         return ApiResult.ok(mcpServerService.syncTools(id));
     }
 
+    @SaCheckPermission(value = {"mcp:create", "agent:edit"}, mode = SaMode.OR)
     @PostMapping
     public ApiResult<McpServerVO> create(@Valid @RequestBody McpServerSaveRequest request) {
         return ApiResult.ok(mcpServerService.create(request));
     }
 
+    @SaCheckPermission(value = {"mcp:delete", "agent:edit"}, mode = SaMode.OR)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         mcpServerService.delete(id);

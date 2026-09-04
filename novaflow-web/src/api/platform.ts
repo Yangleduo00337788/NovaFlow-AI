@@ -41,21 +41,21 @@ export interface PlatformGlobalStats {
 }
 
 export function fetchPlatformTenants(params: { page?: number; pageSize?: number; keyword?: string }) {
-  return request.get<ApiResult<PlatformTenantPage>>('/api/v1/platform/tenants', { params })
+  return request.get<ApiResult<PlatformTenantPage>>('/v1/platform/tenants', { params })
 }
 
 export function fetchPlatformTenant(id: number) {
-  return request.get<ApiResult<PlatformTenant>>(`/api/v1/platform/tenants/${id}`)
+  return request.get<ApiResult<PlatformTenant>>(`/v1/platform/tenants/${id}`)
 }
 
 export function updatePlatformTenant(id: number, data: Record<string, unknown>) {
-  return request.put<ApiResult<PlatformTenant>>(`/api/v1/platform/tenants/${id}`, data)
+  return request.put<ApiResult<PlatformTenant>>(`/v1/platform/tenants/${id}`, data)
 }
 
 export function deletePlatformTenant(id: number) {
-  return request.delete<ApiResult<void>>(`/api/v1/platform/tenants/${id}`)
+  return request.delete<ApiResult<void>>(`/v1/platform/tenants/${id}`)
 }
 
 export function fetchPlatformStats() {
-  return request.get<ApiResult<PlatformGlobalStats>>('/api/v1/platform/stats')
+  return request.get<ApiResult<PlatformGlobalStats>>('/v1/platform/stats')
 }

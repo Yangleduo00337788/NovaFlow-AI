@@ -32,9 +32,13 @@ public final class OpenApiIntegrationFixtures {
     }
 
     public static LoginSession login(TestRestTemplate restTemplate) {
+        return login(restTemplate, "admin@novaflow.ai", "Admin123!");
+    }
+
+    public static LoginSession login(TestRestTemplate restTemplate, String email, String password) {
         Map<String, String> request = Map.of(
-                "email", "admin@novaflow.ai",
-                "password", "Admin123!"
+                "email", email,
+                "password", password
         );
         ResponseEntity<Map> response = restTemplate.postForEntity("/api/v1/auth/login", request, Map.class);
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -51,6 +55,96 @@ public final class OpenApiIntegrationFixtures {
         assertNotNull(tenant);
         long tenantId = ((Number) tenant.get("id")).longValue();
         return new LoginSession(token, tenantId);
+    }
+
+    public static LoginSession registerNewTenant(TestRestTemplate restTemplate, String suffix) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("companyName", "IDOR-" + suffix);
+        request.put("email", "idor-" + suffix + "@novaflow.test");
+        request.put("nickname", "IDOR " + suffix);
+        request.put("password", "SmokeTest123!");
+        request.put("confirmPassword", "SmokeTest123!");
+        request.put("planType", "enterprise");
+
+        ResponseEntity<Map> response = restTemplate.postForEntity("/api/v1/auth/register", request, Map.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Map<?, ?> body = response.getBody();
+        assertNotNull(body);
+        assertEquals(0, intCode(body));
+
+        Map<?, ?> data = (Map<?, ?>) body.get("data");
+        assertNotNull(data);
+        String token = String.valueOf(data.get("token"));
+        Map<?, ?> tenant = (Map<?, ?>) data.get("tenant");
+        assertNotNull(tenant);
+        long tenantId = ((Number) tenant.get("id")).longValue();
+        return new LoginSession(token, tenantId);
+    }
+
+    public static long createApplication(TestRestTemplate restTemplate, String token, String appName) {
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("appName", appName);
+        createRequest.put("description", "integration test");
+
+        ResponseEntity<Map> createResponse = restTemplate.exchange(
+                "/api/v1/applications",
+                HttpMethod.POST,
+                new HttpEntity<>(createRequest, adminHeaders(token)),
+                Map.class
+        );
+        assertApiSuccess(createResponse);
+        Map<?, ?> appData = (Map<?, ?>) createResponse.getBody().get("data");
+        assertNotNull(appData);
+        return ((Number) appData.get("id")).longValue();
+    }
+
+    public static long createChatAgent(TestRestTemplate restTemplate, String token, long applicationId, String agentName) {
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("agentName", agentName);
+        createRequest.put("agentType", "chat");
+        createRequest.put("applicationId", applicationId);
+        createRequest.put("welcomeMessage", "IDOR test");
+
+        ResponseEntity<Map> createResponse = restTemplate.exchange(
+                "/api/v1/agents",
+                HttpMethod.POST,
+                new HttpEntity<>(createRequest, adminHeaders(token)),
+                Map.class
+        );
+        assertApiSuccess(createResponse);
+        Map<?, ?> agentData = (Map<?, ?>) createResponse.getBody().get("data");
+        assertNotNull(agentData);
+        return ((Number) agentData.get("id")).longValue();
+    }
+
+    public static long createKnowledgeBase(TestRestTemplate restTemplate, String token, String kbName) {
+        ResponseEntity<Map> optionsResponse = restTemplate.exchange(
+                "/api/v1/models/embedding-options",
+                HttpMethod.GET,
+                new HttpEntity<>(null, adminHeaders(token)),
+                Map.class
+        );
+        assertApiSuccess(optionsResponse);
+        List<?> options = (List<?>) optionsResponse.getBody().get("data");
+        assertNotNull(options);
+        assertTrue(!options.isEmpty(), "embedding options should exist");
+        String embeddingModel = String.valueOf(((Map<?, ?>) options.get(0)).get("modelName"));
+
+        Map<String, Object> createRequest = new HashMap<>();
+        createRequest.put("kbName", kbName);
+        createRequest.put("description", "IDOR test");
+        createRequest.put("embeddingModel", embeddingModel);
+
+        ResponseEntity<Map> createResponse = restTemplate.exchange(
+                "/api/v1/knowledge-bases",
+                HttpMethod.POST,
+                new HttpEntity<>(createRequest, adminHeaders(token)),
+                Map.class
+        );
+        assertApiSuccess(createResponse);
+        Map<?, ?> kbData = (Map<?, ?>) createResponse.getBody().get("data");
+        assertNotNull(kbData);
+        return ((Number) kbData.get("id")).longValue();
     }
 
     public static PublishedAgent createAndPublishChatAgent(TestRestTemplate restTemplate) {
@@ -133,10 +227,33 @@ public final class OpenApiIntegrationFixtures {
     }
 
     public static void assertApiCode(ResponseEntity<Map> response, int expectedCode) {
-        assertEquals(HttpStatus.OK, response.getStatusCode());
         Map<?, ?> body = response.getBody();
         assertNotNull(body);
-        assertEquals(expectedCode, intCode(body), () -> "message=" + body.get("message"));
+        int actualCode = intCode(body);
+        assertEquals(expectedCode, actualCode, () -> "message=" + body.get("message"));
+
+        HttpStatus expectedStatus = expectedCode == 0 ? HttpStatus.OK : httpStatusOf(expectedCode);
+        assertEquals(
+                expectedStatus,
+                response.getStatusCode(),
+                () -> "body.code=" + actualCode + ", http=" + response.getStatusCode()
+        );
+    }
+
+    static HttpStatus httpStatusOf(int code) {
+        if (code >= 40100 && code < 40200) {
+            return HttpStatus.UNAUTHORIZED;
+        }
+        if (code >= 40300 && code < 40400) {
+            return HttpStatus.FORBIDDEN;
+        }
+        if (code >= 42900 && code < 43000) {
+            return HttpStatus.TOO_MANY_REQUESTS;
+        }
+        if (code >= 50000 && code < 60000) {
+            return HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        return HttpStatus.BAD_REQUEST;
     }
 
     public static void assertApiSuccess(ResponseEntity<Map> response) {

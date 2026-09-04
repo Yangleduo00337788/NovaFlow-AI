@@ -1,0 +1,38 @@
+{
+  "script": "pre-deploy-gate",
+  "timestamp": "2026-09-02 21:44:33",
+  "passed": true,
+  "baseUrl": "http://localhost:8080",
+  "details": {
+    "pageBoundaryOk": true,
+    "checks": [
+      {
+        "name": "G-01 health UP",
+        "passed": true,
+        "detail": "http=200"
+      },
+      {
+        "name": "G-02 api health",
+        "passed": true,
+        "detail": "code=0"
+      },
+      {
+        "name": "G-03 auth/me",
+        "passed": true,
+        "detail": "code=0"
+      },
+      {
+        "name": "G-04 pageSize cap <= 100",
+        "passed": true,
+        "detail": "pageSize=100"
+      },
+      {
+        "name": "G-05 page boundary",
+        "passed": true,
+        "detail": "http=200 code=0"
+      }
+    ],
+    "pageSizeOk": true,
+    "note": null
+  }
+}

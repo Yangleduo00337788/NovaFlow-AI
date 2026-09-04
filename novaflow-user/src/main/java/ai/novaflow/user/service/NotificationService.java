@@ -3,11 +3,14 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.user.domain.vo.UserNotificationVO;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
+import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.user.entity.UserNotificationEntity;
 import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
+import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.user.mapper.UserNotificationMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class NotificationService {
     private final UserNotificationMapper userNotificationMapper;
     private final TenantMemberMapper tenantMemberMapper;
     private final RoleMapper roleMapper;
+    private final UserMapper userMapper;
 
     public PageResult<UserNotificationVO> page(Long tenantId, Long userId, int page, int pageSize) {
         int safePage = Math.max(page, 1);
@@ -119,6 +123,20 @@ public class NotificationService {
         }
     }
 
+    public List<String> listTenantAdminEmails(Long tenantId) {
+        Set<Long> adminUserIds = resolveTenantAdminUserIds(tenantId);
+        if (adminUserIds.isEmpty()) {
+            return List.of();
+        }
+        return userMapper.selectListByQuery(QueryWrapper.create().in("id", adminUserIds).eq("is_deleted", 0))
+                .stream()
+                .map(UserEntity::getEmail)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .toList();
+    }
+
     private Set<Long> resolveTenantAdminUserIds(Long tenantId) {
         List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
                 QueryWrapper.create()
@@ -149,7 +167,9 @@ public class NotificationService {
                         return false;
                     }
                     String code = role.getRoleCode();
-                    return "tenant_admin".equals(code) || "super_admin".equals(code);
+                    return RoleCodes.TENANT_OWNER.equals(code)
+                            || RoleCodes.TENANT_ADMIN.equals(code)
+                            || RoleCodes.PLATFORM_ADMIN.equals(code);
                 })
                 .map(TenantMemberEntity::getUserId)
                 .collect(Collectors.toSet());

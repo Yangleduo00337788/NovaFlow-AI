@@ -2,6 +2,7 @@ package ai.novaflow.user.service;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.domain.vo.MemberVO;
 import ai.novaflow.user.domain.vo.PermissionVO;
 import ai.novaflow.user.domain.vo.RoleVO;
@@ -18,6 +19,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,16 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class RoleManagementService {
+
+    private static final List<String> ROLE_DISPLAY_ORDER = List.of(
+            RoleCodes.TENANT_OWNER,
+            RoleCodes.TENANT_ADMIN,
+            RoleCodes.DEVELOPER,
+            RoleCodes.OPERATOR,
+            RoleCodes.MEMBER,
+            RoleCodes.VIEWER,
+            RoleCodes.PLATFORM_ADMIN
+    );
 
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
@@ -41,11 +53,15 @@ public class RoleManagementService {
                 QueryWrapper.create()
                         .eq("tenant_id", 0)
                         .eq("is_deleted", 0)
-                        .in("role_code", List.of("tenant_admin", "developer", "user"))
+                        .in("role_code", RoleCodes.ALL_SYSTEM_ROLES)
                         .orderBy("id", true)
         );
         Map<Long, Long> memberCountMap = countMembersByRole(tenantId);
         return roles.stream()
+                .sorted(Comparator.comparingInt(role -> {
+                    int index = ROLE_DISPLAY_ORDER.indexOf(role.getRoleCode());
+                    return index < 0 ? 99 : index;
+                }))
                 .map(role -> toRoleVO(role, memberCountMap.getOrDefault(role.getId(), 0L)))
                 .toList();
     }
@@ -154,10 +170,13 @@ public class RoleManagementService {
 
     private String resolveRoleDescription(String roleCode) {
         return switch (roleCode) {
-            case "tenant_admin" -> "管理企业一切资源、成员与权限";
-            case "developer" -> "创建和编辑 Agent、工作流、知识库等 AI 资源";
-            case "user" -> "仅使用已发布的 AI 应用";
-            case "super_admin" -> "平台级超级管理员";
+            case RoleCodes.TENANT_OWNER -> "企业最高管理员，可删除企业与转移所有权";
+            case RoleCodes.TENANT_ADMIN -> "管理本企业资源、成员与权限，不含跨租户总控";
+            case RoleCodes.DEVELOPER -> "创建和编辑 Agent、工作流、知识库等 AI 资源";
+            case RoleCodes.OPERATOR -> "发布、运行与监控 AI 应用，不改核心配置";
+            case RoleCodes.MEMBER -> "使用已发布的 AI 应用与工作台";
+            case RoleCodes.VIEWER -> "只读查看企业 AI 资源与运行数据";
+            case RoleCodes.PLATFORM_ADMIN -> "平台级超级管理员，含企业管理员全部权限，并管理所有租户";
             default -> "";
         };
     }

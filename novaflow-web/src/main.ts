@@ -6,6 +6,7 @@ import router from './router'
 import { applyTheme, readStoredTheme } from './stores/theme'
 import 'ant-design-vue/dist/reset.css'
 import './styles/global.css'
+import './styles/auth.css'
 
 applyTheme(readStoredTheme())
 

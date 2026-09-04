@@ -92,6 +92,29 @@ export function saveBillingAlert(payload: {
   return request.put<ApiResult<BillingAlert>>('/v1/billing/alerts', payload)
 }
 
+export interface NotifyChannelConfig {
+  emailEnabled: boolean
+  emailRecipients?: string
+  webhookEnabled: boolean
+  webhookUrl?: string
+  webhookSecretSet?: boolean
+  mailConfigured?: boolean
+}
+
+export function fetchNotifyChannels() {
+  return request.get<ApiResult<NotifyChannelConfig>>('/v1/billing/notify-channels')
+}
+
+export function saveNotifyChannels(payload: {
+  emailEnabled: boolean
+  emailRecipients?: string
+  webhookEnabled: boolean
+  webhookUrl?: string
+  webhookSecret?: string
+}) {
+  return request.put<ApiResult<NotifyChannelConfig>>('/v1/billing/notify-channels', payload)
+}
+
 export async function downloadBillingExport(month: string, format: 'excel' | 'pdf') {
   const response = await request.get('/v1/billing/export', {
     params: { month, format },
@@ -112,4 +135,29 @@ export function fetchBillingRecords(params?: {
     '/v1/billing/records',
     { params },
   )
+}
+
+export type CostAllocationDimension = 'application' | 'workspace' | 'user'
+
+export interface CostAllocationItem {
+  id?: number | null
+  name: string
+  calls: number
+  tokens: number
+  tokenPercent: number
+  costLabel: string
+}
+
+export interface CostAllocation {
+  periodLabel: string
+  dimension: CostAllocationDimension
+  dimensionLabel: string
+  totalCalls: number
+  totalTokens: number
+  totalCostLabel: string
+  items: CostAllocationItem[]
+}
+
+export function fetchBillingAllocation(month?: string, dimension: CostAllocationDimension = 'application') {
+  return request.get<ApiResult<CostAllocation>>('/v1/billing/allocation', { params: { month, dimension } })
 }

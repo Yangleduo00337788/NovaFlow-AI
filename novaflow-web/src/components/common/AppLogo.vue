@@ -7,7 +7,7 @@
   </div>
   <img
     v-else
-    :src="LOGO_SRC"
+    :src="logoSrc"
     :alt="LOGO_ALT"
     class="app-logo"
     :class="`app-logo--${variant}`"
@@ -15,14 +15,22 @@
 </template>
 
 <script setup lang="ts">
-import { LOGO_ALT, LOGO_ICON_SRC, LOGO_SRC } from '@/constants/brand'
+import { computed } from 'vue'
+import { LOGO_ALT, LOGO_AUTH_ICON_SRC, LOGO_ICON_SRC, LOGO_SRC } from '@/constants/brand'
 
-withDefaults(defineProps<{
-  variant?: 'sidebar' | 'login' | 'icon'
+const props = withDefaults(defineProps<{
+  variant?: 'sidebar' | 'login' | 'icon' | 'auth'
   collapsed?: boolean
 }>(), {
   variant: 'sidebar',
   collapsed: false,
+})
+
+const logoSrc = computed(() => {
+  if (props.variant === 'auth' || props.variant === 'icon') {
+    return props.variant === 'auth' ? LOGO_AUTH_ICON_SRC : LOGO_ICON_SRC
+  }
+  return LOGO_SRC
 })
 </script>
 
@@ -75,6 +83,7 @@ withDefaults(defineProps<{
 .app-logo {
   display: block;
   object-fit: contain;
+  background: transparent;
 }
 
 .app-logo--login {
@@ -86,6 +95,10 @@ withDefaults(defineProps<{
 .app-logo--icon {
   width: 32px;
   height: 32px;
-  object-fit: contain;
+}
+
+.app-logo--auth {
+  width: 104px;
+  height: 104px;
 }
 </style>

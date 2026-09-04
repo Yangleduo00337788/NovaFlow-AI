@@ -3,7 +3,7 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY novaflow-web/package.json novaflow-web/package-lock.json* ./
-RUN npm ci
+RUN npm ci --registry=https://registry.npmjs.org
 COPY novaflow-web/ .
 RUN npm run build
 

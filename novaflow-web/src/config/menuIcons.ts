@@ -45,6 +45,7 @@ const iconMap: Record<string, Component> = {
   observability: EyeOutlined,
   org: TeamOutlined,
   permission: SafetyOutlined,
+  platform: ClusterOutlined,
   settings: SettingOutlined,
   billing: PayCircleOutlined,
   apps: AppstoreOutlined,

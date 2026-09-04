@@ -5,7 +5,7 @@
         <h1>工作流 Studio</h1>
         <p>可视化编排 LLM 与条件分支，构建可复用的自动化流程</p>
       </div>
-      <a-button type="primary" data-testid="create-workflow-btn" @click="openCreate">
+      <a-button v-if="canCreate" type="primary" data-testid="create-workflow-btn" @click="openCreate">
         <PlusOutlined />
         创建工作流
       </a-button>
@@ -55,15 +55,15 @@
           <div class="card-footer">
             <span>{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div class="card-actions">
-            <a-button type="link" size="small" @click="openEditor(item.id)">编辑</a-button>
-            <a-popconfirm title="确认删除该工作流？" @confirm="onDelete(item.id)">
+          <div v-if="canEdit || canDelete" class="card-actions">
+            <a-button v-if="canEdit" type="link" size="small" @click="openEditor(item.id)">编辑</a-button>
+            <a-popconfirm v-if="canDelete" title="确认删除该工作流？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
           </div>
         </div>
       </div>
-      <a-empty v-else description="暂无工作流，点击右上角创建" />
+      <a-empty v-else :description="canCreate ? '暂无工作流，点击右上角创建' : '暂无工作流'" />
         </a-spin>
 
         <div v-if="total > pageSize" class="pagination-wrap">
@@ -90,7 +90,7 @@
           <a-input
             v-model:value="createForm.workflowName"
             placeholder="客服分流流程"
-            maxlength="128"
+            :maxlength="128"
             :show-count="true"
           />
         </a-form-item>
@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { ApartmentOutlined, PlusOutlined } from '@ant-design/icons-vue'
@@ -120,9 +120,14 @@ import { buildDefaultCanvas, createWorkflow, deleteWorkflow, fetchWorkflows } fr
 import type { WorkflowItem } from '@/types/workflow'
 import { getWorkflowStatusColor, getWorkflowStatusLabel } from '@/types/workflow'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
+const canCreate = computed(() => auth.hasPermission('workflow:create'))
+const canEdit = computed(() => auth.hasPermission('workflow:edit'))
+const canDelete = computed(() => auth.hasPermission('workflow:delete'))
 const loading = ref(false)
 const creating = ref(false)
 const appsLoading = ref(false)
@@ -170,6 +175,7 @@ async function loadData() {
 }
 
 function openCreate() {
+  if (!canCreate.value) return
   createForm.workflowName = ''
   createForm.description = ''
   createForm.applicationId = applicationOptions.value[0]?.value
@@ -177,6 +183,7 @@ function openCreate() {
 }
 
 async function onCreate() {
+  if (!canCreate.value) return
   if (!createForm.workflowName.trim()) {
     message.warning('请输入工作流名称')
     return
@@ -208,6 +215,7 @@ function openEditor(id: number) {
 }
 
 async function onDelete(id: number) {
+  if (!canDelete.value) return
   try {
     await deleteWorkflow(id)
     message.success('已删除')

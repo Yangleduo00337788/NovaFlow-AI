@@ -29,6 +29,10 @@ export const MODULE_LABELS: Record<string, string> = {
   billing: '账单',
   monitor: '监控',
   tenant: '组织',
+  platform: '平台超管',
+  audit: '审计日志',
+  portal: '用户前台',
+  system: '系统',
 }
 
 export function fetchRoles() {

@@ -1,6 +1,8 @@
 import { aboutNavItems, getAboutPageMeta } from '@/views/about/about-config'
+import { canAccessRoute, type RouteAccessContext } from '@/config/access'
 
-export interface MenuItem {  key: string
+export interface MenuItem {
+  key: string
   label: string
   path: string
   icon: string
@@ -23,20 +25,21 @@ export const menuGroups: MenuGroup[] = [
   {
     title: 'AI 开发',
     items: [
-      { key: 'agent', label: 'Agent Studio', path: '/agent', icon: 'robot', permissions: ['agent:create', 'agent:edit', 'agent:chat'] },
-      { key: 'workflow', label: '工作流 Studio', path: '/workflow', icon: 'workflow', permissions: ['workflow:create', 'workflow:edit'] },
-      { key: 'knowledge', label: '知识库 Hub', path: '/knowledge', icon: 'knowledge', permissions: ['knowledge:create', 'knowledge:upload'] },
-      { key: 'model', label: '模型中心', path: '/model', icon: 'model', permissions: ['model:config'] },
-      { key: 'tool', label: '工具市场', path: '/tool', icon: 'tool', permissions: ['agent:edit'] },
-      { key: 'prompt', label: 'Prompt 管理', path: '/prompt', icon: 'prompt', permissions: ['prompt:create', 'prompt:edit'] },
+      { key: 'agent', label: 'Agent Studio', path: '/agent', icon: 'robot', permissions: ['agent:read', 'agent:create', 'agent:edit'] },
+      { key: 'workflow', label: '工作流 Studio', path: '/workflow', icon: 'workflow', permissions: ['workflow:read', 'workflow:create', 'workflow:edit'] },
+      { key: 'knowledge', label: '知识库 Hub', path: '/knowledge', icon: 'knowledge', permissions: ['knowledge:read', 'knowledge:create', 'knowledge:upload'] },
+      { key: 'model', label: '模型中心', path: '/model', icon: 'model', permissions: ['model:read', 'model:config'] },
+      { key: 'tool', label: '工具市场', path: '/tool', icon: 'tool', permissions: ['tool:read', 'agent:edit'] },
+      { key: 'prompt', label: 'Prompt 管理', path: '/prompt', icon: 'prompt', permissions: ['prompt:read', 'prompt:create', 'prompt:edit'] },
     ],
   },
   {
     title: '运行与监控',
     items: [
-      { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:manage'] },
+      { key: 'portal', label: '应用门户', path: '/portal', icon: 'application', permissions: ['portal:access'] },
+      { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:read', 'application:publish', 'application:manage'] },
       { key: 'monitor', label: '运行监控', path: '/monitor', icon: 'monitor', permissions: ['monitor:view'] },
-      { key: 'log', label: '调用日志', path: '/log', icon: 'log', permissions: ['monitor:view', 'billing:view'] },
+      { key: 'log', label: '调用日志', path: '/log', icon: 'log', permissions: ['log:read', 'monitor:view', 'billing:view'] },
       { key: 'trace', label: '链路分析', path: '/trace', icon: 'trace', beta: true, permissions: ['trace:view'] },
       { key: 'observability', label: '可观测性', path: '/observability', icon: 'observability', permissions: ['monitor:view'] },
     ],
@@ -44,50 +47,57 @@ export const menuGroups: MenuGroup[] = [
   {
     title: '系统管理',
     items: [
-      { key: 'org', label: '组织管理', path: '/org', icon: 'org', permissions: ['tenant:manage', 'member:manage'] },
-      { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage'] },
+      { key: 'org', label: '组织管理', path: '/org', icon: 'org', permissions: ['tenant:manage', 'member:manage', 'user:read'] },
+      { key: 'permission', label: '权限管理', path: '/permission', icon: 'permission', permissions: ['member:manage', 'role:read'] },
       { key: 'settings', label: '系统设置', path: '/settings', icon: 'settings', permissions: ['tenant:manage'] },
       { key: 'billing', label: '账单与用量', path: '/billing', icon: 'billing', permissions: ['billing:view', 'billing:manage'] },
-      { key: 'platform', label: '平台超管', path: '/platform', icon: 'settings', permissions: ['platform:manage'] },
-      { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view', 'platform:manage'] },
+      { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view'] },
+    ],
+  },
+  {
+    title: '平台治理',
+    items: [
+      { key: 'platform', label: '租户管理', path: '/platform', icon: 'platform', permissions: ['platform:manage'] },
     ],
   },
 ]
 
 const routePermissionMap: Record<string, string[]> = {
-  '/dashboard': [],
-  '/agent': ['agent:create', 'agent:edit', 'agent:chat'],
-  '/workflow': ['workflow:create', 'workflow:edit'],
-  '/knowledge': ['knowledge:create', 'knowledge:upload'],
-  '/model': ['model:config'],
-  '/tool': ['agent:edit'],
-  '/prompt': ['prompt:create', 'prompt:edit'],
-  '/application': ['application:manage'],
+  '/dashboard': ['dashboard:view', 'agent:read', 'monitor:view', 'application:read', 'application:manage', 'tenant:manage'],
+  '/agent': ['agent:read', 'agent:create', 'agent:edit'],
+  '/workflow': ['workflow:read', 'workflow:create', 'workflow:edit'],
+  '/knowledge': ['knowledge:read', 'knowledge:create', 'knowledge:upload'],
+  '/model': ['model:read', 'model:config'],
+  '/tool': ['tool:read', 'agent:edit'],
+  '/prompt': ['prompt:read', 'prompt:create', 'prompt:edit'],
+  '/application': ['application:read', 'application:publish', 'application:manage'],
   '/monitor': ['monitor:view'],
-  '/log': ['monitor:view', 'billing:view'],
+  '/log': ['log:read', 'monitor:view', 'billing:view'],
   '/trace': ['trace:view'],
   '/observability': ['monitor:view'],
-  '/org': ['tenant:manage', 'member:manage'],
-  '/permission': ['member:manage'],
+  '/org': ['tenant:manage', 'member:manage', 'user:read'],
+  '/permission': ['member:manage', 'role:read'],
   '/settings': ['tenant:manage'],
   '/billing': ['billing:view', 'billing:manage'],
   '/platform': ['platform:manage'],
-  '/audit': ['audit:view', 'platform:manage'],
+  '/audit': ['audit:view'],
+  '/portal': ['portal:access'],
   '/about': [],
 }
 
-export function filterMenuGroups(hasAnyPermission: (codes?: string[]) => boolean): MenuGroup[] {
+/** 按权限码过滤菜单；有权限的入口全部展示，不按路径切换菜单集 */
+export function filterMenuGroups(ctx: RouteAccessContext): MenuGroup[] {
   return menuGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => hasAnyPermission(item.permissions)),
+      items: group.items.filter((item) => canAccessRoute(item.path, ctx)),
     }))
     .filter((group) => group.items.length > 0)
 }
 
 export function getRoutePermissions(path: string): string[] | undefined {
   const matched = Object.keys(routePermissionMap)
-    .filter((route) => path === route || path.startsWith(`${route}/`))
+    .filter((route) => path === route || (route !== '/' && path.startsWith(`${route}/`)))
     .sort((a, b) => b.length - a.length)[0]
   return matched ? routePermissionMap[matched] : undefined
 }

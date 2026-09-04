@@ -1,0 +1,7 @@
+# syntax=docker/dockerfile:1
+# 本机已 npm run build 的 dist，供 Compose 冒烟
+
+FROM nginx:1.27-alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY novaflow-web/dist /usr/share/nginx/html
+EXPOSE 80

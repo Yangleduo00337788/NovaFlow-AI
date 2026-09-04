@@ -16,6 +16,7 @@ public class TenantMemberEntity {
     private Long tenantId;
     private Long userId;
     private Long roleId;
+    private Long departmentId;
     private Integer status;
     private LocalDateTime joinedAt;
     private LocalDateTime createdAt;

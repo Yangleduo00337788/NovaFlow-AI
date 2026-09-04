@@ -43,6 +43,7 @@ export interface ApplicationPublishInfo {
   chatEndpoint?: string
   streamEndpoint?: string
   embedPath?: string
+  portalPath?: string
 }
 
 export const APP_TYPES = [

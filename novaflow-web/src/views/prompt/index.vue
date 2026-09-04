@@ -5,7 +5,7 @@
         <h1>Prompt 管理</h1>
         <p>管理可复用的 Prompt 模板，支持版本历史与在线测试</p>
       </div>
-      <a-button type="primary" data-testid="create-prompt-btn" @click="openCreate">
+      <a-button v-if="canCreate" type="primary" data-testid="create-prompt-btn" @click="openCreate">
         <PlusOutlined />
         创建模板
       </a-button>
@@ -62,14 +62,14 @@
           <div class="prompt-actions">
             <a-button type="link" size="small" @click="openVersions(item)">版本</a-button>
             <a-button type="link" size="small" @click="openTest(item)">测试</a-button>
-            <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
-            <a-popconfirm title="确认删除该模板？" @confirm="onDelete(item.id)">
+            <a-button v-if="canEdit" type="link" size="small" @click="openEdit(item)">编辑</a-button>
+            <a-popconfirm v-if="canDelete" title="确认删除该模板？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
           </div>
         </div>
       </div>
-          <a-empty v-else description="暂无模板，点击右上角创建" />
+          <a-empty v-else :description="canCreate ? '暂无模板，点击右上角创建' : '暂无模板'" />
         </a-spin>
 
         <div v-if="total > pageSize" class="pagination-wrap">
@@ -94,7 +94,7 @@
         <a-row :gutter="16">
           <a-col :span="14">
             <a-form-item label="模板名称" required>
-              <a-input v-model:value="form.templateName" placeholder="客服话术模板" data-testid="prompt-name-input" maxlength="128" :show-count="true" />
+              <a-input v-model:value="form.templateName" placeholder="客服话术模板" data-testid="prompt-name-input" :maxlength="128" :show-count="true" />
             </a-form-item>
           </a-col>
           <a-col :span="10">
@@ -139,7 +139,7 @@
             <template #actions>
               <a-button type="link" size="small" @click="previewVersion(item)">查看</a-button>
               <a-popconfirm
-                v-if="currentTemplate && item.version !== currentTemplate.currentVersion"
+                v-if="canEdit && currentTemplate && item.version !== currentTemplate.currentVersion"
                 title="确认回滚到该版本？"
                 @confirm="onRollback(item.version)"
               >
@@ -212,7 +212,12 @@ import {
 } from '@/api/prompt'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
+import { useAuthStore } from '@/stores/auth'
 
+const auth = useAuthStore()
+const canCreate = computed(() => auth.hasPermission('prompt:create'))
+const canEdit = computed(() => auth.hasPermission('prompt:edit'))
+const canDelete = computed(() => auth.hasAnyPermission(['prompt:delete', 'prompt:edit']))
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<PromptTemplate[]>([])
@@ -304,11 +309,13 @@ function resetForm() {
 }
 
 function openCreate() {
+  if (!canCreate.value) return
   resetForm()
   drawerOpen.value = true
 }
 
 function openEdit(item: PromptTemplate) {
+  if (!canEdit.value) return
   editingId.value = item.id
   Object.assign(form, {
     templateName: item.templateName,
@@ -362,6 +369,7 @@ function removeVariable(index: number) {
 }
 
 async function onSave() {
+  if (editingId.value ? !canEdit.value : !canCreate.value) return
   if (!form.templateName?.trim() || !form.content?.trim()) {
     message.warning('请填写模板名称和 Prompt 内容')
     return
@@ -393,6 +401,7 @@ async function onSave() {
 }
 
 async function onDelete(id: number) {
+  if (!canDelete.value) return
   try {
     await deletePrompt(id)
     message.success('删除成功')
@@ -403,7 +412,7 @@ async function onDelete(id: number) {
 }
 
 async function onRollback(version: number) {
-  if (!currentTemplate.value) return
+  if (!canEdit.value || !currentTemplate.value) return
   try {
     await rollbackPrompt(currentTemplate.value.id, version)
     message.success(`已回滚到 v${version}`)

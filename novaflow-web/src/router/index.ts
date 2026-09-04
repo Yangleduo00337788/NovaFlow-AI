@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
+import PortalLayout from '@/layouts/PortalLayout.vue'
 import { useAuthStore } from '@/stores/auth'
-import { getRoutePermissions } from '@/config/menu'
+import { getDefaultHomeByRole } from '@/config/access'
+import { installRouterGuard } from '@/router/guard'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,7 +29,10 @@ const router = createRouter({
     {
       path: '/',
       component: AppLayout,
-      redirect: '/dashboard',
+      redirect: () => {
+        const auth = useAuthStore()
+        return getDefaultHomeByRole(auth.roleCode)
+      },
       children: [
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/dashboard/index.vue'), meta: { title: '工作台' } },
         { path: 'agent', name: 'agent', component: () => import('@/views/agent/index.vue'), meta: { title: 'Agent Studio' } },
@@ -47,8 +52,18 @@ const router = createRouter({
         { path: 'permission', name: 'permission', component: () => import('@/views/permission/index.vue'), meta: { title: '权限管理' } },
         { path: 'settings', name: 'settings', component: () => import('@/views/settings/index.vue'), meta: { title: '系统设置' } },
         { path: 'billing', name: 'billing', component: () => import('@/views/billing/index.vue'), meta: { title: '账单与用量' } },
-        { path: 'platform', name: 'platform', component: () => import('@/views/platform/index.vue'), meta: { title: '平台超管' } },
-        { path: 'audit', name: 'audit', component: () => import('@/views/audit/index.vue'), meta: { title: '审计日志' } },
+        {
+          path: 'platform',
+          name: 'platform',
+          component: () => import('@/views/platform/index.vue'),
+          meta: { title: '总控管理', permissions: ['platform:manage'] },
+        },
+        {
+          path: 'audit',
+          name: 'audit',
+          component: () => import('@/views/audit/index.vue'),
+          meta: { title: '审计日志', permissions: ['audit:view'] },
+        },
         {
           path: 'about',
           component: () => import('@/views/about/AboutLayout.vue'),
@@ -67,24 +82,29 @@ const router = createRouter({
         { path: 'privacy', redirect: '/about/privacy' },
       ],
     },
+    {
+      path: '/portal',
+      component: PortalLayout,
+      meta: { permissions: ['portal:access'] },
+      children: [
+        {
+          path: '',
+          name: 'portal',
+          component: () => import('@/views/portal/index.vue'),
+          meta: { title: 'AI 助手', permissions: ['portal:access'] },
+        },
+        {
+          path: 'apps/:id',
+          name: 'portal-chat',
+          component: () => import('@/views/portal/index.vue'),
+          meta: { title: 'AI 助手', permissions: ['portal:access'] },
+        },
+      ],
+    },
+    { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
 
-router.beforeEach((to) => {
-  const auth = useAuthStore()
-  if (!to.meta.public && !auth.isLoggedIn()) {
-    return '/login'
-  }
-  if ((to.path === '/login' || to.path === '/register') && auth.isLoggedIn()) {
-    return '/dashboard'
-  }
-
-  if (!to.meta.public) {
-    const requiredPermissions = getRoutePermissions(to.path)
-    if (requiredPermissions && !auth.hasAnyPermission(requiredPermissions)) {
-      return '/dashboard'
-    }
-  }
-})
+installRouterGuard(router)
 
 export default router

@@ -30,7 +30,7 @@ public class KnowledgeBaseController {
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentService documentService;
 
-    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"knowledge:read", "knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<KnowledgeBaseVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -39,7 +39,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok(knowledgeBaseService.page(page, pageSize, keyword));
     }
 
-    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"knowledge:read", "knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<KnowledgeBaseVO> detail(@PathVariable Long id) {
         return ApiResult.ok(knowledgeBaseService.detail(id));
@@ -59,14 +59,14 @@ public class KnowledgeBaseController {
         return ApiResult.ok(knowledgeBaseService.update(id, request));
     }
 
-    @SaCheckPermission("knowledge:create")
+    @SaCheckPermission("knowledge:delete")
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         knowledgeBaseService.delete(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {"knowledge:read", "knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
     @GetMapping("/{id}/documents")
     public ApiResult<PageResult<DocumentVO>> pageDocuments(
             @PathVariable Long id,
@@ -93,7 +93,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission("knowledge:create")
+    @SaCheckPermission("knowledge:delete")
     @DeleteMapping("/{id}/documents/{documentId}")
     public ApiResult<Void> deleteDocument(
             @PathVariable Long id,

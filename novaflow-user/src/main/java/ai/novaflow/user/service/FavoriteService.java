@@ -1,12 +1,14 @@
 package ai.novaflow.user.service;
 
+import ai.novaflow.common.util.TransientDataAccessRetry;
 import ai.novaflow.user.entity.UserFavoriteEntity;
 import ai.novaflow.user.mapper.UserFavoriteMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -18,9 +20,17 @@ import java.util.Set;
 public class FavoriteService {
 
     private final UserFavoriteMapper userFavoriteMapper;
+    private final PlatformTransactionManager transactionManager;
 
-    @Transactional
     public boolean toggle(Long tenantId, Long userId, String resourceType, Long resourceId, String resourceName) {
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        return Boolean.TRUE.equals(TransientDataAccessRetry.execute(
+                TransientDataAccessRetry.DEFAULT_MAX_ATTEMPTS,
+                () -> tx.execute(status -> doToggle(tenantId, userId, resourceType, resourceId, resourceName))
+        ));
+    }
+
+    private boolean doToggle(Long tenantId, Long userId, String resourceType, Long resourceId, String resourceName) {
         UserFavoriteEntity existing = findExisting(userId, resourceType, resourceId);
         if (existing != null) {
             userFavoriteMapper.deleteById(existing.getId());

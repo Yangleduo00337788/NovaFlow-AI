@@ -66,6 +66,7 @@
   --recent-knowledge-bg: #e6fffb;
   --sidebar-width: 220px;
   --rightbar-width: 328px;
+  --auth-focus-ring: color-mix(in srgb, var(--primary) 15%, transparent);
   color-scheme: light;
 }
 

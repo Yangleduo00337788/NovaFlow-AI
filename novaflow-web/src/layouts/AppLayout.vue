@@ -1,8 +1,12 @@
 <template>
   <a-layout class="app-layout">
-    <AppSidebar :collapsed="collapsed" />
+    <AppSidebar v-if="showStudioChrome" :collapsed="collapsed" />
     <a-layout>
-      <AppHeader :collapsed="collapsed" @toggle="collapsed = !collapsed" />
+      <AppHeader
+        :collapsed="collapsed"
+        :show-sider-toggle="showStudioChrome"
+        @toggle="collapsed = !collapsed"
+      />
       <a-layout-content class="main-content">
         <router-view />
       </a-layout-content>
@@ -11,14 +15,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { isPortalPath } from '@/config/access'
 import { fetchCurrentUser } from '@/api/auth'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 
+const route = useRoute()
 const collapsed = ref(false)
 const auth = useAuthStore()
+const showStudioChrome = computed(() => !isPortalPath(route.path))
 
 onMounted(async () => {
   if (!auth.isLoggedIn()) {

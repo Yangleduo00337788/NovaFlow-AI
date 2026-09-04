@@ -1,0 +1,52 @@
+{
+  "script": "prod-compose-smoke",
+  "timestamp": "2026-09-02 22:43:16",
+  "passed": true,
+  "baseUrl": "http://127.0.0.1:18080",
+  "details": {
+    "baseUrl": "http://127.0.0.1:18080",
+    "checks": [
+      {
+        "name": "PR-01 container novaflow-mysql running",
+        "passed": true,
+        "detail": "up"
+      },
+      {
+        "name": "PR-01 container novaflow-redis running",
+        "passed": true,
+        "detail": "up"
+      },
+      {
+        "name": "PR-01 container novaflow-server running",
+        "passed": true,
+        "detail": "up"
+      },
+      {
+        "name": "PR-01 container novaflow-web running",
+        "passed": true,
+        "detail": "up"
+      },
+      {
+        "name": "PR-01 web index",
+        "passed": true,
+        "detail": "http=200 url=http://localhost:13000"
+      },
+      {
+        "name": "PR-01 api via web proxy",
+        "passed": true,
+        "detail": "http=200 code=0"
+      },
+      {
+        "name": "PR-01 actuator health",
+        "passed": true,
+        "detail": "http=200"
+      },
+      {
+        "name": "PR-01 demo login",
+        "passed": true,
+        "detail": "skipped (no demo user in prod)"
+      }
+    ],
+    "webUrl": "http://localhost:13000"
+  }
+}

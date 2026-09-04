@@ -1,8 +1,10 @@
 package ai.novaflow.user.service;
 
 import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.user.domain.dto.MemberInviteRequest;
 import ai.novaflow.user.domain.dto.MemberUpdateRequest;
 import ai.novaflow.user.domain.dto.TenantUpdateRequest;
@@ -12,14 +14,16 @@ import ai.novaflow.user.domain.vo.TenantPlanSummaryVO;
 import ai.novaflow.user.domain.vo.TenantVO;
 import ai.novaflow.user.domain.vo.WorkspaceVO;
 import ai.novaflow.user.entity.RoleEntity;
+import ai.novaflow.tenant.entity.DepartmentEntity;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
-import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
+import ai.novaflow.tenant.mapper.DepartmentMapper;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
-import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
+import ai.novaflow.user.entity.UserEntity;
+import ai.novaflow.user.mapper.UserMapper;
 import ai.novaflow.common.application.ApplicationWorkspaceChecker;
 import ai.novaflow.model.mapper.TokenUsageMapper;
 import cn.dev33.satoken.stp.StpUtil;
@@ -38,6 +42,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -46,9 +51,11 @@ import java.util.stream.Collectors;
 public class OrganizationService {
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).+$");
+    private static final Set<String> ASSIGNABLE_ROLE_CODES = RoleCodes.ASSIGNABLE_TENANT_ROLES;
 
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
+    private final DepartmentMapper departmentMapper;
     private final WorkspaceMapper workspaceMapper;
     private final ApplicationWorkspaceChecker applicationWorkspaceChecker;
     private final UserMapper userMapper;
@@ -102,6 +109,71 @@ public class OrganizationService {
         tenantMapper.update(tenant);
         auditLogService.record("tenant.update", "tenant", tenantId, "更新企业信息: " + tenant.getTenantName());
         return toTenantVO(tenant, countActiveMembers(tenantId));
+    }
+
+    @Transactional
+    public void deleteOwnedTenant() {
+        Long tenantId = requireTenantId();
+        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), tenantId, "tenant:delete");
+        TenantEntity tenant = getTenantOrThrow(tenantId);
+        if ("demo".equalsIgnoreCase(tenant.getTenantCode())) {
+            throw new BusinessException("演示企业不可删除");
+        }
+        tenant.setIsDeleted(1);
+        tenant.setStatus(0);
+        tenant.setUpdatedAt(LocalDateTime.now());
+        tenantMapper.update(tenant);
+        kickTenantSessions(tenantId);
+        auditLogService.record("tenant.delete", "tenant", tenantId, "企业所有者删除企业: " + tenant.getTenantName());
+    }
+
+    @Transactional
+    public void transferOwnership(Long targetMemberId) {
+        Long tenantId = requireTenantId();
+        long currentUserId = StpUtil.getLoginIdAsLong();
+        RoleEntity currentRole = permissionService.resolveRole(currentUserId, tenantId);
+        if (currentRole == null || !RoleCodes.TENANT_OWNER.equals(currentRole.getRoleCode())) {
+            throw new BusinessException("仅企业所有者可转移所有权");
+        }
+
+        TenantMemberEntity targetMember = getMemberOrThrow(targetMemberId, tenantId);
+        if (Objects.equals(targetMember.getUserId(), currentUserId)) {
+            throw new BusinessException("不能转移给自己");
+        }
+        if (targetMember.getStatus() == null || targetMember.getStatus() != 1) {
+            throw new BusinessException("目标成员不可用");
+        }
+        RoleEntity targetRole = permissionService.resolveRole(targetMember.getUserId(), tenantId);
+        if (targetRole != null && RoleCodes.isProtectedMemberRole(targetRole.getRoleCode())) {
+            throw new BusinessException("不能将所有权转移给该成员");
+        }
+
+        TenantMemberEntity currentMember = tenantMemberMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", tenantId)
+                        .eq("user_id", currentUserId)
+                        .eq("is_deleted", 0)
+        );
+        if (currentMember == null) {
+            throw new BusinessException("当前成员记录不存在");
+        }
+
+        RoleEntity ownerRole = permissionService.requireSystemRole(RoleCodes.TENANT_OWNER);
+        RoleEntity adminRole = permissionService.requireSystemRole(RoleCodes.TENANT_ADMIN);
+        LocalDateTime now = LocalDateTime.now();
+        currentMember.setRoleId(adminRole.getId());
+        currentMember.setUpdatedAt(now);
+        targetMember.setRoleId(ownerRole.getId());
+        targetMember.setUpdatedAt(now);
+        tenantMemberMapper.update(currentMember);
+        tenantMemberMapper.update(targetMember);
+
+        UserEntity targetUser = userMapper.selectOneById(targetMember.getUserId());
+        auditLogService.record(
+                "tenant.transfer_owner",
+                "tenant",
+                tenantId,
+                "转移所有权至: " + (targetUser != null ? targetUser.getEmail() : targetMember.getUserId()));
     }
 
     public List<WorkspaceVO> listWorkspaces() {
@@ -170,13 +242,18 @@ public class OrganizationService {
         auditLogService.record("workspace.delete", "workspace", entity.getId(), "删除工作空间: " + entity.getWorkspaceName());
     }
 
-    public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword) {
+    public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword, Long departmentId) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
         Long tenantId = requireTenantId();
         requireMemberManagePermission();
 
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
+        if (departmentId != null && departmentId > 0) {
+            query.eq("department_id", departmentId);
+        }
         if (StringUtils.hasText(keyword)) {
             List<Long> userIds = userMapper.selectListByQuery(
                     QueryWrapper.create()
@@ -194,8 +271,13 @@ public class OrganizationService {
         Page<TenantMemberEntity> result = tenantMemberMapper.paginate(Page.of(page, pageSize), query);
         Map<Long, UserEntity> userMap = loadUsers(result.getRecords());
         Map<Long, RoleEntity> roleMap = loadRoles(result.getRecords());
+        Map<Long, DepartmentEntity> departmentMap = loadDepartments(result.getRecords());
         List<MemberVO> list = result.getRecords().stream()
-                .map(member -> toMemberVO(member, userMap.get(member.getUserId()), roleMap.get(member.getRoleId())))
+                .map(member -> toMemberVO(
+                        member,
+                        userMap.get(member.getUserId()),
+                        roleMap.get(member.getRoleId()),
+                        departmentMap.get(member.getDepartmentId())))
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
@@ -211,7 +293,7 @@ public class OrganizationService {
             throw new BusinessException("成员数已达上限（" + maxMembers + "）");
         }
 
-        RoleEntity role = permissionService.requireSystemRole(request.getRoleCode());
+        RoleEntity role = requireAssignableRole(request.getRoleCode());
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         UserEntity user = userMapper.selectOneByQuery(
                 QueryWrapper.create().eq("email", email).eq("is_deleted", 0)
@@ -251,6 +333,7 @@ public class OrganizationService {
         member.setTenantId(tenantId);
         member.setUserId(user.getId());
         member.setRoleId(role.getId());
+        member.setDepartmentId(resolveDepartmentId(request.getDepartmentId(), tenantId));
         member.setStatus(1);
         member.setJoinedAt(now);
         member.setIsDeleted(0);
@@ -262,7 +345,7 @@ public class OrganizationService {
                 "member",
                 member.getId(),
                 "邀请成员: " + email + "，角色 " + role.getRoleCode());
-        return toMemberVO(member, user, role);
+        return toMemberVO(member, user, role, loadDepartment(member.getDepartmentId(), tenantId));
     }
 
     @Transactional
@@ -274,16 +357,17 @@ public class OrganizationService {
         TenantMemberEntity member = getMemberOrThrow(memberId, tenantId);
         UserEntity user = userMapper.selectOneById(member.getUserId());
         RoleEntity currentRole = permissionService.resolveRole(member.getUserId(), tenantId);
+        ensureNotProtectedMemberRole(currentRole);
 
         if (request.getRoleCode() != null) {
-            RoleEntity newRole = permissionService.requireSystemRole(request.getRoleCode());
+            RoleEntity newRole = requireAssignableRole(request.getRoleCode());
             if (member.getUserId() == currentUserId && !request.getRoleCode().equals(currentRole.getRoleCode())) {
                 throw new BusinessException("不能修改自己的角色");
             }
             if (currentRole != null
-                    && "tenant_admin".equals(currentRole.getRoleCode())
-                    && !"tenant_admin".equals(request.getRoleCode())) {
-                ensureAnotherTenantAdminExists(tenantId, member.getUserId());
+                    && isTenantGovernanceRole(currentRole.getRoleCode())
+                    && !isTenantGovernanceRole(request.getRoleCode())) {
+                ensureAnotherTenantGovernorExists(tenantId, member.getUserId());
             }
             member.setRoleId(newRole.getId());
             currentRole = newRole;
@@ -295,8 +379,8 @@ public class OrganizationService {
             }
             if (request.getStatus() != 1
                     && currentRole != null
-                    && "tenant_admin".equals(currentRole.getRoleCode())) {
-                ensureAnotherTenantAdminExists(tenantId, member.getUserId());
+                    && isTenantGovernanceRole(currentRole.getRoleCode())) {
+                ensureAnotherTenantGovernorExists(tenantId, member.getUserId());
             }
             member.setStatus(request.getStatus());
             if (user != null) {
@@ -304,6 +388,15 @@ public class OrganizationService {
                 user.setUpdatedAt(LocalDateTime.now());
                 userMapper.update(user);
             }
+            if (request.getStatus() != 1) {
+                StpUtil.logout(member.getUserId());
+            }
+        }
+
+        if (request.getDepartmentId() != null) {
+            Long departmentId = resolveDepartmentId(request.getDepartmentId(), tenantId);
+            member.setDepartmentId(departmentId);
+            tenantMemberMapper.updateDepartmentId(member.getId(), tenantId, departmentId);
         }
 
         member.setUpdatedAt(LocalDateTime.now());
@@ -315,8 +408,11 @@ public class OrganizationService {
         if (request.getStatus() != null) {
             detail += "，状态 " + request.getStatus();
         }
+        if (request.getDepartmentId() != null) {
+            detail += "，部门 " + (request.getDepartmentId() <= 0 ? "未分配" : request.getDepartmentId());
+        }
         auditLogService.record("member.update", "member", member.getId(), detail);
-        return toMemberVO(member, user, currentRole);
+        return toMemberVO(member, user, currentRole, loadDepartment(member.getDepartmentId(), tenantId));
     }
 
     @Transactional
@@ -330,8 +426,9 @@ public class OrganizationService {
             throw new BusinessException("不能移除自己");
         }
         RoleEntity role = permissionService.resolveRole(member.getUserId(), tenantId);
-        if (role != null && "tenant_admin".equals(role.getRoleCode())) {
-            ensureAnotherTenantAdminExists(tenantId, member.getUserId());
+        ensureNotProtectedMemberRole(role);
+        if (role != null && isTenantGovernanceRole(role.getRoleCode())) {
+            ensureAnotherTenantGovernorExists(tenantId, member.getUserId());
         }
 
         member.setIsDeleted(1);
@@ -345,19 +442,28 @@ public class OrganizationService {
                 "移除成员: " + (removedUser != null ? removedUser.getEmail() : member.getUserId()));
     }
 
-    private void ensureAnotherTenantAdminExists(Long tenantId, Long excludeUserId) {
-        RoleEntity adminRole = permissionService.requireSystemRole("tenant_admin");
+    private boolean isTenantGovernanceRole(String roleCode) {
+        return RoleCodes.TENANT_OWNER.equals(roleCode) || RoleCodes.TENANT_ADMIN.equals(roleCode);
+    }
+
+    private void ensureAnotherTenantGovernorExists(Long tenantId, Long excludeUserId) {
+        RoleEntity ownerRole = permissionService.requireSystemRole(RoleCodes.TENANT_OWNER);
+        RoleEntity adminRole = permissionService.requireSystemRole(RoleCodes.TENANT_ADMIN);
         long count = tenantMemberMapper.selectCountByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
-                        .eq("role_id", adminRole.getId())
+                        .in("role_id", List.of(ownerRole.getId(), adminRole.getId()))
                         .eq("status", 1)
                         .eq("is_deleted", 0)
                         .ne("user_id", excludeUserId)
         );
         if (count == 0) {
-            throw new BusinessException("企业至少保留一名管理员");
+            throw new BusinessException("企业至少保留一名 Owner 或管理员");
         }
+    }
+
+    private void ensureAnotherTenantAdminExists(Long tenantId, Long excludeUserId) {
+        ensureAnotherTenantGovernorExists(tenantId, excludeUserId);
     }
 
     private void ensureUserNotInOtherTenant(Long userId, Long currentTenantId) {
@@ -448,6 +554,43 @@ public class OrganizationService {
         return permissionService.getRolesByIds(roleIds);
     }
 
+    private Map<Long, DepartmentEntity> loadDepartments(List<TenantMemberEntity> members) {
+        List<Long> departmentIds = members.stream()
+                .map(TenantMemberEntity::getDepartmentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (departmentIds.isEmpty()) {
+            return Map.of();
+        }
+        return departmentMapper.selectListByQuery(QueryWrapper.create().in("id", departmentIds).eq("is_deleted", 0))
+                .stream()
+                .collect(Collectors.toMap(DepartmentEntity::getId, item -> item, (a, b) -> a));
+    }
+
+    private DepartmentEntity loadDepartment(Long departmentId, Long tenantId) {
+        if (departmentId == null) {
+            return null;
+        }
+        return departmentMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("id", departmentId)
+                        .eq("tenant_id", tenantId)
+                        .eq("is_deleted", 0)
+                        .limit(1));
+    }
+
+    private Long resolveDepartmentId(Long departmentId, Long tenantId) {
+        if (departmentId == null || departmentId <= 0) {
+            return null;
+        }
+        DepartmentEntity department = loadDepartment(departmentId, tenantId);
+        if (department == null) {
+            throw new BusinessException("部门不存在");
+        }
+        return department.getId();
+    }
+
     private TenantVO toTenantVO(TenantEntity tenant, int memberCount) {
         return TenantVO.builder()
                 .id(tenant.getId())
@@ -482,7 +625,7 @@ public class OrganizationService {
                 .build();
     }
 
-    private MemberVO toMemberVO(TenantMemberEntity member, UserEntity user, RoleEntity role) {
+    private MemberVO toMemberVO(TenantMemberEntity member, UserEntity user, RoleEntity role, DepartmentEntity department) {
         return MemberVO.builder()
                 .id(member.getId())
                 .userId(member.getUserId())
@@ -491,6 +634,8 @@ public class OrganizationService {
                 .email(user != null ? user.getEmail() : null)
                 .roleCode(role != null ? role.getRoleCode() : null)
                 .roleName(role != null ? role.getRoleName() : null)
+                .departmentId(member.getDepartmentId())
+                .departmentName(department != null ? department.getDeptName() : null)
                 .status(member.getStatus())
                 .joinedAt(member.getJoinedAt())
                 .lastLoginAt(user != null ? user.getLastLoginAt() : null)
@@ -575,6 +720,19 @@ public class OrganizationService {
         );
     }
 
+    private RoleEntity requireAssignableRole(String roleCode) {
+        if (roleCode == null || !ASSIGNABLE_ROLE_CODES.contains(roleCode)) {
+            throw new BusinessException("不能分配该角色");
+        }
+        return permissionService.requireSystemRole(roleCode);
+    }
+
+    private void ensureNotProtectedMemberRole(RoleEntity role) {
+        if (role != null && RoleCodes.isProtectedMemberRole(role.getRoleCode())) {
+            throw new BusinessException("不能对企业内的受保护角色进行该操作");
+        }
+    }
+
     private void requireMemberManagePermission() {
         permissionService.requireAnyPermission(
                 StpUtil.getLoginIdAsLong(),
@@ -582,5 +740,15 @@ public class OrganizationService {
                 "member:manage",
                 "tenant:manage"
         );
+    }
+
+    private void kickTenantSessions(Long tenantId) {
+        List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
+                QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0));
+        for (TenantMemberEntity member : members) {
+            if (member.getUserId() != null) {
+                StpUtil.logout(member.getUserId());
+            }
+        }
     }
 }
