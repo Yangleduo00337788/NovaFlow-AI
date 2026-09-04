@@ -2,13 +2,15 @@ package ai.novaflow.workflow.service;
 
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.application.ApplicationLookup;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.user.service.ResourceAccessService;
-import ai.novaflow.common.context.TenantContext;
-import ai.novaflow.common.domain.PageResult;
-import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.util.PageQueryUtils;
+import ai.novaflow.workflow.domain.WorkflowNodeCountRow;
 import ai.novaflow.workflow.domain.WorkflowNodeType;
 import ai.novaflow.workflow.domain.WorkflowStatus;
 import ai.novaflow.workflow.domain.dto.WorkflowSaveRequest;
@@ -59,7 +61,7 @@ public class WorkflowService {
     public PageResult<WorkflowVO> page(int page, int pageSize, String keyword, Long applicationId) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -72,20 +74,27 @@ public class WorkflowService {
         }
         query.orderBy("updated_at", false);
 
-        Page<WorkflowEntity> result = workflowMapper.paginate(Page.of(page, pageSize), query);
         long userId = StpUtil.getLoginIdAsLong();
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.WORKFLOW, PermissionCodes.WORKFLOW_READ, "workflow.id");
+
+        Page<WorkflowEntity> result = workflowMapper.paginate(Page.of(page, pageSize), query);
         Map<Long, String> appNameMap = buildApplicationNameMap(
                 result.getRecords().stream().map(WorkflowEntity::getApplicationId).distinct().toList());
+        Map<Long, Integer> nodeCountMap = countNodesByWorkflowIds(
+                tenantId,
+                result.getRecords().stream().map(WorkflowEntity::getId).toList());
         List<WorkflowVO> list = result.getRecords().stream()
-                .filter(entity -> resourceAccessService.canAccessResource(
-                        userId, tenantId, ResourceTypes.WORKFLOW, entity.getId(), "workflow:read"))
-                .map(entity -> toVO(entity, appNameMap.get(entity.getApplicationId()), countNodes(entity.getId())))
+                .map(entity -> toVO(
+                        entity,
+                        appNameMap.get(entity.getApplicationId()),
+                        nodeCountMap.getOrDefault(entity.getId(), 0)))
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
     public List<WorkflowVO> listPublishedOptions(Long applicationId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long userId = StpUtil.getLoginIdAsLong();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
@@ -95,10 +104,17 @@ public class WorkflowService {
             query.eq("application_id", applicationId);
         }
         query.orderBy("updated_at", false);
-        return workflowMapper.selectListByQuery(query).stream()
-                .filter(entity -> resourceAccessService.canAccessResource(
-                        userId, tenantId, ResourceTypes.WORKFLOW, entity.getId(), "workflow:read"))
-                .map(entity -> toVO(entity, resolveApplicationName(entity.getApplicationId()), countNodes(entity.getId())))
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.WORKFLOW, PermissionCodes.WORKFLOW_READ, "workflow.id");
+        List<WorkflowEntity> entities = workflowMapper.selectListByQuery(query);
+        Map<Long, Integer> nodeCountMap = countNodesByWorkflowIds(
+                tenantId,
+                entities.stream().map(WorkflowEntity::getId).toList());
+        return entities.stream()
+                .map(entity -> toVO(
+                        entity,
+                        resolveApplicationName(entity.getApplicationId()),
+                        nodeCountMap.getOrDefault(entity.getId(), 0)))
                 .toList();
     }
 
@@ -133,7 +149,7 @@ public class WorkflowService {
 
     public WorkflowDetailVO detail(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.WORKFLOW, id, "workflow:read");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.WORKFLOW, id, PermissionCodes.WORKFLOW_READ);
         WorkflowEntity entity = getWorkflowOrThrow(id);
         recordRecentAccess(entity);
         List<WorkflowNodeEntity> nodes = listNodes(id);
@@ -158,7 +174,7 @@ public class WorkflowService {
 
     @Transactional
     public WorkflowDetailVO create(WorkflowSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ensureApplicationExists(request.getApplicationId());
         ensureNameUnique(tenantId, request.getWorkflowName(), null);
 
@@ -183,7 +199,7 @@ public class WorkflowService {
     @Transactional
     public WorkflowDetailVO update(Long id, WorkflowSaveRequest request) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.WORKFLOW, id, "workflow:edit");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.WORKFLOW, id, PermissionCodes.WORKFLOW_EDIT);
         WorkflowEntity entity = getWorkflowOrThrow(id);
         ensureApplicationExists(request.getApplicationId());
         ensureNameUnique(entity.getTenantId(), request.getWorkflowName(), id);
@@ -201,7 +217,7 @@ public class WorkflowService {
     @Transactional
     public WorkflowDetailVO publish(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.WORKFLOW, id, "workflow:publish");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.WORKFLOW, id, PermissionCodes.WORKFLOW_PUBLISH);
         WorkflowEntity entity = getWorkflowOrThrow(id);
         List<WorkflowNodeEntity> nodes = listNodes(id);
         List<WorkflowEdgeEntity> edges = listEdges(id);
@@ -218,7 +234,7 @@ public class WorkflowService {
     @Transactional
     public void delete(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.WORKFLOW, id, "workflow:delete");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.WORKFLOW, id, PermissionCodes.WORKFLOW_DELETE);
         WorkflowEntity entity = getWorkflowOrThrow(id);
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -336,7 +352,7 @@ public class WorkflowService {
         WorkflowEntity entity = workflowMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -349,25 +365,41 @@ public class WorkflowService {
         return workflowNodeMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("workflow_id", workflowId)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .orderBy("sort_order", true)
         );
     }
 
     private List<WorkflowEdgeEntity> listEdges(Long workflowId) {
         return workflowEdgeMapper.selectListByQuery(
-                QueryWrapper.create().eq("workflow_id", workflowId).eq("tenant_id", requireTenantId())
+                QueryWrapper.create().eq("workflow_id", workflowId).eq("tenant_id", TenantContexts.requireTenantId())
         );
     }
 
     private int countNodes(Long workflowId) {
-        return (int) workflowNodeMapper.selectCountByQuery(
-                QueryWrapper.create().eq("workflow_id", workflowId).eq("tenant_id", requireTenantId())
-        );
+        return countNodesByWorkflowIds(TenantContexts.requireTenantId(), List.of(workflowId))
+                .getOrDefault(workflowId, 0);
+    }
+
+    private Map<Long, Integer> countNodesByWorkflowIds(Long tenantId, List<Long> workflowIds) {
+        if (workflowIds == null || workflowIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> distinctIds = workflowIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Integer> counts = new HashMap<>();
+        for (WorkflowNodeCountRow row : workflowNodeMapper.countByWorkflowIds(tenantId, distinctIds)) {
+            if (row.getWorkflowId() != null && row.getNodeCount() != null) {
+                counts.put(row.getWorkflowId(), row.getNodeCount().intValue());
+            }
+        }
+        return counts;
     }
 
     private void ensureApplicationExists(Long applicationId) {
-        applicationLookup.requireExists(requireTenantId(), applicationId);
+        applicationLookup.requireExists(TenantContexts.requireTenantId(), applicationId);
     }
 
     private void ensureNameUnique(Long tenantId, String workflowName, Long excludeId) {
@@ -505,13 +537,5 @@ public class WorkflowService {
                 entity.getId(),
                 entity.getWorkflowName()
         );
-    }
-
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
     }
 }

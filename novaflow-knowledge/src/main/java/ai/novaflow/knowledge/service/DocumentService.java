@@ -1,9 +1,11 @@
 package ai.novaflow.knowledge.service;
 
 import ai.novaflow.common.audit.AuditRecorder;
-import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.knowledge.domain.DocumentTypeSupport;
 import ai.novaflow.knowledge.domain.vo.DocumentVO;
@@ -15,7 +17,6 @@ import ai.novaflow.knowledge.storage.DocumentStorageService;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.support.TenantQuotas;
-import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.DigestUtil;
@@ -52,13 +53,13 @@ public class DocumentService {
     public PageResult<DocumentVO> page(Long knowledgeBaseId, int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:read");
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, PermissionCodes.KNOWLEDGE_READ);
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         QueryWrapper query = QueryWrapper.create()
                 .eq("knowledge_base_id", knowledgeBaseId)
-                .eq("tenant_id", requireTenantId())
+                .eq("tenant_id", TenantContexts.requireTenantId())
                 .eq("is_deleted", 0);
         if (StringUtils.hasText(keyword)) {
             query.like("doc_name", keyword);
@@ -91,7 +92,7 @@ public class DocumentService {
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         Long tenantId = knowledgeBase.getTenantId();
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:upload");
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, PermissionCodes.KNOWLEDGE_UPLOAD);
         Long userId = StpUtil.getLoginIdAsLong();
         assertStorageQuota(tenantId, file.getSize());
 
@@ -127,15 +128,15 @@ public class DocumentService {
 
     @Transactional
     public void delete(Long knowledgeBaseId, Long documentId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:delete");
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, PermissionCodes.KNOWLEDGE_DELETE);
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         DocumentEntity entity = documentMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", documentId)
                         .eq("knowledge_base_id", knowledgeBaseId)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -159,15 +160,15 @@ public class DocumentService {
     }
 
     public void triggerReprocess(Long knowledgeBaseId, Long documentId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, "knowledge:upload");
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, PermissionCodes.KNOWLEDGE_UPLOAD);
         knowledgeBaseService.getKnowledgeBaseOrThrow(knowledgeBaseId);
         DocumentEntity entity = documentMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", documentId)
                         .eq("knowledge_base_id", knowledgeBaseId)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -186,14 +187,6 @@ public class DocumentService {
         } catch (IOException e) {
             return null;
         }
-    }
-
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
     }
 
     private void assertStorageQuota(Long tenantId, long incomingBytes) {

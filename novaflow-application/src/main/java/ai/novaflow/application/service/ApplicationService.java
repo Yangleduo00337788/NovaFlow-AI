@@ -7,9 +7,10 @@ import ai.novaflow.application.domain.dto.ApplicationSaveRequest;
 import ai.novaflow.application.domain.vo.ApplicationPublishVO;
 import ai.novaflow.application.domain.vo.ApplicationVO;
 import ai.novaflow.common.audit.AuditRecorder;
-import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
@@ -53,7 +54,7 @@ public class ApplicationService {
     public PageResult<ApplicationVO> page(int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -63,42 +64,42 @@ public class ApplicationService {
         }
         query.orderBy("updated_at", false);
 
-        Page<ApplicationEntity> result = applicationMapper.paginate(Page.of(page, pageSize), query);
         long userId = StpUtil.getLoginIdAsLong();
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.APPLICATION, PermissionCodes.APPLICATION_READ, "application.id");
+
+        Page<ApplicationEntity> result = applicationMapper.paginate(Page.of(page, pageSize), query);
         List<ApplicationVO> list = result.getRecords().stream()
-                .filter(entity -> resourceAccessService.canAccessResource(
-                        userId, tenantId, ResourceTypes.APPLICATION, entity.getId(), "application:read"))
                 .map(this::toSummaryVO)
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
     public List<ApplicationVO> listOptions() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long userId = StpUtil.getLoginIdAsLong();
-        return applicationMapper.selectListByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", tenantId)
-                        .eq("is_deleted", 0)
-                        .eq("status", 1)
-                        .orderBy("app_name", true)
-        ).stream()
-                .filter(entity -> resourceAccessService.canAccessResource(
-                        userId, tenantId, ResourceTypes.APPLICATION, entity.getId(), "application:read"))
+        QueryWrapper query = QueryWrapper.create()
+                .eq("tenant_id", tenantId)
+                .eq("is_deleted", 0)
+                .eq("status", 1)
+                .orderBy("app_name", true);
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.APPLICATION, PermissionCodes.APPLICATION_READ, "application.id");
+        return applicationMapper.selectListByQuery(query).stream()
                 .map(this::toSummaryVO)
                 .toList();
     }
 
     public ApplicationVO detail(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id, "application:read");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.APPLICATION, id, PermissionCodes.APPLICATION_READ);
         ApplicationEntity entity = getApplicationOrThrow(id);
         return toDetailVO(entity);
     }
 
     @Transactional
     public ApplicationVO create(ApplicationSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
         ensureNameUnique(tenantId, request.getAppName(), null);
 
@@ -128,7 +129,7 @@ public class ApplicationService {
     @Transactional
     public ApplicationVO update(Long id, ApplicationSaveRequest request) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id, "application:manage");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.APPLICATION, id, PermissionCodes.APPLICATION_MANAGE);
         ApplicationEntity entity = getApplicationOrThrow(id);
         ensureNameUnique(entity.getTenantId(), request.getAppName(), id);
 
@@ -151,7 +152,7 @@ public class ApplicationService {
     @Transactional
     public void delete(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id, "application:manage");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.APPLICATION, id, PermissionCodes.APPLICATION_MANAGE);
         ApplicationEntity entity = getApplicationOrThrow(id);
         if (countAgents(entity.getId(), entity.getTenantId()) > 0) {
             throw new BusinessException("应用下仍有关联 Agent，请先移除或迁移后再删除");
@@ -167,7 +168,7 @@ public class ApplicationService {
 
     public ApplicationPublishVO getPublishInfo(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id, "application:read");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.APPLICATION, id, PermissionCodes.APPLICATION_READ);
         ApplicationEntity entity = getApplicationOrThrow(id);
         return buildPublishVO(entity);
     }
@@ -175,8 +176,8 @@ public class ApplicationService {
     @Transactional
     public ApplicationPublishVO publish(Long id) {
         resourceAccessService.requireResourceAccessAny(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id,
-                "application:publish", "application:manage");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.APPLICATION, id,
+                PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE);
         ApplicationEntity entity = getApplicationOrThrow(id);
         if (entity.getDefaultAgentId() == null) {
             throw new BusinessException("发布前请设置默认入口 Agent");
@@ -196,8 +197,8 @@ public class ApplicationService {
     @Transactional
     public ApplicationPublishVO unpublish(Long id) {
         resourceAccessService.requireResourceAccessAny(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.APPLICATION, id,
-                "application:publish", "application:manage");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.APPLICATION, id,
+                PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE);
         ApplicationEntity entity = getApplicationOrThrow(id);
         entity.setPublishStatus(PUBLISH_STATUS_OFFLINE);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -515,7 +516,7 @@ public class ApplicationService {
         ApplicationEntity entity = applicationMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -549,13 +550,5 @@ public class ApplicationService {
             return null;
         }
         return value.trim();
-    }
-
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
     }
 }

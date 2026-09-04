@@ -14,6 +14,7 @@ class PublicHttpUrlsTest {
         assertFalse(PublicHttpUrls.isSafeWebhookUrl("http://127.0.0.1/hook"));
         assertFalse(PublicHttpUrls.isSafeWebhookUrl("http://localhost/hook"));
         assertFalse(PublicHttpUrls.isSafeWebhookUrl("http://10.0.0.8/hook"));
+        assertFalse(PublicHttpUrls.isSafeWebhookUrl("http://[fd12:3456:789a::1]/hook"));
         assertFalse(PublicHttpUrls.isSafeWebhookUrl("not-a-url"));
         assertFalse(PublicHttpUrls.isSafeWebhookUrl("ftp://example.com/hook"));
     }

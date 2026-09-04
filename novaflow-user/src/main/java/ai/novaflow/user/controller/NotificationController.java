@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.ApiResult;
@@ -26,31 +27,24 @@ public class NotificationController {
     public ApiResult<PageResult<UserNotificationVO>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
-        return ApiResult.ok(notificationService.page(requireTenantId(), StpUtil.getLoginIdAsLong(), page, pageSize));
+        return ApiResult.ok(notificationService.page(TenantContexts.requireTenantId(), StpUtil.getLoginIdAsLong(), page, pageSize));
     }
 
     @GetMapping("/unread-count")
     public ApiResult<Long> unreadCount() {
-        return ApiResult.ok(notificationService.unreadCount(requireTenantId(), StpUtil.getLoginIdAsLong()));
+        return ApiResult.ok(notificationService.unreadCount(TenantContexts.requireTenantId(), StpUtil.getLoginIdAsLong()));
     }
 
     @PostMapping("/{id}/read")
     public ApiResult<Void> markRead(@PathVariable Long id) {
-        notificationService.markRead(requireTenantId(), StpUtil.getLoginIdAsLong(), id);
+        notificationService.markRead(TenantContexts.requireTenantId(), StpUtil.getLoginIdAsLong(), id);
         return ApiResult.ok();
     }
 
     @PostMapping("/read-all")
     public ApiResult<Void> markAllRead() {
-        notificationService.markAllRead(requireTenantId(), StpUtil.getLoginIdAsLong());
+        notificationService.markAllRead(TenantContexts.requireTenantId(), StpUtil.getLoginIdAsLong());
         return ApiResult.ok();
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

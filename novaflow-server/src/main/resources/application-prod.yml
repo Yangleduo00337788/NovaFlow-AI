@@ -34,6 +34,9 @@ novaflow:
   auth:
     registration-enabled: ${NOVAFLOW_REGISTRATION_ENABLED:false}
 
+  mcp:
+    stdio-enabled: ${NOVAFLOW_MCP_STDIO_ENABLED:false}
+
   cors:
     allowed-origins:
       - ${CORS_ALLOWED_ORIGIN}

@@ -1,4 +1,5 @@
 package ai.novaflow.billing.service;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.billing.domain.dto.BillingAlertSaveRequest;
 import ai.novaflow.billing.domain.vo.BillingAlertVO;
@@ -198,6 +199,6 @@ public class BillingAlertService {
     }
 
     private void requireBillingManagePermission(long userId, Long tenantId) {
-        permissionService.requireAnyPermission(userId, tenantId, "billing:manage");
+        permissionService.requireAnyPermission(userId, tenantId, PermissionCodes.BILLING_MANAGE);
     }
 }

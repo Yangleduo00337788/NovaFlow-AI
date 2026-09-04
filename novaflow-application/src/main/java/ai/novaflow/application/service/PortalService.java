@@ -1,4 +1,5 @@
 package ai.novaflow.application.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.agent.entity.AgentEntity;
 import ai.novaflow.agent.mapper.AgentMapper;
@@ -31,7 +32,7 @@ public class PortalService {
     private final ConversationService conversationService;
 
     public List<PortalAppVO> listPublishedApps() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         return applicationMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
@@ -64,7 +65,7 @@ public class PortalService {
         ApplicationEntity app = getPublishedAppOrThrow(applicationId);
         return conversationService.pageConversations(
                 app.getDefaultAgentId(),
-                requireTenantId(),
+                TenantContexts.requireTenantId(),
                 null,
                 null,
                 StpUtil.getLoginIdAsLong(),
@@ -81,7 +82,7 @@ public class PortalService {
         ApplicationEntity app = getPublishedAppOrThrow(applicationId);
         return conversationService.listMessages(
                 app.getDefaultAgentId(),
-                requireTenantId(),
+                TenantContexts.requireTenantId(),
                 conversationKey.trim(),
                 null,
                 StpUtil.getLoginIdAsLong());
@@ -92,7 +93,7 @@ public class PortalService {
     }
 
     public ApplicationEntity getPublishedAppOrThrow(Long applicationId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ApplicationEntity entity = applicationMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", applicationId)
@@ -134,11 +135,4 @@ public class PortalService {
         return "/portal/apps/" + applicationId;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("未获取到租户上下文");
-        }
-        return tenantId;
-    }
 }

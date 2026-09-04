@@ -1,4 +1,5 @@
 package ai.novaflow.tool.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
@@ -48,7 +49,7 @@ public class ToolDefinitionService {
     public PageResult<ToolDefinitionVO> page(int page, int pageSize, String keyword, String toolType) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -65,7 +66,7 @@ public class ToolDefinitionService {
     }
 
     public List<ToolDefinitionVO> listEnabled(String keyword) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0)
@@ -80,7 +81,7 @@ public class ToolDefinitionService {
     }
 
     public List<ToolDefinitionVO> listSkillOptions(String keyword) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0)
@@ -177,7 +178,7 @@ public class ToolDefinitionService {
     @Transactional
     public ToolDefinitionVO uploadSkill(MultipartFile file) {
         ParsedSkill parsed = parseSkillFile(file);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ensureToolNameUnique(tenantId, parsed.toolName(), null);
 
         LocalDateTime now = LocalDateTime.now();
@@ -227,7 +228,7 @@ public class ToolDefinitionService {
 
     @Transactional
     public ToolDefinitionVO create(ToolDefinitionSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ensureToolNameUnique(tenantId, request.getToolName(), null);
         validateHttpTool(request.toHttpToolDefinition());
 
@@ -362,7 +363,7 @@ public class ToolDefinitionService {
         ToolDefinitionEntity entity = toolDefinitionMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -421,13 +422,6 @@ public class ToolDefinitionService {
         query.eq("tool_type", normalized);
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private ParsedSkill parseSkillFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {

@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.domain.ApiResult;
@@ -26,7 +27,7 @@ public class ResourcePermissionController {
 
     private final ResourcePermissionAdminService resourcePermissionAdminService;
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage", "role:update"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE, PermissionCodes.ROLE_UPDATE}, mode = SaMode.OR)
     @GetMapping("/{resourceType}/{resourceId}/permissions")
     public ApiResult<List<ResourcePermissionEntity>> list(
             @PathVariable String resourceType,
@@ -36,7 +37,7 @@ public class ResourcePermissionController {
         return ApiResult.ok(resourcePermissionAdminService.list(resourceType, resourceId));
     }
 
-    @SaCheckPermission(value = {"member:manage", "tenant:manage", "role:update"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE, PermissionCodes.ROLE_UPDATE}, mode = SaMode.OR)
     @PutMapping("/{resourceType}/{resourceId}/permissions")
     public ApiResult<List<ResourcePermissionEntity>> save(
             @PathVariable String resourceType,

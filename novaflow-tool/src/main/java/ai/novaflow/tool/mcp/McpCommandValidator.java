@@ -18,9 +18,12 @@ import java.util.stream.Collectors;
 public class McpCommandValidator {
 
     private final Set<String> allowedCommands;
+    private final boolean stdioEnabled;
 
     public McpCommandValidator(
-            @Value("${novaflow.mcp.allowed-commands:npx,node,uvx,uv,python,python3}") String allowedCommands) {
+            @Value("${novaflow.mcp.allowed-commands:npx,node,uvx,uv,python,python3}") String allowedCommands,
+            @Value("${novaflow.mcp.stdio-enabled:true}") boolean stdioEnabled) {
+        this.stdioEnabled = stdioEnabled;
         this.allowedCommands = Arrays.stream(allowedCommands.split(","))
                 .map(String::trim)
                 .filter(StringUtils::hasText)
@@ -34,6 +37,9 @@ public class McpCommandValidator {
         }
         if (!"stdio".equalsIgnoreCase(config.getTransportType())) {
             return;
+        }
+        if (!stdioEnabled) {
+            throw new BusinessException("当前环境已禁用 MCP stdio 传输，请使用 SSE/HTTP 方式");
         }
         String command = config.getCommand();
         if (!StringUtils.hasText(command)) {

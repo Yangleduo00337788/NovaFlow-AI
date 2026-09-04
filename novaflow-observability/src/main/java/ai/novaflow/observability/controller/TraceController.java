@@ -1,4 +1,5 @@
 package ai.novaflow.observability.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@SaCheckPermission("trace:view")
+@SaCheckPermission(PermissionCodes.TRACE_VIEW)
 @RequestMapping("/api/v1/trace")
 @RequiredArgsConstructor
 public class TraceController {

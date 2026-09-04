@@ -1,4 +1,6 @@
 package ai.novaflow.billing.service;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.billing.domain.dto.BillingQuotaUpdateRequest;
 import ai.novaflow.billing.domain.vo.BillingMetricVO;
@@ -55,7 +57,7 @@ public class BillingService {
 
     public BillingOverviewVO getOverview(String month) {
         requireBillingViewPermission();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         YearMonth current = resolveMonth(month);
         YearMonth previous = current.minusMonths(1);
         LocalDate currentStart = current.atDay(1);
@@ -108,7 +110,7 @@ public class BillingService {
 
     public CostAllocationVO getAllocation(String month, String dimension) {
         requireBillingViewPermission();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         YearMonth period = resolveMonth(month);
         String dim = normalizeDimension(dimension);
         LocalDate startDate = period.atDay(1);
@@ -193,7 +195,7 @@ public class BillingService {
 
     public BillingQuotaVO getQuota() {
         requireBillingViewPermission();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         YearMonth current = YearMonth.now();
         return buildQuota(tenantId, current.atDay(1), current.atEndOfMonth());
     }
@@ -201,7 +203,7 @@ public class BillingService {
     @Transactional
     public BillingQuotaVO updateQuota(BillingQuotaUpdateRequest request) {
         requireBillingManagePermission();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         tenant.setMonthlyTokenQuota(request.getMonthlyTokenQuota());
         tenant.setUpdatedAt(LocalDateTime.now());
@@ -229,7 +231,7 @@ public class BillingService {
             String month,
             String keyword) {
         requireBillingViewPermission();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         YearMonth period = resolveMonth(month);
         LocalDate startDate = period.atDay(1);
         LocalDate endDate = period.atEndOfMonth();
@@ -443,25 +445,18 @@ public class BillingService {
     private void requireBillingViewPermission() {
         permissionService.requireAnyPermission(
                 StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
-                "billing:view",
-                "billing:manage"
+                TenantContexts.requireTenantId(),
+                PermissionCodes.BILLING_VIEW,
+                PermissionCodes.BILLING_MANAGE
         );
     }
 
     private void requireBillingManagePermission() {
         permissionService.requireAnyPermission(
                 StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
-                "billing:manage"
+                TenantContexts.requireTenantId(),
+                PermissionCodes.BILLING_MANAGE
         );
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

@@ -6,6 +6,7 @@ import ai.novaflow.application.domain.vo.ApplicationVO;
 import ai.novaflow.application.service.ApplicationService;
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.common.security.PermissionCodes;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
@@ -29,7 +30,9 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
 
-    @SaCheckPermission(value = {"application:read", "application:publish", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE
+    }, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<ApplicationVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -39,27 +42,29 @@ public class ApplicationController {
     }
 
     @SaCheckPermission(value = {
-            "application:read", "application:publish", "application:manage",
-            "agent:create", "agent:edit", "workflow:create"
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE,
+            PermissionCodes.AGENT_CREATE, PermissionCodes.AGENT_EDIT, PermissionCodes.WORKFLOW_CREATE
     }, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<ApplicationVO>> options() {
         return ApiResult.ok(applicationService.listOptions());
     }
 
-    @SaCheckPermission(value = {"application:read", "application:publish", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE
+    }, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<ApplicationVO> detail(@PathVariable Long id) {
         return ApiResult.ok(applicationService.detail(id));
     }
 
-    @SaCheckPermission("application:manage")
+    @SaCheckPermission(PermissionCodes.APPLICATION_MANAGE)
     @PostMapping
     public ApiResult<ApplicationVO> create(@Valid @RequestBody ApplicationSaveRequest request) {
         return ApiResult.ok(applicationService.create(request));
     }
 
-    @SaCheckPermission("application:manage")
+    @SaCheckPermission(PermissionCodes.APPLICATION_MANAGE)
     @PutMapping("/{id}")
     public ApiResult<ApplicationVO> update(
             @PathVariable Long id,
@@ -67,26 +72,28 @@ public class ApplicationController {
         return ApiResult.ok(applicationService.update(id, request));
     }
 
-    @SaCheckPermission("application:manage")
+    @SaCheckPermission(PermissionCodes.APPLICATION_MANAGE)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         applicationService.delete(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"application:read", "application:publish", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE
+    }, mode = SaMode.OR)
     @GetMapping("/{id}/publish")
     public ApiResult<ApplicationPublishVO> publishInfo(@PathVariable Long id) {
         return ApiResult.ok(applicationService.getPublishInfo(id));
     }
 
-    @SaCheckPermission(value = {"application:publish", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE}, mode = SaMode.OR)
     @PostMapping("/{id}/publish")
     public ApiResult<ApplicationPublishVO> publish(@PathVariable Long id) {
         return ApiResult.ok(applicationService.publish(id));
     }
 
-    @SaCheckPermission(value = {"application:publish", "application:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE}, mode = SaMode.OR)
     @PostMapping("/{id}/unpublish")
     public ApiResult<ApplicationPublishVO> unpublish(@PathVariable Long id) {
         return ApiResult.ok(applicationService.unpublish(id));

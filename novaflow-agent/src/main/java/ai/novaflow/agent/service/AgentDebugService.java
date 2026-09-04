@@ -1,4 +1,5 @@
 package ai.novaflow.agent.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
@@ -42,7 +43,7 @@ public class AgentDebugService {
 
         if (!agentChatService.supportsRealExecution(agent)) {
             AgentDebugChatVO mock = buildMockResponse(agent, message);
-            persistMockExchange(agent.getId(), requireTenantId(), StpUtil.getLoginIdAsLong(), request, mock);
+            persistMockExchange(agent.getId(), TenantContexts.requireTenantId(), StpUtil.getLoginIdAsLong(), request, mock);
             return mock;
         }
 
@@ -50,7 +51,7 @@ public class AgentDebugService {
             return agentChatService.chat(
                     agent,
                     request,
-                    requireTenantId(),
+                    TenantContexts.requireTenantId(),
                     StpUtil.getLoginIdAsLong(),
                     resolveChannel(request.getConversationId()));
         } catch (BusinessException e) {
@@ -65,7 +66,7 @@ public class AgentDebugService {
         AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
         String message = request.getMessage().trim();
         Long userId = StpUtil.getLoginIdAsLong();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         boolean realExecution = agentChatService.supportsRealExecution(agent);
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
@@ -105,7 +106,7 @@ public class AgentDebugService {
             try {
                 ResolvedModelConfig modelConfig = modelResolutionService.resolve(
                         agent.getModelConfigId(),
-                        requireTenantId(),
+                        TenantContexts.requireTenantId(),
                         agent.getTemperature(),
                         agent.getMaxTokens()
                 );
@@ -257,13 +258,6 @@ public class AgentDebugService {
         return "debug";
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private String rootMessage(Throwable e) {
         Throwable current = e;

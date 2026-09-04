@@ -1,4 +1,5 @@
 package ai.novaflow.monitor.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
@@ -20,7 +21,7 @@ public class MonitorService {
     private final InfrastructureHealthChecker infrastructureHealthChecker;
 
     public MonitorOverviewVO getOverview() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
 
         long todayCalls = safeLong(monitorStatsMapper.countCallsToday(tenantId));
         long todayTokens = safeLong(monitorStatsMapper.sumTokensToday(tenantId));
@@ -105,11 +106,4 @@ public class MonitorService {
         return value != null ? value : 0L;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

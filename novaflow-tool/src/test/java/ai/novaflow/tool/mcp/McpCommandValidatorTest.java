@@ -11,7 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class McpCommandValidatorTest {
 
-    private final McpCommandValidator validator = new McpCommandValidator("npx,node,python");
+    private final McpCommandValidator validator = new McpCommandValidator("npx,node,python", true);
+    private final McpCommandValidator stdioDisabledValidator = new McpCommandValidator("npx,node,python", false);
 
     @Test
     void allowsWhitelistedCommand() {
@@ -41,5 +42,14 @@ class McpCommandValidatorTest {
                 .env(Map.of("LD_PRELOAD", "/tmp/evil.so"))
                 .build();
         assertThrows(BusinessException.class, () -> validator.validate(config));
+    }
+
+    @Test
+    void rejectsStdioWhenDisabled() {
+        McpServerConfig config = McpServerConfig.builder()
+                .transportType("stdio")
+                .command("npx")
+                .build();
+        assertThrows(BusinessException.class, () -> stdioDisabledValidator.validate(config));
     }
 }

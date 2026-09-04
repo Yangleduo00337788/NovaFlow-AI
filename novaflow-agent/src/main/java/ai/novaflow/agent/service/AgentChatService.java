@@ -18,6 +18,7 @@ import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.domain.dto.ModelUsageRecordRequest;
 import ai.novaflow.model.service.ModelResolutionService;
 import ai.novaflow.model.service.ModelUsageService;
+import ai.novaflow.agent.util.AgentConversationKeys;
 import ai.novaflow.agent.util.AgentExtraConfigUtils;
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.rag.domain.RetrievedChunk;
@@ -77,10 +78,11 @@ public class AgentChatService {
             Long userId,
             String conversationPrefix,
             String callerId) {
-        modelUsageService.checkMonthlyTokenQuota(tenantId);
         if ("workflow".equals(agent.getAgentType())) {
             return agentWorkflowChatService.chat(agent, request, tenantId, userId, conversationPrefix, callerId);
         }
+        modelUsageService.checkMonthlyTokenQuota(tenantId);
+        boolean quotaReserved = true;
         NovaFlowTracer.SpanScope span = tracer().startSpan("agent.chat", Map.of(
                 "agent.id", String.valueOf(agent.getId()),
                 "agent.type", agent.getAgentType() != null ? agent.getAgentType() : "",
@@ -88,7 +90,7 @@ public class AgentChatService {
         ));
         try {
             String message = buildUserMessage(request);
-            ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
+            ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix, callerId);
             ExecutionPlan plan = buildExecutionPlan(context, message);
             ChatExecuteResult result = chatAgentExecutor.execute(plan.executeRequest());
             recordUsage(context, result, "chat", true);
@@ -96,7 +98,10 @@ public class AgentChatService {
             return toChatVO(agent, result, plan.sources());
         } catch (RuntimeException ex) {
             span.recordError(ex);
-            ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
+            if (quotaReserved) {
+                modelUsageService.releaseMonthlyTokenQuota(tenantId);
+            }
+            ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix, callerId);
             recordFailure(context, "chat", ex.getMessage());
             throw ex;
         } finally {
@@ -122,13 +127,13 @@ public class AgentChatService {
             String conversationPrefix,
             String callerId,
             SseEmitter emitter) {
-        modelUsageService.checkMonthlyTokenQuota(tenantId);
         if ("workflow".equals(agent.getAgentType())) {
             agentWorkflowChatService.streamChat(agent, request, tenantId, userId, conversationPrefix, callerId, emitter);
             return;
         }
+        modelUsageService.checkMonthlyTokenQuota(tenantId);
         String message = buildUserMessage(request);
-        ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix);
+        ChatContext context = buildChatContext(agent, request, tenantId, userId, conversationPrefix, callerId);
         ExecutionPlan plan = buildExecutionPlan(context, message);
 
         if ("tool".equals(agent.getAgentType())) {
@@ -182,6 +187,7 @@ public class AgentChatService {
 
             @Override
             public void onError(Throwable error) {
+                modelUsageService.releaseMonthlyTokenQuota(tenantId);
                 recordFailure(context, "chat", error != null ? error.getMessage() : null);
                 completeWithError(emitter, error);
             }
@@ -285,6 +291,7 @@ public class AgentChatService {
 
             @Override
             public void onError(Throwable error) {
+                modelUsageService.releaseMonthlyTokenQuota(context.tenantId());
                 recordFailure(context, "chat", error != null ? error.getMessage() : null);
                 completeWithError(emitter, error);
             }
@@ -416,7 +423,8 @@ public class AgentChatService {
             AgentDebugChatRequest request,
             Long tenantId,
             Long userId,
-            String conversationPrefix) {
+            String conversationPrefix,
+            String callerId) {
         ResolvedModelConfig modelConfig = modelResolutionService.resolve(
                 agent.getModelConfigId(),
                 tenantId,
@@ -431,9 +439,13 @@ public class AgentChatService {
             throw new BusinessException("当前模型不支持全网搜索，请使用通义千问、Kimi、智谱或百度等支持联网的模型");
         }
         String prefix = StringUtils.hasText(conversationPrefix) ? conversationPrefix : "chat";
-        String conversationId = StringUtils.hasText(request.getConversationId())
-                ? request.getConversationId()
-                : prefix + "-" + agent.getId();
+        String conversationId = AgentConversationKeys.resolve(
+                request.getConversationId(),
+                prefix,
+                tenantId,
+                userId,
+                agent.getId(),
+                callerId);
         return new ChatContext(agent, tenantId, userId, modelConfig, conversationId, agent.getMemoryWindow());
     }
 

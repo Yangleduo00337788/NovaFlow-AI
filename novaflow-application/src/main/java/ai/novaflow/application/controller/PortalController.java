@@ -1,4 +1,5 @@
 package ai.novaflow.application.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.application.domain.vo.PortalAppDetailVO;
 import ai.novaflow.application.domain.vo.PortalAppVO;
@@ -24,19 +25,19 @@ public class PortalController {
 
     private final PortalService portalService;
 
-    @SaCheckPermission("portal:access")
+    @SaCheckPermission(PermissionCodes.PORTAL_ACCESS)
     @GetMapping("/apps")
     public ApiResult<List<PortalAppVO>> listApps() {
         return ApiResult.ok(portalService.listPublishedApps());
     }
 
-    @SaCheckPermission("portal:access")
+    @SaCheckPermission(PermissionCodes.PORTAL_ACCESS)
     @GetMapping("/apps/{id}")
     public ApiResult<PortalAppDetailVO> appDetail(@PathVariable Long id) {
         return ApiResult.ok(portalService.getPublishedApp(id));
     }
 
-    @SaCheckPermission("portal:access")
+    @SaCheckPermission(PermissionCodes.PORTAL_ACCESS)
     @GetMapping("/apps/{id}/conversations")
     public ApiResult<PageResult<ConversationVO>> listConversations(
             @PathVariable Long id,
@@ -45,7 +46,7 @@ public class PortalController {
         return ApiResult.ok(portalService.listMyConversations(id, page, pageSize));
     }
 
-    @SaCheckPermission("portal:access")
+    @SaCheckPermission(PermissionCodes.PORTAL_ACCESS)
     @GetMapping("/apps/{id}/conversations/messages")
     public ApiResult<List<ConversationMessageVO>> listConversationMessages(
             @PathVariable Long id,

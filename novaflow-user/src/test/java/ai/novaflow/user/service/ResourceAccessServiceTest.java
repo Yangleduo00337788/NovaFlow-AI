@@ -1,5 +1,6 @@
 package ai.novaflow.user.service;
 
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.tenant.entity.ResourcePermissionEntity;
 import ai.novaflow.tenant.mapper.ResourcePermissionMapper;
@@ -10,9 +11,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,7 +34,7 @@ class ResourceAccessServiceTest {
     @Test
     void openResourceWhenNoAclConfigured() {
         when(resourcePermissionMapper.selectCountByQuery(any())).thenReturn(0L);
-        assertTrue(resourceAccessService.canAccessResource(1L, 10L, "AGENT", 100L, "agent:read"));
+        assertTrue(resourceAccessService.canAccessResource(1L, 10L, "AGENT", 100L, PermissionCodes.AGENT_READ));
     }
 
     @Test
@@ -39,6 +45,27 @@ class ResourceAccessServiceTest {
         RoleEntity developer = new RoleEntity();
         developer.setRoleCode(RoleCodes.DEVELOPER);
         when(permissionService.resolveRole(2L, 10L)).thenReturn(developer);
-        assertFalse(resourceAccessService.canAccessResource(2L, 10L, "AGENT", 100L, "agent:read"));
+        assertFalse(resourceAccessService.canAccessResource(2L, 10L, "AGENT", 100L, PermissionCodes.AGENT_READ));
+    }
+
+    @Test
+    void listAccessibleResourceIdsUsesBatchQueries() {
+        ResourcePermissionEntity aclRow = new ResourcePermissionEntity();
+        aclRow.setResourceId(100L);
+        ResourcePermissionEntity grantRow = new ResourcePermissionEntity();
+        grantRow.setResourceId(100L);
+
+        when(resourcePermissionMapper.selectListByQuery(any()))
+                .thenReturn(List.of(aclRow))
+                .thenReturn(List.of(grantRow));
+        RoleEntity developer = new RoleEntity();
+        developer.setRoleCode(RoleCodes.DEVELOPER);
+        when(permissionService.resolveRole(2L, 10L)).thenReturn(developer);
+
+        Set<Long> accessible = resourceAccessService.listAccessibleResourceIds(
+                2L, 10L, "AGENT", PermissionCodes.AGENT_READ, List.of(100L, 200L));
+
+        assertEquals(Set.of(100L, 200L), accessible);
+        verify(resourcePermissionMapper, org.mockito.Mockito.times(2)).selectListByQuery(any());
     }
 }

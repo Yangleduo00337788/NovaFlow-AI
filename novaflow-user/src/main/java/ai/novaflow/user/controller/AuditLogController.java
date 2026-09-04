@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -22,7 +23,7 @@ public class AuditLogController {
 
     private final AuditLogQueryService auditLogQueryService;
 
-    @SaCheckPermission(value = {"audit:view", "platform:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AUDIT_VIEW, PermissionCodes.PLATFORM_MANAGE}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<AuditLogVO>> page(
             @RequestParam(defaultValue = "1") int page,

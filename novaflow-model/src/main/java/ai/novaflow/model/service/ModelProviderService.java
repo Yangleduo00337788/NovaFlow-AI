@@ -1,8 +1,10 @@
 package ai.novaflow.model.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.UrlSafetyValidator;
 import ai.novaflow.common.util.CryptoService;
 import ai.novaflow.model.domain.ModelProviderPreset;
 import ai.novaflow.model.domain.dto.ModelConnectivityTestRequest;
@@ -43,7 +45,7 @@ public class ModelProviderService {
     private final AuditRecorder auditRecorder;
 
     public List<ModelProviderVO> listProviders() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Map<String, ModelProviderEntity> configuredMap = modelProviderMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
@@ -57,7 +59,7 @@ public class ModelProviderService {
 
     public List<ModelProviderVO> listProviderPresets() {
         return ModelProviderPreset.all().stream()
-                .map(preset -> toProviderVO(preset, null, requireTenantId()))
+                .map(preset -> toProviderVO(preset, null, TenantContexts.requireTenantId()))
                 .toList();
     }
 
@@ -73,7 +75,7 @@ public class ModelProviderService {
         ModelProviderPreset preset = ModelProviderPreset.of(request.getProviderCode())
                 .orElseThrow(() -> new BusinessException("不支持的模型提供商"));
 
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ModelProviderEntity existing = modelProviderMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
@@ -156,7 +158,7 @@ public class ModelProviderService {
     }
 
     public ModelOverviewVO overview() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long configuredProviders = modelProviderMapper.selectCountByQuery(
                 QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0)
         );
@@ -183,7 +185,7 @@ public class ModelProviderService {
         ModelProviderEntity entity = modelProviderMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -262,6 +264,9 @@ public class ModelProviderService {
         if ("custom".equals(preset.getCode()) && !StringUtils.hasText(request.getBaseUrl())) {
             throw new BusinessException("自定义提供商请填写 Base URL");
         }
+        if (StringUtils.hasText(request.getBaseUrl())) {
+            UrlSafetyValidator.validateHttpUrl(request.getBaseUrl().trim());
+        }
         if (preset.isRequiresApiKey() && !StringUtils.hasText(request.getApiKey())) {
             throw new BusinessException("首次配置请填写 API Key");
         }
@@ -284,11 +289,4 @@ public class ModelProviderService {
         return fallback;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

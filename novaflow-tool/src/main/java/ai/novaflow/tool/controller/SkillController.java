@@ -1,4 +1,5 @@
 package ai.novaflow.tool.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.tool.domain.vo.ToolDefinitionVO;
@@ -23,19 +24,19 @@ public class SkillController {
 
     private final ToolDefinitionService toolDefinitionService;
 
-    @SaCheckPermission(value = {"tool:read", "agent:edit", "agent:create"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_READ, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE}, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<ToolDefinitionVO>> options(@RequestParam(required = false) String keyword) {
         return ApiResult.ok(toolDefinitionService.listSkillOptions(keyword));
     }
 
-    @SaCheckPermission(value = {"tool:create", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_CREATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping("/upload")
     public ApiResult<ToolDefinitionVO> upload(@RequestParam("file") MultipartFile file) {
         return ApiResult.ok(toolDefinitionService.uploadSkill(file));
     }
 
-    @SaCheckPermission(value = {"tool:update", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_UPDATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping("/{id}/upload")
     public ApiResult<ToolDefinitionVO> reupload(
             @PathVariable Long id,

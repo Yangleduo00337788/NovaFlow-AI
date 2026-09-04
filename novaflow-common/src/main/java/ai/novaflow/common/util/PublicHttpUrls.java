@@ -54,6 +54,12 @@ public final class PublicHttpUrls {
                 || address.isLoopbackAddress()
                 || address.isLinkLocalAddress()
                 || address.isSiteLocalAddress()
-                || address.isMulticastAddress();
+                || address.isMulticastAddress()
+                || isUniqueLocalIpv6(address);
+    }
+
+    private static boolean isUniqueLocalIpv6(InetAddress address) {
+        byte[] bytes = address.getAddress();
+        return bytes != null && bytes.length == 16 && (bytes[0] & 0xFE) == 0xFC;
     }
 }

@@ -1,4 +1,5 @@
 package ai.novaflow.model.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
@@ -25,7 +26,7 @@ public class TokenUsageLogService {
 
     public PageResult<TokenUsageLogVO> page(
             int page, int pageSize, Long agentId, String keyword, Boolean success, String usageType) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         int safePage = Math.max(page, 1);
         int safePageSize = Math.min(Math.max(pageSize, 1), 100);
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
@@ -44,7 +45,7 @@ public class TokenUsageLogService {
     }
 
     public byte[] exportCsv(Long agentId, String keyword, Boolean success, String usageType) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
         String trimmedUsageType = StringUtils.hasText(usageType) ? usageType.trim() : null;
         Integer successFilter = resolveSuccessFilter(success);
@@ -129,11 +130,4 @@ public class TokenUsageLogService {
                 .toPlainString();
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

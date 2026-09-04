@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.user.domain.vo.MemberVO;
@@ -23,31 +24,31 @@ public class RoleController {
 
     private final RoleManagementService roleManagementService;
 
-    @SaCheckPermission(value = {"role:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/roles")
     public ApiResult<List<RoleVO>> listRoles() {
         return ApiResult.ok(roleManagementService.listRoles());
     }
 
-    @SaCheckPermission(value = {"role:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/roles/{id}")
     public ApiResult<RoleVO> roleDetail(@PathVariable Long id) {
         return ApiResult.ok(roleManagementService.getRole(id));
     }
 
-    @SaCheckPermission(value = {"role:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/roles/{id}/members")
     public ApiResult<List<MemberVO>> roleMembers(@PathVariable Long id) {
         return ApiResult.ok(roleManagementService.listRoleMembers(id));
     }
 
-    @SaCheckPermission(value = {"role:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/permissions")
     public ApiResult<List<PermissionVO>> listPermissions() {
         return ApiResult.ok(roleManagementService.listPermissions());
     }
 
-    @SaCheckPermission(value = {"role:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/permissions/grouped")
     public ApiResult<Map<String, List<PermissionVO>>> groupedPermissions() {
         return ApiResult.ok(roleManagementService.listPermissionsGrouped());

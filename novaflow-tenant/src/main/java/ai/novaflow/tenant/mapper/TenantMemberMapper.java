@@ -1,13 +1,27 @@
 package ai.novaflow.tenant.mapper;
 
+import ai.novaflow.tenant.domain.DepartmentMemberCountRow;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import com.mybatisflex.core.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+
+import java.util.List;
 
 @Mapper
 public interface TenantMemberMapper extends BaseMapper<TenantMemberEntity> {
+
+    @Select("""
+            SELECT department_id AS departmentId, COUNT(*) AS memberCount
+            FROM tenant_member
+            WHERE tenant_id = #{tenantId}
+              AND is_deleted = 0
+              AND department_id IS NOT NULL
+            GROUP BY department_id
+            """)
+    List<DepartmentMemberCountRow> countMembersByDepartment(@Param("tenantId") Long tenantId);
 
     @Update("""
             UPDATE tenant_member

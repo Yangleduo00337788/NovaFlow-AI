@@ -13,7 +13,7 @@
 
     <groupId>ai.novaflow</groupId>
     <artifactId>novaflow-ai</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <packaging>pom</packaging>
     <name>NovaFlow AI</name>
     <description>Enterprise AI Agent Development Platform</description>

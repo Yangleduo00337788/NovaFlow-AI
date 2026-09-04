@@ -1,4 +1,5 @@
 package ai.novaflow.dashboard.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.dashboard.domain.DashboardOverviewVO;
@@ -21,9 +22,9 @@ import java.util.List;
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
 @SaCheckPermission(value = {
-        "dashboard:view",
-        "agent:create", "agent:edit", "agent:read",
-        "monitor:view", "application:read", "application:manage", "tenant:manage"
+        PermissionCodes.DASHBOARD_VIEW,
+        PermissionCodes.AGENT_CREATE, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_READ,
+        PermissionCodes.MONITOR_VIEW, PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_MANAGE, PermissionCodes.TENANT_MANAGE
 }, mode = SaMode.OR)
 public class DashboardController {
 

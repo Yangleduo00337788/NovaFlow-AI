@@ -1,4 +1,6 @@
 package ai.novaflow.user.service;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.security.RoleCodes;
@@ -65,14 +67,14 @@ public class OrganizationService {
     private final AuditLogService auditLogService;
 
     public TenantVO getTenant() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireTenantManagePermission();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         return toTenantVO(tenant, countActiveMembers(tenantId));
     }
 
     public TenantPlanSummaryVO getPlanSummary() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         int memberCount = countActiveMembers(tenantId);
         int maxMembers = tenant.getMaxMembers() != null && tenant.getMaxMembers() > 0 ? tenant.getMaxMembers() : 100;
@@ -97,7 +99,7 @@ public class OrganizationService {
 
     @Transactional
     public TenantVO updateTenant(TenantUpdateRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireTenantManagePermission();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         tenant.setTenantName(request.getTenantName().trim());
@@ -113,8 +115,8 @@ public class OrganizationService {
 
     @Transactional
     public void deleteOwnedTenant() {
-        Long tenantId = requireTenantId();
-        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), tenantId, "tenant:delete");
+        Long tenantId = TenantContexts.requireTenantId();
+        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), tenantId, PermissionCodes.TENANT_DELETE);
         TenantEntity tenant = getTenantOrThrow(tenantId);
         if ("demo".equalsIgnoreCase(tenant.getTenantCode())) {
             throw new BusinessException("演示企业不可删除");
@@ -129,7 +131,7 @@ public class OrganizationService {
 
     @Transactional
     public void transferOwnership(Long targetMemberId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long currentUserId = StpUtil.getLoginIdAsLong();
         RoleEntity currentRole = permissionService.resolveRole(currentUserId, tenantId);
         if (currentRole == null || !RoleCodes.TENANT_OWNER.equals(currentRole.getRoleCode())) {
@@ -174,10 +176,12 @@ public class OrganizationService {
                 "tenant",
                 tenantId,
                 "转移所有权至: " + (targetUser != null ? targetUser.getEmail() : targetMember.getUserId()));
+        StpUtil.logout(currentUserId);
+        StpUtil.logout(targetMember.getUserId());
     }
 
     public List<WorkspaceVO> listWorkspaces() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireTenantManagePermission();
         return workspaceMapper.selectListByQuery(
                 QueryWrapper.create()
@@ -190,7 +194,7 @@ public class OrganizationService {
 
     @Transactional
     public WorkspaceVO createWorkspace(WorkspaceSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long userId = StpUtil.getLoginIdAsLong();
         requireTenantManagePermission();
         ensureWorkspaceNameUnique(tenantId, request.getWorkspaceName(), null);
@@ -212,7 +216,7 @@ public class OrganizationService {
 
     @Transactional
     public WorkspaceVO updateWorkspace(Long id, WorkspaceSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireTenantManagePermission();
         WorkspaceEntity entity = getWorkspaceOrThrow(id, tenantId);
         ensureWorkspaceNameUnique(tenantId, request.getWorkspaceName(), id);
@@ -226,7 +230,7 @@ public class OrganizationService {
 
     @Transactional
     public void deleteWorkspace(Long id) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireTenantManagePermission();
         WorkspaceEntity entity = getWorkspaceOrThrow(id, tenantId);
         if (Objects.equals(entity.getIsDefault(), 1)) {
@@ -245,7 +249,7 @@ public class OrganizationService {
     public PageResult<MemberVO> pageMembers(int page, int pageSize, String keyword, Long departmentId) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireMemberManagePermission();
 
         QueryWrapper query = QueryWrapper.create()
@@ -284,7 +288,7 @@ public class OrganizationService {
 
     @Transactional
     public MemberVO inviteMember(MemberInviteRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireMemberManagePermission();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         int memberCount = countActiveMembers(tenantId);
@@ -350,7 +354,7 @@ public class OrganizationService {
 
     @Transactional
     public MemberVO updateMember(Long memberId, MemberUpdateRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long currentUserId = StpUtil.getLoginIdAsLong();
         requireMemberManagePermission();
 
@@ -417,7 +421,7 @@ public class OrganizationService {
 
     @Transactional
     public void removeMember(Long memberId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long currentUserId = StpUtil.getLoginIdAsLong();
         requireMemberManagePermission();
 
@@ -704,19 +708,12 @@ public class OrganizationService {
         return value.trim();
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private void requireTenantManagePermission() {
         permissionService.requireAnyPermission(
                 StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
-                "tenant:manage"
+                TenantContexts.requireTenantId(),
+                PermissionCodes.TENANT_MANAGE
         );
     }
 
@@ -736,9 +733,9 @@ public class OrganizationService {
     private void requireMemberManagePermission() {
         permissionService.requireAnyPermission(
                 StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
-                "member:manage",
-                "tenant:manage"
+                TenantContexts.requireTenantId(),
+                PermissionCodes.MEMBER_MANAGE,
+                PermissionCodes.TENANT_MANAGE
         );
     }
 

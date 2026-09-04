@@ -1,4 +1,6 @@
 package ai.novaflow.user.service;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
@@ -31,7 +33,7 @@ public class DepartmentService {
     private final PermissionService permissionService;
 
     public List<DepartmentVO> listTree() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireOrgManage();
         List<DepartmentEntity> entities = listEntities(tenantId);
         Map<Long, Long> memberCounts = loadMemberCounts(tenantId);
@@ -55,7 +57,7 @@ public class DepartmentService {
 
     @Transactional
     public DepartmentVO create(DepartmentSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireOrgManage();
         String name = request.getDeptName().trim();
         Long parentId = normalizeParentId(request.getParentId());
@@ -87,7 +89,7 @@ public class DepartmentService {
 
     @Transactional
     public DepartmentVO update(Long id, DepartmentSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireOrgManage();
         DepartmentEntity entity = requireDepartment(id, tenantId);
         String name = request.getDeptName().trim();
@@ -98,7 +100,8 @@ public class DepartmentService {
             if (DepartmentHierarchy.isSelfOrDescendant(id, parentId, parentById)) {
                 throw new BusinessException("不能将部门移动到自身或下级部门下");
             }
-            if (DepartmentHierarchy.depthOf(parentId, parentById) + 1 > DepartmentHierarchy.MAX_DEPTH) {
+            if (DepartmentHierarchy.depthOf(parentId, parentById) + DepartmentHierarchy.subtreeHeight(id, parentById)
+                    > DepartmentHierarchy.MAX_DEPTH) {
                 throw new BusinessException("部门层级不能超过 " + DepartmentHierarchy.MAX_DEPTH + " 层");
             }
         }
@@ -127,7 +130,7 @@ public class DepartmentService {
 
     @Transactional
     public void delete(Long id) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         requireOrgManage();
         DepartmentEntity entity = requireDepartment(id, tenantId);
         long childCount = departmentMapper.selectCountByQuery(
@@ -176,15 +179,10 @@ public class DepartmentService {
     }
 
     private Map<Long, Long> loadMemberCounts(Long tenantId) {
-        List<ai.novaflow.tenant.entity.TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", tenantId)
-                        .eq("is_deleted", 0)
-                        .isNotNull("department_id"));
         Map<Long, Long> counts = new HashMap<>();
-        for (var member : members) {
-            if (member.getDepartmentId() != null) {
-                counts.merge(member.getDepartmentId(), 1L, Long::sum);
+        for (var row : tenantMemberMapper.countMembersByDepartment(tenantId)) {
+            if (row.getDepartmentId() != null && row.getMemberCount() != null) {
+                counts.put(row.getDepartmentId(), row.getMemberCount());
             }
         }
         return counts;
@@ -242,19 +240,12 @@ public class DepartmentService {
                 .build();
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("未获取到租户上下文");
-        }
-        return tenantId;
-    }
 
     private void requireOrgManage() {
         permissionService.requireAnyPermission(
                 cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
-                "member:manage",
-                "tenant:manage");
+                TenantContexts.requireTenantId(),
+                PermissionCodes.MEMBER_MANAGE,
+                PermissionCodes.TENANT_MANAGE);
     }
 }

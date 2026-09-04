@@ -13,7 +13,7 @@ import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.agent.mapper.AgentSkillMapper;
 import ai.novaflow.agent.mapper.AgentToolMapper;
 import ai.novaflow.common.audit.AuditRecorder;
-import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.domain.RetrievalConfig;
 import ai.novaflow.common.exception.BusinessException;
@@ -28,6 +28,7 @@ import ai.novaflow.tool.service.ToolDefinitionService;
 import ai.novaflow.workflow.entity.WorkflowEntity;
 import ai.novaflow.workflow.service.WorkflowService;
 import ai.novaflow.tool.domain.HttpToolDefinition;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.user.service.ResourceAccessService;
@@ -68,7 +69,7 @@ public class AgentService {
     public PageResult<AgentVO> page(int page, int pageSize, String keyword, String agentType) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -80,11 +81,12 @@ public class AgentService {
         }
         query.orderBy("updated_at", false);
 
-        Page<AgentEntity> result = agentMapper.paginate(Page.of(page, pageSize), query);
         long userId = StpUtil.getLoginIdAsLong();
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.AGENT, PermissionCodes.AGENT_READ, "agent.id");
+
+        Page<AgentEntity> result = agentMapper.paginate(Page.of(page, pageSize), query);
         List<AgentVO> list = result.getRecords().stream()
-                .filter(agent -> resourceAccessService.canAccessResource(
-                        userId, tenantId, ResourceTypes.AGENT, agent.getId(), "agent:read"))
                 .map(this::toSimpleVO)
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
@@ -102,10 +104,10 @@ public class AgentService {
         AgentEntity agent = getAgentOrThrow(id);
         resourceAccessService.requireResourceAccess(
                 StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
+                TenantContexts.requireTenantId(),
                 ResourceTypes.AGENT,
                 id,
-                "agent:read"
+                PermissionCodes.AGENT_READ
         );
         AgentConfigEntity config = agentConfigMapper.selectOneByQuery(
                 QueryWrapper.create().eq("agent_id", id).limit(1)
@@ -118,7 +120,7 @@ public class AgentService {
 
     @Transactional
     public AgentVO create(AgentSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
         assertAgentQuota(tenantId);
         if (request.getApplicationId() == null) {
@@ -154,7 +156,7 @@ public class AgentService {
     @Transactional
     public AgentVO update(Long id, AgentSaveRequest request) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.AGENT, id, "agent:edit");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.AGENT, id, PermissionCodes.AGENT_EDIT);
         AgentEntity agent = getAgentOrThrow(id);
         agent.setAgentName(request.getAgentName());
         agent.setDescription(request.getDescription());
@@ -184,7 +186,7 @@ public class AgentService {
     @Transactional
     public void delete(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.AGENT, id, "agent:delete");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.AGENT, id, PermissionCodes.AGENT_DELETE);
         AgentEntity agent = getAgentOrThrow(id);
         agent.setIsDeleted(1);
         agent.setUpdatedAt(LocalDateTime.now());
@@ -196,7 +198,7 @@ public class AgentService {
         return agentKnowledgeMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("agent_id", agentId)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
         ).stream().map(AgentKnowledgeEntity::getKnowledgeBaseId).toList();
     }
 
@@ -329,7 +331,7 @@ public class AgentService {
         AgentEntity agent = agentMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (agent == null) {
@@ -344,23 +346,15 @@ public class AgentService {
      * 仅门户或仅对话权限时，只能访问已被已发布应用引用的 Agent。
      */
     private void assertPortalAccess(AgentEntity agent) {
-        if (StpUtil.hasPermission("agent:edit") || StpUtil.hasPermission("agent:create")) {
+        if (StpUtil.hasPermission(PermissionCodes.AGENT_EDIT) || StpUtil.hasPermission(PermissionCodes.AGENT_CREATE)) {
             return;
         }
         Long applicationId = agent.getApplicationId();
         boolean publishedRef = applicationId != null
-                && applicationAccessMapper.countPublishedApp(applicationId, requireTenantId()) > 0;
+                && applicationAccessMapper.countPublishedApp(applicationId, TenantContexts.requireTenantId()) > 0;
         if (!publishedRef) {
             throw new BusinessException("无权访问该Agent");
         }
-    }
-
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
     }
 
     private void assertAgentQuota(Long tenantId) {

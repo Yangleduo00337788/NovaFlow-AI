@@ -1,4 +1,6 @@
 package ai.novaflow.user.service;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
@@ -48,7 +50,7 @@ public class RoleManagementService {
 
     public List<RoleVO> listRoles() {
         requireMemberManagePermission();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         List<RoleEntity> roles = roleMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", 0)
@@ -69,7 +71,7 @@ public class RoleManagementService {
     public RoleVO getRole(Long roleId) {
         requireMemberManagePermission();
         RoleEntity role = getSystemRoleOrThrow(roleId);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long memberCount = tenantMemberMapper.selectCountByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
@@ -82,7 +84,7 @@ public class RoleManagementService {
     public List<MemberVO> listRoleMembers(Long roleId) {
         requireMemberManagePermission();
         getSystemRoleOrThrow(roleId);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
@@ -190,20 +192,13 @@ public class RoleManagementService {
                 .build();
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private void requireMemberManagePermission() {
         permissionService.requireAnyPermission(
                 StpUtil.getLoginIdAsLong(),
-                requireTenantId(),
-                "member:manage",
-                "tenant:manage"
+                TenantContexts.requireTenantId(),
+                PermissionCodes.MEMBER_MANAGE,
+                PermissionCodes.TENANT_MANAGE
         );
     }
 }

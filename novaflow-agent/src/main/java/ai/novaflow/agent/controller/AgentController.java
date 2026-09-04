@@ -15,9 +15,11 @@ import ai.novaflow.agent.service.AgentService;
 import ai.novaflow.chat.service.ConversationService;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.ApiResult;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.domain.PageResult;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaMode;
+import cn.dev33.satoken.stp.StpUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -46,7 +48,7 @@ public class AgentController {
     private final AgentPublishService agentPublishService;
     private final ConversationService conversationService;
 
-    @SaCheckPermission(value = {"agent:read", "agent:create", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_READ, PermissionCodes.AGENT_CREATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<AgentVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -56,68 +58,67 @@ public class AgentController {
         return ApiResult.ok(agentService.page(page, pageSize, keyword, agentType));
     }
 
-    @SaCheckPermission(value = {"agent:read", "agent:create", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_READ, PermissionCodes.AGENT_CREATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<AgentVO> detail(@PathVariable Long id) {
         return ApiResult.ok(agentService.detail(id));
     }
 
-    @SaCheckPermission("agent:create")
+    @SaCheckPermission(PermissionCodes.AGENT_CREATE)
     @PostMapping
     public ApiResult<AgentVO> create(@Valid @RequestBody AgentSaveRequest request) {
         return ApiResult.ok(agentService.create(request));
     }
 
-    @SaCheckPermission("agent:edit")
+    @SaCheckPermission(PermissionCodes.AGENT_EDIT)
     @PutMapping("/{id}")
     public ApiResult<AgentVO> update(@PathVariable Long id, @Valid @RequestBody AgentSaveRequest request) {
         return ApiResult.ok(agentService.update(id, request));
     }
 
-    @SaCheckPermission("agent:delete")
+    @SaCheckPermission(PermissionCodes.AGENT_DELETE)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         agentService.delete(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"agent:publish", "agent:edit", "api:read"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.AGENT_EDIT, PermissionCodes.API_READ}, mode = SaMode.OR)
     @GetMapping("/{id}/publish")
     public ApiResult<AgentPublishVO> publishInfo(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.getPublishInfo(id));
     }
-
-    @SaCheckPermission("agent:publish")
+    @SaCheckPermission(PermissionCodes.AGENT_PUBLISH)
     @PostMapping("/{id}/publish")
     public ApiResult<AgentPublishVO> publish(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.publish(id));
     }
 
-    @SaCheckPermission("agent:publish")
+    @SaCheckPermission(PermissionCodes.AGENT_PUBLISH)
     @PostMapping("/{id}/unpublish")
     public ApiResult<AgentPublishVO> unpublish(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.unpublish(id));
     }
 
-    @SaCheckPermission(value = {"agent:publish", "api:create", "api:update"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.API_CREATE, PermissionCodes.API_UPDATE}, mode = SaMode.OR)
     @PostMapping("/{id}/rotate-api-key")
     public ApiResult<AgentPublishVO> rotateApiKey(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.rotateApiKey(id));
     }
 
-    @SaCheckPermission("agent:publish")
+    @SaCheckPermission(PermissionCodes.AGENT_PUBLISH)
     @PostMapping("/{id}/rotate-embed-token")
     public ApiResult<AgentPublishVO> rotateEmbedToken(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.rotateEmbedToken(id));
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/welcome")
     public ApiResult<AgentDebugChatVO> debugWelcome(@PathVariable Long id) {
         return ApiResult.ok(agentDebugService.welcome(id));
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping("/{id}/debug/chat")
     public ApiResult<AgentDebugChatVO> debugChat(
             @PathVariable Long id,
@@ -125,7 +126,7 @@ public class AgentController {
         return ApiResult.ok(agentDebugService.chat(id, request));
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping("/{id}/debug/attachments")
     public ApiResult<DebugAttachmentVO> uploadDebugAttachment(
             @PathVariable Long id,
@@ -134,7 +135,7 @@ public class AgentController {
         return ApiResult.ok(agentDebugAttachmentService.parse(file));
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping(value = "/{id}/debug/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter debugChatStream(
             @PathVariable Long id,
@@ -142,7 +143,7 @@ public class AgentController {
         return agentDebugService.streamChat(id, request);
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @DeleteMapping("/{id}/debug/conversation")
     public ApiResult<Void> clearDebugConversation(
             @PathVariable Long id,
@@ -152,7 +153,7 @@ public class AgentController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations")
     public ApiResult<PageResult<ConversationVO>> listDebugConversations(
             @PathVariable Long id,
@@ -160,16 +161,16 @@ public class AgentController {
             @RequestParam(defaultValue = "20") int pageSize) {
         agentService.getAgentEntityOrThrow(id);
         return ApiResult.ok(conversationService.pageConversations(
-                id, TenantContext.getTenantId(), "debug", null, page, pageSize));
+                id, TenantContext.getTenantId(), "debug", null, StpUtil.getLoginIdAsLong(), null, page, pageSize));
     }
 
-    @SaCheckPermission(value = {"agent:debug", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations/messages")
     public ApiResult<List<ConversationMessageVO>> listDebugConversationMessages(
             @PathVariable Long id,
             @RequestParam String conversationKey) {
         agentService.getAgentEntityOrThrow(id);
         return ApiResult.ok(conversationService.listMessages(
-                id, TenantContext.getTenantId(), conversationKey));
+                id, TenantContext.getTenantId(), conversationKey, null, StpUtil.getLoginIdAsLong()));
     }
 }

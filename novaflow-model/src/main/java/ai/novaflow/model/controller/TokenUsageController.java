@@ -1,4 +1,5 @@
 package ai.novaflow.model.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -22,7 +23,7 @@ public class TokenUsageController {
 
     private final TokenUsageLogService tokenUsageLogService;
 
-    @SaCheckPermission(value = {"monitor:view", "billing:view", "log:read"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.MONITOR_VIEW, PermissionCodes.BILLING_VIEW, PermissionCodes.LOG_READ}, mode = SaMode.OR)
     @GetMapping("/logs")
     public ApiResult<PageResult<TokenUsageLogVO>> pageLogs(
             @RequestParam(defaultValue = "1") int page,
@@ -34,7 +35,7 @@ public class TokenUsageController {
         return ApiResult.ok(tokenUsageLogService.page(page, pageSize, agentId, keyword, success, usageType));
     }
 
-    @SaCheckPermission("log:read")
+    @SaCheckPermission(PermissionCodes.LOG_READ)
     @GetMapping("/logs/export")
     public ResponseEntity<byte[]> exportLogs(
             @RequestParam(required = false) Long agentId,

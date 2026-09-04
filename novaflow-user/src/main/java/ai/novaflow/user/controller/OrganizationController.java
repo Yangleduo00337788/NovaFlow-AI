@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -35,51 +36,51 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    @SaCheckPermission("tenant:manage")
+    @SaCheckPermission(PermissionCodes.TENANT_MANAGE)
     @GetMapping("/tenant")
     public ApiResult<TenantVO> tenant() {
         return ApiResult.ok(organizationService.getTenant());
     }
 
-    @SaCheckPermission("tenant:manage")
+    @SaCheckPermission(PermissionCodes.TENANT_MANAGE)
     @PutMapping("/tenant")
     public ApiResult<TenantVO> updateTenant(@Valid @RequestBody TenantUpdateRequest request) {
         return ApiResult.ok(organizationService.updateTenant(request));
     }
 
-    @SaCheckPermission("tenant:delete")
+    @SaCheckPermission(PermissionCodes.TENANT_DELETE)
     @DeleteMapping("/tenant")
     public ApiResult<Void> deleteTenant() {
         organizationService.deleteOwnedTenant();
         return ApiResult.ok();
     }
 
-    @SaCheckPermission("tenant:delete")
+    @SaCheckPermission(PermissionCodes.TENANT_DELETE)
     @PostMapping("/tenant/transfer-owner")
     public ApiResult<Void> transferOwner(@Valid @RequestBody TransferOwnerRequest request) {
         organizationService.transferOwnership(request.getMemberId());
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"dashboard:view", "billing:view", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.DASHBOARD_VIEW, PermissionCodes.BILLING_VIEW, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/plan-summary")
     public ApiResult<TenantPlanSummaryVO> planSummary() {
         return ApiResult.ok(organizationService.getPlanSummary());
     }
 
-    @SaCheckPermission("tenant:manage")
+    @SaCheckPermission(PermissionCodes.TENANT_MANAGE)
     @GetMapping("/workspaces")
     public ApiResult<List<WorkspaceVO>> workspaces() {
         return ApiResult.ok(organizationService.listWorkspaces());
     }
 
-    @SaCheckPermission("tenant:manage")
+    @SaCheckPermission(PermissionCodes.TENANT_MANAGE)
     @PostMapping("/workspaces")
     public ApiResult<WorkspaceVO> createWorkspace(@Valid @RequestBody WorkspaceSaveRequest request) {
         return ApiResult.ok(organizationService.createWorkspace(request));
     }
 
-    @SaCheckPermission("tenant:manage")
+    @SaCheckPermission(PermissionCodes.TENANT_MANAGE)
     @PutMapping("/workspaces/{id}")
     public ApiResult<WorkspaceVO> updateWorkspace(
             @PathVariable Long id,
@@ -87,14 +88,14 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.updateWorkspace(id, request));
     }
 
-    @SaCheckPermission("tenant:manage")
+    @SaCheckPermission(PermissionCodes.TENANT_MANAGE)
     @DeleteMapping("/workspaces/{id}")
     public ApiResult<Void> deleteWorkspace(@PathVariable Long id) {
         organizationService.deleteWorkspace(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"user:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/members")
     public ApiResult<PageResult<MemberVO>> members(
             @RequestParam(defaultValue = "1") int page,
@@ -104,13 +105,13 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.pageMembers(page, pageSize, keyword, departmentId));
     }
 
-    @SaCheckPermission(value = {"user:create", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_CREATE, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @PostMapping("/members/invite")
     public ApiResult<MemberVO> inviteMember(@Valid @RequestBody MemberInviteRequest request) {
         return ApiResult.ok(organizationService.inviteMember(request));
     }
 
-    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_UPDATE, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @PutMapping("/members/{id}")
     public ApiResult<MemberVO> updateMember(
             @PathVariable Long id,
@@ -118,7 +119,7 @@ public class OrganizationController {
         return ApiResult.ok(organizationService.updateMember(id, request));
     }
 
-    @SaCheckPermission(value = {"user:delete", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_DELETE, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @DeleteMapping("/members/{id}")
     public ApiResult<Void> removeMember(@PathVariable Long id) {
         organizationService.removeMember(id);

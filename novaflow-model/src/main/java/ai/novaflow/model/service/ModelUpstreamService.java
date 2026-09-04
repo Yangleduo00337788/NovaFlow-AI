@@ -1,6 +1,7 @@
 package ai.novaflow.model.service;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.UrlSafetyValidator;
 import ai.novaflow.model.domain.UpstreamModelDescriptor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +28,7 @@ public class ModelUpstreamService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(TIMEOUT)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
     public List<UpstreamModelDescriptor> listModels(String baseUrl, String apiKey) {
@@ -42,6 +44,7 @@ public class ModelUpstreamService {
         }
 
         String normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+        UrlSafetyValidator.validateHttpUrl(normalizedBaseUrl);
         try {
             HttpResponse<String> response = httpClient.send(
                     buildListModelsRequest(normalizedBaseUrl, apiKey),

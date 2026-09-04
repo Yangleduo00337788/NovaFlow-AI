@@ -1,4 +1,5 @@
 package ai.novaflow.billing.service;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.billing.domain.dto.NotifyChannelSaveRequest;
 import ai.novaflow.billing.domain.vo.NotifyChannelVO;
@@ -113,7 +114,7 @@ public class NotifyChannelService {
     }
 
     private void requireManage(Long tenantId) {
-        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), tenantId, "billing:manage");
+        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), tenantId, PermissionCodes.BILLING_MANAGE);
     }
 
     private String trimToNull(String value) {

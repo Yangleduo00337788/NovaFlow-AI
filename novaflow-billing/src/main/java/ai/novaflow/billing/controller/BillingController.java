@@ -1,4 +1,6 @@
 package ai.novaflow.billing.controller;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.billing.domain.dto.BillingAlertSaveRequest;
 import ai.novaflow.billing.domain.dto.BillingQuotaUpdateRequest;
@@ -48,13 +50,13 @@ public class BillingController {
     private final BillingExportService billingExportService;
     private final NotifyChannelService notifyChannelService;
 
-    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.BILLING_VIEW, PermissionCodes.BILLING_MANAGE}, mode = SaMode.OR)
     @GetMapping("/overview")
     public ApiResult<BillingOverviewVO> overview(@RequestParam(required = false) String month) {
         return ApiResult.ok(billingService.getOverview(month));
     }
 
-    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.BILLING_VIEW, PermissionCodes.BILLING_MANAGE}, mode = SaMode.OR)
     @GetMapping("/allocation")
     public ApiResult<CostAllocationVO> allocation(
             @RequestParam(required = false) String month,
@@ -62,46 +64,46 @@ public class BillingController {
         return ApiResult.ok(billingService.getAllocation(month, dimension));
     }
 
-    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.BILLING_VIEW, PermissionCodes.BILLING_MANAGE}, mode = SaMode.OR)
     @GetMapping("/quota")
     public ApiResult<BillingQuotaVO> quota() {
         return ApiResult.ok(billingService.getQuota());
     }
 
-    @SaCheckPermission("billing:manage")
+    @SaCheckPermission(PermissionCodes.BILLING_MANAGE)
     @PutMapping("/quota")
     public ApiResult<BillingQuotaVO> updateQuota(@Valid @RequestBody BillingQuotaUpdateRequest request) {
         return ApiResult.ok(billingService.updateQuota(request));
     }
 
-    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.BILLING_VIEW, PermissionCodes.BILLING_MANAGE}, mode = SaMode.OR)
     @GetMapping("/alerts")
     public ApiResult<List<BillingAlertVO>> alerts() {
-        return ApiResult.ok(billingAlertService.listAlerts(requireTenantId()));
+        return ApiResult.ok(billingAlertService.listAlerts(TenantContexts.requireTenantId()));
     }
 
-    @SaCheckPermission("billing:manage")
+    @SaCheckPermission(PermissionCodes.BILLING_MANAGE)
     @PutMapping("/alerts")
     public ApiResult<BillingAlertVO> saveAlert(@Valid @RequestBody BillingAlertSaveRequest request) {
         return ApiResult.ok(billingAlertService.saveAlert(
-                requireTenantId(),
+                TenantContexts.requireTenantId(),
                 StpUtil.getLoginIdAsLong(),
                 request));
     }
 
-    @SaCheckPermission("billing:manage")
+    @SaCheckPermission(PermissionCodes.BILLING_MANAGE)
     @GetMapping("/notify-channels")
     public ApiResult<NotifyChannelVO> notifyChannels() {
-        return ApiResult.ok(notifyChannelService.get(requireTenantId()));
+        return ApiResult.ok(notifyChannelService.get(TenantContexts.requireTenantId()));
     }
 
-    @SaCheckPermission("billing:manage")
+    @SaCheckPermission(PermissionCodes.BILLING_MANAGE)
     @PutMapping("/notify-channels")
     public ApiResult<NotifyChannelVO> saveNotifyChannels(@RequestBody NotifyChannelSaveRequest request) {
-        return ApiResult.ok(notifyChannelService.save(requireTenantId(), request));
+        return ApiResult.ok(notifyChannelService.save(TenantContexts.requireTenantId(), request));
     }
 
-    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.BILLING_VIEW, PermissionCodes.BILLING_MANAGE}, mode = SaMode.OR)
     @GetMapping("/records")
     public ApiResult<PageResult<TokenUsageLogVO>> records(
             @RequestParam(defaultValue = "1") int page,
@@ -113,12 +115,12 @@ public class BillingController {
         return ApiResult.ok(billingService.pageRecords(page, pageSize, agentId, usageType, month, keyword));
     }
 
-    @SaCheckPermission(value = {"billing:view", "billing:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.BILLING_VIEW, PermissionCodes.BILLING_MANAGE}, mode = SaMode.OR)
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(
             @RequestParam(required = false) String month,
             @RequestParam(defaultValue = "excel") String format) throws IOException {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         String period = month != null ? month.trim() : java.time.YearMonth.now().toString();
         byte[] data;
         String filename;
@@ -140,11 +142,4 @@ public class BillingController {
                 .body(data);
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

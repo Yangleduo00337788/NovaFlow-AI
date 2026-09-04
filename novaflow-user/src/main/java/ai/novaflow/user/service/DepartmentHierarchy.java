@@ -37,4 +37,18 @@ final class DepartmentHierarchy {
         }
         return depth;
     }
+
+    static int subtreeHeight(Long rootId, Map<Long, Long> parentById) {
+        if (rootId == null) {
+            return 0;
+        }
+        int rootDepth = depthOf(rootId, parentById);
+        int maxDepth = rootDepth;
+        for (Long nodeId : parentById.keySet()) {
+            if (isSelfOrDescendant(rootId, nodeId, parentById)) {
+                maxDepth = Math.max(maxDepth, depthOf(nodeId, parentById));
+            }
+        }
+        return maxDepth - rootDepth + 1;
+    }
 }

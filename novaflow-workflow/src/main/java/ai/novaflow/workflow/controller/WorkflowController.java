@@ -1,6 +1,7 @@
 package ai.novaflow.workflow.controller;
 
 import ai.novaflow.common.domain.ApiResult;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
 import ai.novaflow.workflow.domain.dto.WorkflowRunRequest;
@@ -35,7 +36,7 @@ public class WorkflowController {
     private final WorkflowService workflowService;
     private final WorkflowExecutionService workflowExecutionService;
 
-    @SaCheckPermission(value = {"workflow:read", "workflow:create", "workflow:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.WORKFLOW_READ, PermissionCodes.WORKFLOW_CREATE, PermissionCodes.WORKFLOW_EDIT}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<WorkflowVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -45,25 +46,25 @@ public class WorkflowController {
         return ApiResult.ok(workflowService.page(page, pageSize, keyword, applicationId));
     }
 
-    @SaCheckPermission(value = {"workflow:read", "workflow:create", "workflow:edit", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.WORKFLOW_READ, PermissionCodes.WORKFLOW_CREATE, PermissionCodes.WORKFLOW_EDIT, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<WorkflowVO>> options(@RequestParam(required = false) Long applicationId) {
         return ApiResult.ok(workflowService.listPublishedOptions(applicationId));
     }
 
-    @SaCheckPermission(value = {"workflow:read", "workflow:create", "workflow:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.WORKFLOW_READ, PermissionCodes.WORKFLOW_CREATE, PermissionCodes.WORKFLOW_EDIT}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<WorkflowDetailVO> detail(@PathVariable Long id) {
         return ApiResult.ok(workflowService.detail(id));
     }
 
-    @SaCheckPermission("workflow:create")
+    @SaCheckPermission(PermissionCodes.WORKFLOW_CREATE)
     @PostMapping
     public ApiResult<WorkflowDetailVO> create(@Valid @RequestBody WorkflowSaveRequest request) {
         return ApiResult.ok(workflowService.create(request));
     }
 
-    @SaCheckPermission("workflow:edit")
+    @SaCheckPermission(PermissionCodes.WORKFLOW_EDIT)
     @PutMapping("/{id}")
     public ApiResult<WorkflowDetailVO> update(
             @PathVariable Long id,
@@ -71,13 +72,13 @@ public class WorkflowController {
         return ApiResult.ok(workflowService.update(id, request));
     }
 
-    @SaCheckPermission("workflow:publish")
+    @SaCheckPermission(PermissionCodes.WORKFLOW_PUBLISH)
     @PostMapping("/{id}/publish")
     public ApiResult<WorkflowDetailVO> publish(@PathVariable Long id) {
         return ApiResult.ok(workflowService.publish(id));
     }
 
-    @SaCheckPermission(value = {"workflow:execute", "workflow:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.WORKFLOW_EXECUTE, PermissionCodes.WORKFLOW_EDIT}, mode = SaMode.OR)
     @PostMapping("/{id}/run")
     public ApiResult<WorkflowRunResultVO> run(
             @PathVariable Long id,
@@ -93,7 +94,7 @@ public class WorkflowController {
         return StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
     }
 
-    @SaCheckPermission("workflow:delete")
+    @SaCheckPermission(PermissionCodes.WORKFLOW_DELETE)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         workflowService.delete(id);

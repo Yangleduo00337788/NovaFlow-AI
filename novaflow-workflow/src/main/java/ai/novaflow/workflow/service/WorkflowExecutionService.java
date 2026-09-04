@@ -1,4 +1,5 @@
 package ai.novaflow.workflow.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.telemetry.NovaFlowTracer;
 import ai.novaflow.common.telemetry.NoopNovaFlowTracer;
@@ -32,7 +33,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -55,28 +56,43 @@ public class WorkflowExecutionService {
     private final WorkflowNodeProcessorImpl workflowNodeProcessor;
     private final WorkflowLiteFlowExecutor workflowLiteFlowExecutor;
     private final ObjectProvider<NovaFlowTracer> novaFlowTracer;
+    private final TransactionTemplate transactionTemplate;
 
     private NovaFlowTracer tracer() {
         NovaFlowTracer tracer = novaFlowTracer.getIfAvailable();
         return tracer != null ? tracer : NoopNovaFlowTracer.INSTANCE;
     }
 
-    @Transactional
     public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request) {
         return run(workflowId, request, WorkflowRunOptions.builder().build());
     }
 
-    @Transactional
     public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request, Long triggeredByUserId) {
         return run(workflowId, request, WorkflowRunOptions.builder().triggeredByUserId(triggeredByUserId).build());
     }
 
-    @Transactional
     public WorkflowRunResultVO run(Long workflowId, WorkflowRunRequest request, WorkflowRunOptions options) {
         WorkflowRunOptions runOptions = options != null ? options : WorkflowRunOptions.builder().build();
         Long triggeredByUserId = runOptions.getTriggeredByUserId();
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         modelUsageService.checkMonthlyTokenQuota(tenantId);
+        boolean quotaReserved = true;
+        try {
+            return executeRun(workflowId, request, runOptions, triggeredByUserId, tenantId);
+        } catch (RuntimeException ex) {
+            if (quotaReserved) {
+                modelUsageService.releaseMonthlyTokenQuota(tenantId);
+            }
+            throw ex;
+        }
+    }
+
+    private WorkflowRunResultVO executeRun(
+            Long workflowId,
+            WorkflowRunRequest request,
+            WorkflowRunOptions runOptions,
+            Long triggeredByUserId,
+            Long tenantId) {
         WorkflowEntity workflow = getWorkflowOrThrow(workflowId, tenantId);
         List<WorkflowNodeEntity> nodes = listNodes(workflowId, tenantId);
         List<WorkflowEdgeEntity> edges = listEdges(workflowId, tenantId);
@@ -96,28 +112,36 @@ public class WorkflowExecutionService {
             LocalDateTime startedAt = LocalDateTime.now();
             long startedMs = System.currentTimeMillis();
 
-            WorkflowExecutionEntity execution = new WorkflowExecutionEntity();
-            execution.setTenantId(tenantId);
-            execution.setWorkflowId(workflowId);
-            execution.setExecutionId(executionId);
-            execution.setStatus(WorkflowExecutionStatus.RUNNING);
-            execution.setInputData(writeJson(Map.of("input", input)));
-            execution.setStartedAt(startedAt);
-            execution.setTriggeredBy(triggeredByUserId);
-            workflowExecutionMapper.insert(execution);
+            WorkflowExecutionEntity execution = transactionTemplate.execute(status -> {
+                WorkflowExecutionEntity entity = new WorkflowExecutionEntity();
+                entity.setTenantId(tenantId);
+                entity.setWorkflowId(workflowId);
+                entity.setExecutionId(executionId);
+                entity.setStatus(WorkflowExecutionStatus.RUNNING);
+                entity.setInputData(writeJson(Map.of("input", input)));
+                entity.setStartedAt(startedAt);
+                entity.setTriggeredBy(triggeredByUserId);
+                workflowExecutionMapper.insert(entity);
+                return entity;
+            });
 
             ExecutionOutcome outcome = runWithLiteFlow(nodes, edges, input, tenantId, executionId, triggeredByUserId);
 
             int durationMs = (int) (System.currentTimeMillis() - startedMs);
-            execution.setStatus(outcome.status());
-            execution.setOutputData(writeJson(Map.of("output", outcome.output() != null ? outcome.output() : "")));
-            execution.setErrorMessage(outcome.errorMessage());
-            execution.setFinishedAt(LocalDateTime.now());
-            execution.setDurationMs(durationMs);
-            workflowExecutionMapper.update(execution);
+            transactionTemplate.executeWithoutResult(status -> {
+                persistStepLogs(tenantId, executionId, outcome.stepSnapshots());
+                execution.setStatus(outcome.status());
+                execution.setOutputData(writeJson(Map.of("output", outcome.output() != null ? outcome.output() : "")));
+                execution.setErrorMessage(outcome.errorMessage());
+                execution.setFinishedAt(LocalDateTime.now());
+                execution.setDurationMs(durationMs);
+                workflowExecutionMapper.update(execution);
+            });
 
             if (runOptions.isRecordUsage()) {
                 recordModelUsages(workflow, triggeredByUserId, runOptions.getAgentId(), outcome.modelUsages());
+            } else {
+                modelUsageService.releaseMonthlyTokenQuota(tenantId);
             }
 
             span.setAttribute("workflow.status", String.valueOf(outcome.status()));
@@ -129,7 +153,7 @@ public class WorkflowExecutionService {
                     .durationMs(durationMs)
                     .tokensUsed(outcome.totalTokens())
                     .modelUsages(outcome.modelUsages())
-                    .steps(outcome.steps())
+                    .steps(toStepVos(outcome.stepSnapshots()))
                     .build();
         } catch (RuntimeException ex) {
             span.recordError(ex);
@@ -162,15 +186,19 @@ public class WorkflowExecutionService {
         }
 
         workflowLiteFlowExecutor.execute(executionId, elExpression, context);
-        persistStepLogs(tenantId, executionId, context.getSteps());
 
         Integer status = context.isFailed()
                 ? WorkflowExecutionStatus.FAILED
                 : WorkflowExecutionStatus.SUCCESS;
         List<WorkflowModelUsageVO> modelUsages = extractModelUsages(context.getModelUsages());
-        List<WorkflowRunStepVO> steps = toStepVos(context.getSteps());
         String output = context.getPayload();
-        return new ExecutionOutcome(status, output, context.getErrorMessage(), context.getTotalTokens(), modelUsages, steps);
+        return new ExecutionOutcome(
+                status,
+                output,
+                context.getErrorMessage(),
+                context.getTotalTokens(),
+                modelUsages,
+                context.getSteps());
     }
 
     private void persistStepLogs(Long tenantId, String executionId, List<WorkflowStepSnapshot> snapshots) {
@@ -271,12 +299,16 @@ public class WorkflowExecutionService {
             Long agentId,
             List<WorkflowModelUsageVO> modelUsages) {
         if (modelUsages == null || modelUsages.isEmpty()) {
+            modelUsageService.releaseMonthlyTokenQuota(workflow.getTenantId());
             return;
         }
+        long totalTokens = 0L;
         for (WorkflowModelUsageVO usage : modelUsages) {
             if (usage.getModelConfigId() == null || safeInt(usage.getTotalTokens()) <= 0) {
                 continue;
             }
+            int tokens = safeInt(usage.getTotalTokens());
+            totalTokens += tokens;
             modelUsageService.record(ModelUsageRecordRequest.builder()
                     .tenantId(workflow.getTenantId())
                     .applicationId(workflow.getApplicationId())
@@ -286,23 +318,17 @@ public class WorkflowExecutionService {
                     .usageType("workflow")
                     .inputTokens(usage.getInputTokens())
                     .outputTokens(usage.getOutputTokens())
-                    .totalTokens(usage.getTotalTokens())
+                    .totalTokens(tokens)
                     .latencyMs(usage.getLatencyMs() != null ? usage.getLatencyMs().longValue() : null)
-                    .build());
+                    .build(), false);
         }
+        modelUsageService.finalizeWorkflowTokenQuota(workflow.getTenantId(), totalTokens);
     }
 
     private int safeInt(Integer value) {
         return value != null ? value : 0;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private record ExecutionOutcome(
             Integer status,
@@ -310,6 +336,6 @@ public class WorkflowExecutionService {
             String errorMessage,
             int totalTokens,
             List<WorkflowModelUsageVO> modelUsages,
-            List<WorkflowRunStepVO> steps) {
+            List<WorkflowStepSnapshot> stepSnapshots) {
     }
 }

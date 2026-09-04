@@ -1,4 +1,5 @@
 package ai.novaflow.user.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
@@ -13,7 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +28,7 @@ public class ResourcePermissionAdminService {
     private final ResourceAccessService resourceAccessService;
 
     public List<ResourcePermissionEntity> list(String resourceType, Long resourceId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         return resourceAccessService.listByResource(tenantId, resourceType, resourceId);
     }
 
@@ -33,26 +38,42 @@ public class ResourcePermissionAdminService {
             Long resourceId,
             ResourcePermissionSaveRequest request
     ) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long operatorId = StpUtil.getLoginIdAsLong();
         LocalDateTime now = LocalDateTime.now();
 
-        List<ResourcePermissionEntity> existing = resourcePermissionMapper.selectListByQuery(
+        List<ResourcePermissionEntity> allRows = resourcePermissionMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
                         .eq("resource_type", resourceType)
                         .eq("resource_id", resourceId)
-                        .eq("is_deleted", 0)
         );
-        for (ResourcePermissionEntity entity : existing) {
-            entity.setIsDeleted(1);
-            entity.setUpdatedAt(now);
-            resourcePermissionMapper.update(entity);
+        Map<String, ResourcePermissionEntity> byKey = new LinkedHashMap<>();
+        for (ResourcePermissionEntity row : allRows) {
+            byKey.put(grantKey(row.getUserId(), row.getPermissionCode()), row);
         }
 
+        Set<String> desiredKeys = new HashSet<>();
         List<ResourcePermissionEntity> saved = new ArrayList<>();
         if (request.getGrants() != null) {
             for (ResourcePermissionSaveRequest.GrantItem grant : request.getGrants()) {
+                if (grant.getUserId() == null || grant.getPermissionCode() == null) {
+                    continue;
+                }
+                String key = grantKey(grant.getUserId(), grant.getPermissionCode());
+                if (!desiredKeys.add(key)) {
+                    continue;
+                }
+                ResourcePermissionEntity existing = byKey.get(key);
+                if (existing != null) {
+                    if (existing.getIsDeleted() == null || existing.getIsDeleted() != 0) {
+                        existing.setIsDeleted(0);
+                        existing.setUpdatedAt(now);
+                        resourcePermissionMapper.update(existing);
+                    }
+                    saved.add(existing);
+                    continue;
+                }
                 ResourcePermissionEntity entity = new ResourcePermissionEntity();
                 entity.setTenantId(tenantId);
                 entity.setResourceType(resourceType);
@@ -64,17 +85,26 @@ public class ResourcePermissionAdminService {
                 entity.setUpdatedAt(now);
                 entity.setIsDeleted(0);
                 resourcePermissionMapper.insert(entity);
+                byKey.put(key, entity);
                 saved.add(entity);
+            }
+        }
+
+        for (ResourcePermissionEntity row : allRows) {
+            if (row.getIsDeleted() != null && row.getIsDeleted() == 0) {
+                String key = grantKey(row.getUserId(), row.getPermissionCode());
+                if (!desiredKeys.contains(key)) {
+                    row.setIsDeleted(1);
+                    row.setUpdatedAt(now);
+                    resourcePermissionMapper.update(row);
+                }
             }
         }
         return saved;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
+    private static String grantKey(Long userId, String permissionCode) {
+        return userId + "|" + permissionCode;
     }
+
 }

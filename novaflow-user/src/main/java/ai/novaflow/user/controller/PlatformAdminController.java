@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -25,7 +26,7 @@ public class PlatformAdminController {
 
     private final PlatformAdminService platformAdminService;
 
-    @SaCheckPermission("platform:manage")
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
     @GetMapping("/tenants")
     public ApiResult<PageResult<PlatformTenantVO>> pageTenants(
             @RequestParam(defaultValue = "1") int page,
@@ -34,13 +35,13 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.pageTenants(page, pageSize, keyword));
     }
 
-    @SaCheckPermission("platform:manage")
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
     @GetMapping("/tenants/{id}")
     public ApiResult<PlatformTenantVO> getTenant(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.getTenant(id));
     }
 
-    @SaCheckPermission("platform:manage")
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
     @PutMapping("/tenants/{id}")
     public ApiResult<PlatformTenantVO> updateTenant(
             @PathVariable Long id,
@@ -48,14 +49,14 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.updateTenant(id, request));
     }
 
-    @SaCheckPermission("platform:manage")
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
     @DeleteMapping("/tenants/{id}")
     public ApiResult<Void> deleteTenant(@PathVariable Long id) {
         platformAdminService.deleteTenant(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission("platform:manage")
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
     @GetMapping("/stats")
     public ApiResult<PlatformGlobalStatsVO> globalStats() {
         return ApiResult.ok(platformAdminService.globalStats());

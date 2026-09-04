@@ -1,9 +1,11 @@
 package ai.novaflow.knowledge.service;
 
 import ai.novaflow.common.audit.AuditRecorder;
-import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.knowledge.domain.dto.KnowledgeBaseSaveRequest;
 import ai.novaflow.knowledge.domain.vo.KnowledgeBaseVO;
@@ -15,7 +17,6 @@ import ai.novaflow.knowledge.storage.DocumentStorageService;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.support.TenantQuotas;
-import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
 import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
@@ -44,7 +45,7 @@ public class KnowledgeBaseService {
     public PageResult<KnowledgeBaseVO> page(int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -53,11 +54,12 @@ public class KnowledgeBaseService {
         }
         query.orderBy("updated_at", false);
 
-        Page<KnowledgeBaseEntity> result = knowledgeBaseMapper.paginate(Page.of(page, pageSize), query);
         long userId = StpUtil.getLoginIdAsLong();
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.KNOWLEDGE, PermissionCodes.KNOWLEDGE_READ, "knowledge_base.id");
+
+        Page<KnowledgeBaseEntity> result = knowledgeBaseMapper.paginate(Page.of(page, pageSize), query);
         List<KnowledgeBaseVO> list = result.getRecords().stream()
-                .filter(entity -> resourceAccessService.canAccessResource(
-                        userId, tenantId, ResourceTypes.KNOWLEDGE, entity.getId(), "knowledge:read"))
                 .map(this::toVO)
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
@@ -65,7 +67,7 @@ public class KnowledgeBaseService {
 
     public KnowledgeBaseVO detail(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:read");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.KNOWLEDGE, id, PermissionCodes.KNOWLEDGE_READ);
         KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
         recordRecentAccess(entity);
         return toVO(entity);
@@ -73,12 +75,12 @@ public class KnowledgeBaseService {
 
     public void requireSearchAccess(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:search");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.KNOWLEDGE, id, PermissionCodes.KNOWLEDGE_SEARCH);
     }
 
     @Transactional
     public KnowledgeBaseVO create(KnowledgeBaseSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
         assertKnowledgeQuota(tenantId);
         ensureNameUnique(tenantId, request.getKbName(), null);
@@ -108,7 +110,7 @@ public class KnowledgeBaseService {
     @Transactional
     public KnowledgeBaseVO update(Long id, KnowledgeBaseSaveRequest request) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:create");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.KNOWLEDGE, id, PermissionCodes.KNOWLEDGE_CREATE);
         KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
         ensureNameUnique(entity.getTenantId(), request.getKbName(), id);
         applyRequest(entity, request);
@@ -120,7 +122,7 @@ public class KnowledgeBaseService {
     @Transactional
     public void delete(Long id) {
         resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), requireTenantId(), ResourceTypes.KNOWLEDGE, id, "knowledge:delete");
+                StpUtil.getLoginIdAsLong(), TenantContexts.requireTenantId(), ResourceTypes.KNOWLEDGE, id, PermissionCodes.KNOWLEDGE_DELETE);
         KnowledgeBaseEntity entity = getKnowledgeBaseOrThrow(id);
         List<DocumentEntity> documents = documentMapper.selectListByQuery(
                 QueryWrapper.create()
@@ -144,7 +146,7 @@ public class KnowledgeBaseService {
         KnowledgeBaseEntity entity = knowledgeBaseMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -197,14 +199,6 @@ public class KnowledgeBaseService {
                 entity.getId(),
                 entity.getKbName()
         );
-    }
-
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
     }
 
     private void assertKnowledgeQuota(Long tenantId) {

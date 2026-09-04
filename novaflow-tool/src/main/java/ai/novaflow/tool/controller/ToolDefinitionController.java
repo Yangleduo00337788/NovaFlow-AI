@@ -1,4 +1,5 @@
 package ai.novaflow.tool.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -30,7 +31,7 @@ public class ToolDefinitionController {
 
     private final ToolDefinitionService toolDefinitionService;
 
-    @SaCheckPermission(value = {"tool:read", "agent:edit", "agent:create"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_READ, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<ToolDefinitionVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -40,25 +41,25 @@ public class ToolDefinitionController {
         return ApiResult.ok(toolDefinitionService.page(page, pageSize, keyword, toolType));
     }
 
-    @SaCheckPermission(value = {"tool:read", "agent:edit", "agent:create"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_READ, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE}, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<ToolDefinitionVO>> options(@RequestParam(required = false) String keyword) {
         return ApiResult.ok(toolDefinitionService.listEnabled(keyword));
     }
 
-    @SaCheckPermission(value = {"tool:read", "agent:edit", "agent:create"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_READ, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<ToolDefinitionVO> detail(@PathVariable Long id) {
         return ApiResult.ok(toolDefinitionService.detail(id));
     }
 
-    @SaCheckPermission(value = {"tool:create", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_CREATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping
     public ApiResult<ToolDefinitionVO> create(@Valid @RequestBody ToolDefinitionSaveRequest request) {
         return ApiResult.ok(toolDefinitionService.create(request));
     }
 
-    @SaCheckPermission(value = {"tool:update", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_UPDATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PutMapping("/{id}")
     public ApiResult<ToolDefinitionVO> update(
             @PathVariable Long id,
@@ -66,14 +67,14 @@ public class ToolDefinitionController {
         return ApiResult.ok(toolDefinitionService.update(id, request));
     }
 
-    @SaCheckPermission(value = {"tool:delete", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_DELETE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         toolDefinitionService.delete(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"tool:update", "agent:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.TOOL_UPDATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @PostMapping("/{id}/test")
     public ApiResult<ToolTestResultVO> test(
             @PathVariable Long id,

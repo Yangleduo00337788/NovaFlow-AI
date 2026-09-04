@@ -1,4 +1,5 @@
 package ai.novaflow.observability.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
@@ -41,7 +42,7 @@ public class TraceService {
             String spanType,
             Integer status,
             String timeRange) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         int safePage = Math.max(page, 1);
         int safePageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (safePage - 1) * safePageSize;
@@ -93,7 +94,7 @@ public class TraceService {
         if (!StringUtils.hasText(traceId)) {
             throw new BusinessException("Trace ID 不能为空");
         }
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         String trimmedTraceId = traceId.trim();
 
         TraceSpanRow workflowSpan = traceMapper.findWorkflowSpan(tenantId, trimmedTraceId);
@@ -128,7 +129,7 @@ public class TraceService {
     }
 
     public ObservabilityOverviewVO getObservabilityOverview() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         long todayCalls = safeLong(monitorStatsMapper.countCallsToday(tenantId));
         long failedCalls = safeLong(traceMapper.countFailedCallsToday(tenantId));
         long avgLatency = safeLong(monitorStatsMapper.avgLatencyToday(tenantId));
@@ -392,11 +393,4 @@ public class TraceService {
         return value != null ? value : 0L;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

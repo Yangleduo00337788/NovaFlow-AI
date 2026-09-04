@@ -1,4 +1,6 @@
 package ai.novaflow.rag.controller;
+import ai.novaflow.common.context.TenantContexts;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.ApiResult;
@@ -24,20 +26,13 @@ public class KnowledgeRetrievalController {
     private final KnowledgeRetrievalService knowledgeRetrievalService;
 
     @SaCheckPermission(value = {
-            "knowledge:read", "knowledge:search", "knowledge:create", "knowledge:upload"
+            PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_SEARCH, PermissionCodes.KNOWLEDGE_CREATE, PermissionCodes.KNOWLEDGE_UPLOAD
     }, mode = SaMode.OR)
     @PostMapping("/{id}/retrieve")
     public ApiResult<RetrievalTestResultVO> retrieve(
             @PathVariable Long id,
             @Valid @RequestBody RetrievalTestRequest request) {
-        return ApiResult.ok(knowledgeRetrievalService.testRetrieve(id, requireTenantId(), request));
+        return ApiResult.ok(knowledgeRetrievalService.testRetrieve(id, TenantContexts.requireTenantId(), request));
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

@@ -48,7 +48,7 @@ public class WorkflowNodeProcessorImpl implements WorkflowNodeProcessor {
         Long tenantId = context.getTenantId();
         return switch (node.getNodeType()) {
             case WorkflowNodeType.START -> success(input);
-            case WorkflowNodeType.LLM -> executeLlmNode(node, input, tenantId);
+            case WorkflowNodeType.LLM -> executeLlmNode(node, input, context);
             case WorkflowNodeType.KNOWLEDGE -> executeKnowledgeNode(node, input, tenantId);
             case WorkflowNodeType.TOOL -> executeToolNode(node, input, tenantId);
             case WorkflowNodeType.AGENT -> executeAgentNode(node, input, context);
@@ -89,11 +89,18 @@ public class WorkflowNodeProcessorImpl implements WorkflowNodeProcessor {
                 .build();
     }
 
-    private WorkflowNodeProcessResult executeLlmNode(WorkflowNodeDefinition node, String input, Long tenantId) {
+    private WorkflowNodeProcessResult executeLlmNode(
+            WorkflowNodeDefinition node,
+            String input,
+            WorkflowExecutionContext context) {
+        Long tenantId = context.getTenantId();
         Map<String, Object> config = parseConfig(node.getNodeConfig());
         Long modelConfigId = toLong(config.get("modelConfigId"));
         String prompt = config.get("prompt") != null ? String.valueOf(config.get("prompt")) : "请处理以下输入：{{input}}";
         String userMessage = prompt.replace("{{input}}", input != null ? input : "");
+        String executionId = StringUtils.hasText(context.getExecutionId())
+                ? context.getExecutionId()
+                : "unknown";
 
         try {
             ResolvedModelConfig modelConfig = modelResolutionService.resolve(modelConfigId, tenantId);
@@ -101,7 +108,7 @@ public class WorkflowNodeProcessorImpl implements WorkflowNodeProcessor {
                     .modelConfig(modelConfig)
                     .systemPrompt("你是工作流中的 LLM 节点，请根据指令完成任务。")
                     .userMessage(userMessage)
-                    .conversationId("workflow-" + node.getWorkflowId() + "-" + node.getNodeId())
+                    .conversationId("workflow-" + executionId + "-" + node.getNodeId())
                     .memoryWindow(1)
                     .build());
             int tokensUsed = result.getTokensUsed() != null ? result.getTokensUsed() : 0;

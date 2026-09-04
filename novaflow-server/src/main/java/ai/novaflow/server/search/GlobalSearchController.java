@@ -1,4 +1,5 @@
 package ai.novaflow.server.search;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import cn.dev33.satoken.annotation.SaCheckPermission;
@@ -17,7 +18,7 @@ public class GlobalSearchController {
 
     private final GlobalSearchService globalSearchService;
 
-    @SaCheckPermission("search:global")
+    @SaCheckPermission(PermissionCodes.SEARCH_GLOBAL)
     @GetMapping
     public ApiResult<List<GlobalSearchItemVO>> search(
             @RequestParam String keyword,

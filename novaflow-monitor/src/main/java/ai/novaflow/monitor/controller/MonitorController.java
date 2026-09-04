@@ -1,4 +1,5 @@
 package ai.novaflow.monitor.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.monitor.domain.vo.MonitorOverviewVO;
@@ -10,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@SaCheckPermission("monitor:view")
+@SaCheckPermission(PermissionCodes.MONITOR_VIEW)
 @RequestMapping("/api/v1/monitor")
 @RequiredArgsConstructor
 public class MonitorController {

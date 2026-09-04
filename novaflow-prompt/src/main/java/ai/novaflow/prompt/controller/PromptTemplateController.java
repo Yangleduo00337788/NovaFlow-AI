@@ -1,4 +1,5 @@
 package ai.novaflow.prompt.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
@@ -32,7 +33,7 @@ public class PromptTemplateController {
     private final PromptTemplateService promptTemplateService;
 
     @SaCheckPermission(value = {
-            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+            PermissionCodes.PROMPT_READ, PermissionCodes.PROMPT_CREATE, PermissionCodes.PROMPT_EDIT, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE
     }, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<PromptTemplateVO>> page(
@@ -44,7 +45,7 @@ public class PromptTemplateController {
     }
 
     @SaCheckPermission(value = {
-            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+            PermissionCodes.PROMPT_READ, PermissionCodes.PROMPT_CREATE, PermissionCodes.PROMPT_EDIT, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE
     }, mode = SaMode.OR)
     @GetMapping("/options")
     public ApiResult<List<PromptTemplateVO>> options(@RequestParam(required = false) String keyword) {
@@ -52,7 +53,7 @@ public class PromptTemplateController {
     }
 
     @SaCheckPermission(value = {
-            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+            PermissionCodes.PROMPT_READ, PermissionCodes.PROMPT_CREATE, PermissionCodes.PROMPT_EDIT, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE
     }, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<PromptTemplateVO> detail(@PathVariable Long id) {
@@ -60,20 +61,20 @@ public class PromptTemplateController {
     }
 
     @SaCheckPermission(value = {
-            "prompt:read", "prompt:create", "prompt:edit", "agent:edit", "agent:create"
+            PermissionCodes.PROMPT_READ, PermissionCodes.PROMPT_CREATE, PermissionCodes.PROMPT_EDIT, PermissionCodes.AGENT_EDIT, PermissionCodes.AGENT_CREATE
     }, mode = SaMode.OR)
     @GetMapping("/{id}/versions")
     public ApiResult<List<PromptVersionVO>> versions(@PathVariable Long id) {
         return ApiResult.ok(promptTemplateService.listVersions(id));
     }
 
-    @SaCheckPermission("prompt:create")
+    @SaCheckPermission(PermissionCodes.PROMPT_CREATE)
     @PostMapping
     public ApiResult<PromptTemplateVO> create(@Valid @RequestBody PromptTemplateSaveRequest request) {
         return ApiResult.ok(promptTemplateService.create(request));
     }
 
-    @SaCheckPermission("prompt:edit")
+    @SaCheckPermission(PermissionCodes.PROMPT_EDIT)
     @PutMapping("/{id}")
     public ApiResult<PromptTemplateVO> update(
             @PathVariable Long id,
@@ -81,7 +82,7 @@ public class PromptTemplateController {
         return ApiResult.ok(promptTemplateService.update(id, request));
     }
 
-    @SaCheckPermission("prompt:edit")
+    @SaCheckPermission(PermissionCodes.PROMPT_EDIT)
     @PostMapping("/{id}/rollback")
     public ApiResult<PromptTemplateVO> rollback(
             @PathVariable Long id,
@@ -89,14 +90,14 @@ public class PromptTemplateController {
         return ApiResult.ok(promptTemplateService.rollback(id, version));
     }
 
-    @SaCheckPermission(value = {"prompt:delete", "prompt:edit"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.PROMPT_DELETE, PermissionCodes.PROMPT_EDIT}, mode = SaMode.OR)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         promptTemplateService.delete(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"prompt:edit", "prompt:create"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.PROMPT_EDIT, PermissionCodes.PROMPT_CREATE}, mode = SaMode.OR)
     @PostMapping("/{id}/test")
     public ApiResult<PromptTestResultVO> test(
             @PathVariable Long id,

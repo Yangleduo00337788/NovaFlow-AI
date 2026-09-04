@@ -117,6 +117,7 @@ novaflow:
 
   mcp:
     allowed-commands: ${NOVAFLOW_MCP_ALLOWED_COMMANDS:npx,node,uvx,uv,python,python3}
+    stdio-enabled: ${NOVAFLOW_MCP_STDIO_ENABLED:true}
     node-path: ${NOVAFLOW_NODE_PATH:}
 
   storage:

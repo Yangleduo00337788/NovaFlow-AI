@@ -1,4 +1,5 @@
 package ai.novaflow.agent.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.agent.domain.AgentStatus;
 import ai.novaflow.agent.domain.vo.AgentPublishVO;
@@ -33,18 +34,12 @@ public class AgentPublishService {
         AgentEntity agent = agentService.getAgentEntityOrThrow(agentId);
         AgentApiKeyEntity apiKey = agentApiKeyService.findByAgentId(agentId);
         AgentEmbedTokenEntity embedToken = agentEmbedTokenService.findByAgentId(agentId);
-        if (agent.getStatus() == AgentStatus.PUBLISHED
-                && (embedToken == null || embedToken.getStatus() == null || embedToken.getStatus() != 1)) {
-            String rawEmbedToken = agentEmbedTokenService.issueEmbedToken(agentId, agent.getTenantId());
-            embedToken = agentEmbedTokenService.findByAgentId(agentId);
-            return buildPublishVO(agent, apiKey, embedToken, null, rawEmbedToken);
-        }
         return buildPublishVO(agent, apiKey, embedToken, null, null);
     }
 
     @Transactional
     public AgentPublishVO publish(Long agentId) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         AgentEntity agent = lockAgentForUpdate(agentId, tenantId);
         AgentVO detail = agentService.detail(agentId);
         validatePublishable(detail);
@@ -144,7 +139,7 @@ public class AgentPublishService {
             if (agent.getWorkflowId() == null) {
                 throw new BusinessException("Workflow Agent 发布前需绑定工作流");
             }
-            workflowService.requirePublishedWorkflow(agent.getWorkflowId(), requireTenantId());
+            workflowService.requirePublishedWorkflow(agent.getWorkflowId(), TenantContexts.requireTenantId());
             return;
         }
         if (!"chat".equals(agent.getAgentType()) && !"rag".equals(agent.getAgentType())) {
@@ -182,13 +177,6 @@ public class AgentPublishService {
         return version != null ? version : 0;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private AgentEntity lockAgentForUpdate(Long agentId, Long tenantId) {
         AgentEntity agent = agentMapper.selectOneByQuery(

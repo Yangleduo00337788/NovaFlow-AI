@@ -1,4 +1,5 @@
 package ai.novaflow.dashboard.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
@@ -69,7 +70,7 @@ public class DashboardService {
     private final ObjectMapper objectMapper;
 
     public DashboardOverviewVO getOverview() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
 
         long appCount = safeLong(dashboardStatsMapper.countApplications(tenantId));
@@ -159,7 +160,7 @@ public class DashboardService {
         if (!StpUtil.isLogin()) {
             throw new BusinessException("请先登录");
         }
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.getLoginIdAsLong();
         String resourceName = request.getResourceName() != null ? request.getResourceName().trim() : "未命名资源";
         if (resourceName.isEmpty()) {
@@ -175,7 +176,7 @@ public class DashboardService {
     }
 
     public List<DashboardOverviewVO.RecentItemVO> listRecentItems(int limit) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
         if (userId == null) {
             return List.of();
@@ -186,7 +187,7 @@ public class DashboardService {
     }
 
     public List<DashboardOverviewVO.RecentItemVO> listFavoriteItems(int limit) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         Long userId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
         if (userId == null) {
             return List.of();
@@ -196,7 +197,7 @@ public class DashboardService {
     }
 
     public List<DashboardOverviewVO.PublishedWorkflowVO> listPublishedWorkflows(int limit) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         int safeLimit = Math.min(Math.max(limit, 1), 50);
         List<PublishedWorkflowRow> rows = dashboardStatsMapper.listPublishedWorkflows(tenantId, safeLimit);
         if (rows == null || rows.isEmpty()) {
@@ -431,7 +432,7 @@ public class DashboardService {
         if (workflowId == null) {
             throw new BusinessException("工作流 ID 不能为空");
         }
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         WorkflowRuntimeRow workflow = dashboardStatsMapper.findWorkflow(tenantId, workflowId);
         if (workflow == null) {
             throw new BusinessException("工作流不存在");
@@ -852,13 +853,6 @@ public class DashboardService {
         return value != null ? value : BigDecimal.ZERO;
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 
     private DashboardOverviewVO.StatCardVO card(String key, String label, String value, String change, boolean up) {
         return DashboardOverviewVO.StatCardVO.builder().key(key).label(label).value(value).change(change).up(up).build();

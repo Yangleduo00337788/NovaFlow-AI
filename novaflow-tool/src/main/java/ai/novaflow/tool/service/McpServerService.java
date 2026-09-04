@@ -1,4 +1,5 @@
 package ai.novaflow.tool.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
@@ -47,7 +48,7 @@ public class McpServerService {
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -105,7 +106,7 @@ public class McpServerService {
 
     @Transactional
     public McpServerVO create(McpServerSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ensureNameUnique(tenantId, request.getServerName(), null);
         McpServerConfig config = McpServerConfig.parse(objectMapper, request.getServerName(), request.getServerConfig());
         mcpCommandValidator.validate(config);
@@ -135,7 +136,7 @@ public class McpServerService {
     }
 
     private McpServerEntity getOrThrow(Long id) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         McpServerEntity entity = mcpServerMapper.selectOneById(id);
         if (entity == null || entity.getIsDeleted() != null && entity.getIsDeleted() != 0
                 || !tenantId.equals(entity.getTenantId())) {
@@ -277,11 +278,4 @@ public class McpServerService {
         };
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

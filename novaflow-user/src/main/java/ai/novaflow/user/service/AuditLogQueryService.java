@@ -1,4 +1,5 @@
 package ai.novaflow.user.service;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
@@ -37,7 +38,7 @@ public class AuditLogQueryService {
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
         long userId = StpUtil.getLoginIdAsLong();
         Long tenantId = TenantContext.getTenantId();
-        permissionService.requireAnyPermission(userId, tenantId, "audit:view", "platform:manage");
+        permissionService.requireAnyPermission(userId, tenantId, PermissionCodes.AUDIT_VIEW, PermissionCodes.PLATFORM_MANAGE);
 
         QueryWrapper query = QueryWrapper.create();
         if (!isSuperAdmin(userId, tenantId)) {

@@ -1,6 +1,7 @@
 package ai.novaflow.model.service;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.UrlSafetyValidator;
 import ai.novaflow.model.domain.ModelProviderPreset;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.entity.ModelConfigEntity;
@@ -102,6 +103,9 @@ public class ModelResolutionService {
         String baseUrl = StringUtils.hasText(provider.getBaseUrl())
                 ? provider.getBaseUrl()
                 : preset.getDefaultBaseUrl();
+        if (StringUtils.hasText(baseUrl)) {
+            UrlSafetyValidator.validateHttpUrl(baseUrl.trim());
+        }
 
         return ResolvedModelConfig.builder()
                 .modelConfigId(config.getId())

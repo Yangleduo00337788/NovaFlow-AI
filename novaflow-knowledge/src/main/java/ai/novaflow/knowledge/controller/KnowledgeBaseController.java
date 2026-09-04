@@ -1,6 +1,7 @@
 package ai.novaflow.knowledge.controller;
 
 import ai.novaflow.common.domain.ApiResult;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.knowledge.domain.dto.KnowledgeBaseSaveRequest;
 import ai.novaflow.knowledge.domain.vo.DocumentVO;
@@ -30,7 +31,7 @@ public class KnowledgeBaseController {
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentService documentService;
 
-    @SaCheckPermission(value = {"knowledge:read", "knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_CREATE, PermissionCodes.KNOWLEDGE_UPLOAD}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<PageResult<KnowledgeBaseVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -39,19 +40,19 @@ public class KnowledgeBaseController {
         return ApiResult.ok(knowledgeBaseService.page(page, pageSize, keyword));
     }
 
-    @SaCheckPermission(value = {"knowledge:read", "knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_CREATE, PermissionCodes.KNOWLEDGE_UPLOAD}, mode = SaMode.OR)
     @GetMapping("/{id}")
     public ApiResult<KnowledgeBaseVO> detail(@PathVariable Long id) {
         return ApiResult.ok(knowledgeBaseService.detail(id));
     }
 
-    @SaCheckPermission("knowledge:create")
+    @SaCheckPermission(PermissionCodes.KNOWLEDGE_CREATE)
     @PostMapping
     public ApiResult<KnowledgeBaseVO> create(@Valid @RequestBody KnowledgeBaseSaveRequest request) {
         return ApiResult.ok(knowledgeBaseService.create(request));
     }
 
-    @SaCheckPermission("knowledge:create")
+    @SaCheckPermission(PermissionCodes.KNOWLEDGE_CREATE)
     @PutMapping("/{id}")
     public ApiResult<KnowledgeBaseVO> update(
             @PathVariable Long id,
@@ -59,14 +60,14 @@ public class KnowledgeBaseController {
         return ApiResult.ok(knowledgeBaseService.update(id, request));
     }
 
-    @SaCheckPermission("knowledge:delete")
+    @SaCheckPermission(PermissionCodes.KNOWLEDGE_DELETE)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         knowledgeBaseService.delete(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {"knowledge:read", "knowledge:create", "knowledge:upload"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_CREATE, PermissionCodes.KNOWLEDGE_UPLOAD}, mode = SaMode.OR)
     @GetMapping("/{id}/documents")
     public ApiResult<PageResult<DocumentVO>> pageDocuments(
             @PathVariable Long id,
@@ -76,7 +77,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok(documentService.page(id, page, pageSize, keyword));
     }
 
-    @SaCheckPermission("knowledge:upload")
+    @SaCheckPermission(PermissionCodes.KNOWLEDGE_UPLOAD)
     @PostMapping("/{id}/documents/upload")
     public ApiResult<DocumentVO> uploadDocument(
             @PathVariable Long id,
@@ -84,7 +85,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok(documentService.upload(id, file));
     }
 
-    @SaCheckPermission("knowledge:upload")
+    @SaCheckPermission(PermissionCodes.KNOWLEDGE_UPLOAD)
     @PostMapping("/{id}/documents/{documentId}/reprocess")
     public ApiResult<Void> reprocessDocument(
             @PathVariable Long id,
@@ -93,7 +94,7 @@ public class KnowledgeBaseController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission("knowledge:delete")
+    @SaCheckPermission(PermissionCodes.KNOWLEDGE_DELETE)
     @DeleteMapping("/{id}/documents/{documentId}")
     public ApiResult<Void> deleteDocument(
             @PathVariable Long id,

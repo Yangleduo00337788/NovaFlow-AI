@@ -1,4 +1,5 @@
 package ai.novaflow.prompt.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.aiengine.agent.ChatAgentExecutor;
 import ai.novaflow.aiengine.agent.ChatExecuteRequest;
@@ -52,7 +53,7 @@ public class PromptTemplateService {
     public PageResult<PromptTemplateVO> page(int page, int pageSize, String keyword, String category) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -71,7 +72,7 @@ public class PromptTemplateService {
     }
 
     public List<PromptTemplateVO> listOptions(String keyword) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0)
@@ -93,14 +94,14 @@ public class PromptTemplateService {
         return promptTemplateVersionMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("template_id", templateId)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .orderBy("version", false)
         ).stream().map(this::toVersionVO).toList();
     }
 
     @Transactional
     public PromptTemplateVO create(PromptTemplateSaveRequest request) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         ensureNameUnique(tenantId, request.getTemplateName(), null);
 
         LocalDateTime now = LocalDateTime.now();
@@ -295,7 +296,7 @@ public class PromptTemplateService {
         PromptTemplateEntity entity = promptTemplateMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -443,11 +444,4 @@ public class PromptTemplateService {
         return current.getMessage() != null ? current.getMessage() : "未知错误";
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

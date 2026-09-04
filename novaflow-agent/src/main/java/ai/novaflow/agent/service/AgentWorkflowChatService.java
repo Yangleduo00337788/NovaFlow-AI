@@ -5,6 +5,7 @@ import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.chat.service.ConversationService;
+import ai.novaflow.agent.util.AgentConversationKeys;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.workflow.domain.WorkflowExecutionStatus;
 import ai.novaflow.workflow.domain.dto.WorkflowRunOptions;
@@ -86,10 +87,11 @@ public class AgentWorkflowChatService {
             String reply = resolveReply(result);
             long latencyMs = toLatencyMs(result.getDurationMs());
             int tokensUsed = result.getTokensUsed() != null ? result.getTokensUsed() : 0;
-            for (char ch : reply.toCharArray()) {
+            for (int offset = 0; offset < reply.length(); offset += 256) {
+                int end = Math.min(offset + 256, reply.length());
                 sendEvent(emitter, AgentDebugStreamEvent.builder()
                         .type("token")
-                        .content(String.valueOf(ch))
+                        .content(reply.substring(offset, end))
                         .build());
             }
             persistConversation(agent, request, tenantId, userId, conversationPrefix, callerId, reply, latencyMs, tokensUsed);
@@ -155,9 +157,13 @@ public class AgentWorkflowChatService {
             int tokensUsed) {
         try {
             String prefix = StringUtils.hasText(conversationPrefix) ? conversationPrefix : "workflow";
-            String conversationKey = StringUtils.hasText(request.getConversationId())
-                    ? request.getConversationId()
-                    : prefix + "-" + agent.getId();
+            String conversationKey = AgentConversationKeys.resolve(
+                    request.getConversationId(),
+                    prefix,
+                    tenantId,
+                    userId,
+                    agent.getId(),
+                    callerId);
             conversationService.persistExchange(ConversationService.ExchangeRequest.builder()
                     .tenantId(tenantId)
                     .agentId(agent.getId())

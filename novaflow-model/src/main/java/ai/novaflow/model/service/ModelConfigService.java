@@ -1,4 +1,5 @@
 package ai.novaflow.model.service;
+import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
@@ -35,7 +36,7 @@ public class ModelConfigService {
     private final AuditRecorder auditRecorder;
 
     public List<ModelConfigVO> list(Long providerId, String modelType) {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         QueryWrapper query = QueryWrapper.create()
                 .eq("tenant_id", tenantId)
                 .eq("is_deleted", 0);
@@ -70,7 +71,7 @@ public class ModelConfigService {
     }
 
     private void seedCatalogEmbeddingModelsIfNeeded() {
-        Long tenantId = requireTenantId();
+        Long tenantId = TenantContexts.requireTenantId();
         List<ModelProviderEntity> providers = modelProviderMapper.selectListByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
@@ -200,7 +201,7 @@ public class ModelConfigService {
         ModelConfigEntity entity = modelConfigMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
-                        .eq("tenant_id", requireTenantId())
+                        .eq("tenant_id", TenantContexts.requireTenantId())
                         .eq("is_deleted", 0)
         );
         if (entity == null) {
@@ -279,11 +280,4 @@ public class ModelConfigService {
                 .build();
     }
 
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new BusinessException("租户上下文缺失");
-        }
-        return tenantId;
-    }
 }

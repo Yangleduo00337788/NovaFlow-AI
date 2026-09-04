@@ -1,4 +1,5 @@
 package ai.novaflow.user.controller;
+import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.user.domain.dto.DepartmentSaveRequest;
@@ -26,19 +27,19 @@ public class DepartmentController {
 
     private final DepartmentService departmentService;
 
-    @SaCheckPermission(value = {"user:read", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping
     public ApiResult<List<DepartmentVO>> list() {
         return ApiResult.ok(departmentService.listTree());
     }
 
-    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_UPDATE, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @PostMapping
     public ApiResult<DepartmentVO> create(@Valid @RequestBody DepartmentSaveRequest request) {
         return ApiResult.ok(departmentService.create(request));
     }
 
-    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_UPDATE, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @PutMapping("/{id}")
     public ApiResult<DepartmentVO> update(
             @PathVariable Long id,
@@ -46,7 +47,7 @@ public class DepartmentController {
         return ApiResult.ok(departmentService.update(id, request));
     }
 
-    @SaCheckPermission(value = {"user:update", "member:manage", "tenant:manage"}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.USER_UPDATE, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         departmentService.delete(id);

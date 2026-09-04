@@ -23,5 +23,6 @@ class DepartmentHierarchyTest {
         assertFalse(DepartmentHierarchy.isSelfOrDescendant(1L, null, parents));
         assertEquals(1, DepartmentHierarchy.depthOf(1L, parents));
         assertEquals(3, DepartmentHierarchy.depthOf(3L, parents));
+        assertEquals(3, DepartmentHierarchy.subtreeHeight(1L, parents));
     }
 }
