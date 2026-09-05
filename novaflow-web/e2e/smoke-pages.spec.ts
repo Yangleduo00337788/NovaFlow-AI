@@ -23,8 +23,16 @@ const tenantPages: Array<{ path: string; selector: string }> = [
 ]
 
 const platformPages: Array<{ path: string; selector: string }> = [
-  { path: '/platform', selector: '.platform-page' },
-  { path: '/audit', selector: '.audit-page' },
+  { path: '/platform/dashboard', selector: '[data-testid="platform-dashboard"]' },
+  { path: '/platform/tenants', selector: '.platform-admin-page' },
+  { path: '/platform/users', selector: '.platform-admin-page' },
+  { path: '/platform/settings', selector: '.platform-admin-page' },
+  { path: '/platform/billing', selector: '.platform-admin-page' },
+  { path: '/platform/models', selector: '.platform-admin-page' },
+  { path: '/platform/api-monitor', selector: '.platform-admin-page' },
+  { path: '/platform/security', selector: '.platform-admin-page' },
+  { path: '/platform/login-logs', selector: '.platform-admin-page' },
+  { path: '/platform/audit', selector: '.platform-audit-page' },
 ]
 
 test.describe('全站页面冒烟', () => {

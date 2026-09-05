@@ -27,25 +27,32 @@ export const ROLE_ACCOUNTS = [
   { label: '企业所有者', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, home: /\/dashboard/ },
   { label: '开发者', email: DEVELOPER_EMAIL, password: DEVELOPER_PASSWORD, home: /\/dashboard/ },
   { label: '运维人员', email: OPERATOR_EMAIL, password: OPERATOR_PASSWORD, home: /\/dashboard/ },
-  { label: '企业成员', email: PORTAL_EMAIL, password: PORTAL_PASSWORD, home: /\/dashboard/ },
+  { label: '企业成员', email: PORTAL_EMAIL, password: PORTAL_PASSWORD, home: /\/portal/ },
   { label: '只读用户', email: VIEWER_EMAIL, password: VIEWER_PASSWORD, home: /\/dashboard/ },
   { label: '平台超管', email: PLATFORM_EMAIL, password: PLATFORM_PASSWORD, home: /\/platform/ },
 ] as const
 
 export async function loginAs(page: Page, email: string, password: string, urlPattern: RegExp) {
-  await page.goto('/login')
+  const loginPath = urlPattern.test('/platform') ? '/platform/login' : '/login'
+  await page.goto(loginPath)
   await page.getByTestId('login-email').fill(email)
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
-  await expect(page).toHaveURL(urlPattern, { timeout: 15000 })
-}
-
-export async function login(page: Page) {
-  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD, /\/dashboard/)
+  await expect(page).toHaveURL(
+    (url) => {
+      const path = typeof url === 'string' ? new URL(url).pathname : url.pathname
+      return !path.includes('/login') && urlPattern.test(path)
+    },
+    { timeout: 15000 },
+  )
 }
 
 export async function loginAsPlatform(page: Page) {
   await loginAs(page, PLATFORM_EMAIL, PLATFORM_PASSWORD, /\/platform/)
+}
+
+export async function login(page: Page) {
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD, /\/dashboard/)
 }
 
 export async function loginAsPortal(page: Page) {

@@ -35,8 +35,8 @@ test.describe('Phase 11 自定义角色与平台账号', () => {
   test('平台超管：无法进入企业工作台', async ({ page }) => {
     await loginAs(page, PLATFORM_EMAIL, PLATFORM_PASSWORD, /\/platform/)
     await page.goto('/dashboard')
-    await expect(page).toHaveURL(/\/platform/)
+    await expect(page).toHaveURL(/\/platform\/dashboard/)
     await page.goto('/agent')
-    await expect(page).toHaveURL(/\/platform/)
+    await expect(page).toHaveURL(/\/platform\/dashboard/)
   })
 })

@@ -35,6 +35,10 @@ public final class OpenApiIntegrationFixtures {
         return login(restTemplate, "admin@novaflow.ai", "Admin123!");
     }
 
+    public static LoginSession loginPlatform(TestRestTemplate restTemplate) {
+        return login(restTemplate, "platform@novaflow.ai", "Platform123!");
+    }
+
     public static LoginSession login(TestRestTemplate restTemplate, String email, String password) {
         Map<String, String> request = Map.of(
                 "email", email,

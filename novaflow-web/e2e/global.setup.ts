@@ -32,8 +32,7 @@ setup('authenticate as platform super admin', async ({ page }) => {
 })
 
 setup('authenticate as portal user', async ({ page }) => {
-  await loginAs(page, PORTAL_EMAIL, PORTAL_PASSWORD, /\/dashboard/)
-  await page.goto('/portal')
+  await loginAs(page, PORTAL_EMAIL, PORTAL_PASSWORD, /\/portal/)
   await page.locator('.portal-client').waitFor({ state: 'visible', timeout: 15000 })
   ensureAuthDir(portalAuthFile)
   await page.context().storageState({ path: portalAuthFile })

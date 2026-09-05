@@ -44,13 +44,13 @@ test.describe('六角色权限矩阵', () => {
     await expect(page.getByTestId('create-workflow-btn')).toHaveCount(0)
   })
 
-  test('企业成员：可浏览 Agent 但不可创建，可进入应用门户', async ({ page }) => {
-    await loginAs(page, PORTAL_EMAIL, PORTAL_PASSWORD, /\/dashboard/)
-    await page.goto('/agent')
-    await expect(page.getByTestId('agent-page')).toBeVisible()
-    await expect(page.getByTestId('create-agent-btn')).toHaveCount(0)
-    await page.goto('/portal')
+  test('企业成员：登录进入应用门户，不可访问 Studio', async ({ page }) => {
+    await loginAs(page, PORTAL_EMAIL, PORTAL_PASSWORD, /\/portal/)
     await expect(page.locator('.portal-client')).toBeVisible()
+    await page.goto('/agent')
+    await expect(page).toHaveURL(/\/portal/)
+    await page.goto('/dashboard')
+    await expect(page).toHaveURL(/\/portal/)
   })
 
   test('只读用户：可浏览 Agent/工作流但不可创建', async ({ page }) => {
@@ -65,6 +65,6 @@ test.describe('六角色权限矩阵', () => {
 
   test('平台超管：进入总控管理页', async ({ page }) => {
     await loginAs(page, PLATFORM_EMAIL, PLATFORM_PASSWORD, /\/platform/)
-    await expect(page.locator('.platform-page')).toBeVisible()
+    await expect(page.locator('[data-testid="platform-dashboard"]')).toBeVisible()
   })
 })
