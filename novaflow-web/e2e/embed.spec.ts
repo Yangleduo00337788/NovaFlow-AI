@@ -8,16 +8,19 @@ async function publishAgentForEmbed(request: import('@playwright/test').APIReque
   expect(login.ok()).toBeTruthy()
   const loginBody = await login.json()
   const token = loginBody.data.token as string
-
-  const apps = await request.get('/api/v1/applications/options', {
-    headers: { Authorization: token },
-  })
-  const appsBody = await apps.json()
-  const appId = appsBody.data[0].id as number
+  const auth = { Authorization: token }
 
   const suffix = Date.now()
+  const appName = `E2E-Embed-App-${suffix}`
+  const appRes = await request.post('/api/v1/applications', {
+    headers: auth,
+    data: { appName, description: 'e2e embed' },
+  })
+  expect(appRes.ok()).toBeTruthy()
+  const appId = (await appRes.json()).data.id as number
+
   const created = await request.post('/api/v1/agents', {
-    headers: { Authorization: token },
+    headers: auth,
     data: {
       agentName: `E2E-Embed-${suffix}`,
       agentType: 'chat',
@@ -29,22 +32,42 @@ async function publishAgentForEmbed(request: import('@playwright/test').APIReque
   const agentId = createdBody.data.id as number
 
   const published = await request.post(`/api/v1/agents/${agentId}/publish`, {
-    headers: { Authorization: token },
+    headers: auth,
     data: {},
   })
   const publishBody = await published.json()
+
+  const bindRes = await request.put(`/api/v1/applications/${appId}`, {
+    headers: auth,
+    data: {
+      appName,
+      description: 'e2e embed',
+      defaultAgentId: agentId,
+      agentIds: [agentId],
+    },
+  })
+  expect(bindRes.ok()).toBeTruthy()
+
+  const appPublished = await request.post(`/api/v1/applications/${appId}/publish`, {
+    headers: auth,
+    data: {},
+  })
+  expect(appPublished.ok()).toBeTruthy()
+
   return {
     agentId,
     embedToken: publishBody.data.embedToken as string,
+    agentName: `E2E-Embed-${suffix}`,
   }
 }
 
 test.describe('Embed 页面', () => {
   test('带 embedToken 可加载欢迎页', async ({ page, request }) => {
-    const { agentId, embedToken } = await publishAgentForEmbed(request)
+    const { agentId, embedToken, agentName } = await publishAgentForEmbed(request)
     await page.goto(`/embed/agents/${agentId}?embedToken=${encodeURIComponent(embedToken)}`)
     await expect(page.locator('.embed-chat')).toBeVisible()
-    await expect(page.getByText('发送消息开始对话')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: agentName })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Embed welcome')).toBeVisible({ timeout: 15000 })
   })
 
   test('缺少 embedToken 显示错误', async ({ page }) => {

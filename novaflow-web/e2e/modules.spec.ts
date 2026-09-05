@@ -59,8 +59,12 @@ test.describe('工作流 Studio', () => {
 
     await page.getByTestId('create-workflow-btn').click()
     await page.getByRole('dialog').getByPlaceholder('客服分流流程').fill(workflowName)
+    const appSelect = page.getByRole('dialog').locator('.ant-select').first()
+    await appSelect.click()
+    await page.locator('.ant-select-item-option').first().click()
     await page.getByRole('button', { name: '创建并编辑' }).click()
 
+    await expect(page).toHaveURL(/\/workflow\/\d+/, { timeout: 15000 })
     await expect(page.getByTestId('workflow-editor')).toBeVisible({ timeout: 15000 })
     await page.goto('/workflow')
     await expect(page.getByText(workflowName)).toBeVisible({ timeout: 10000 })
@@ -166,10 +170,12 @@ test.describe('组织与权限', () => {
 
   test('权限管理页展示角色列表', async ({ page }) => {
     await page.goto('/permission')
-    await expect(page.getByTestId('permission-page')).toBeVisible()
-    await expect(page.getByText('系统角色', { exact: true })).toBeVisible()
-    await expect(page.getByText('超级管理员')).toBeVisible()
-    await expect(page.getByText('企业管理员')).toBeVisible()
+    const permissionPage = page.getByTestId('permission-page')
+    await expect(permissionPage).toBeVisible()
+    await expect(permissionPage.getByText('系统角色', { exact: true })).toBeVisible()
+    const roleList = permissionPage.locator('.role-item')
+    await expect(roleList.filter({ hasText: '超级管理员' })).toBeVisible()
+    await expect(roleList.filter({ hasText: '企业所有者' })).toBeVisible()
   })
 
   test('账单页可加载并打开成本分摊', async ({ page }) => {
@@ -177,8 +183,8 @@ test.describe('组织与权限', () => {
     await expect(page.getByTestId('billing-page')).toBeVisible()
     await expect(page.getByRole('tab', { name: '成本分摊' })).toBeVisible()
     await page.getByRole('tab', { name: '成本分摊' }).click()
-    await expect(page.getByRole('radio', { name: '应用' })).toBeVisible()
-    await expect(page.getByRole('radio', { name: '工作空间' })).toBeVisible()
+    await expect(page.locator('[data-testid="billing-page"] .ant-radio-button-wrapper').filter({ hasText: '应用' })).toBeVisible()
+    await expect(page.locator('[data-testid="billing-page"] .ant-radio-button-wrapper').filter({ hasText: '工作空间' })).toBeVisible()
   })
 
   test('账单预警可配置邮件与 Webhook', async ({ page }) => {

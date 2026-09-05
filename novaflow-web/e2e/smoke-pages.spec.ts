@@ -17,6 +17,7 @@ const tenantPages: Array<{ path: string; selector: string }> = [
   { path: '/permission', selector: '[data-testid="permission-page"]' },
   { path: '/settings', selector: '.settings-page' },
   { path: '/billing', selector: '[data-testid="billing-page"]' },
+  { path: '/portal', selector: '.portal-client' },
   { path: '/audit', selector: '.audit-page' },
   { path: '/about', selector: '.about-page' },
 ]

@@ -13,6 +13,25 @@ export const PLATFORM_PASSWORD = 'Platform123!'
 export const PORTAL_EMAIL = 'user@novaflow.ai'
 export const PORTAL_PASSWORD = 'User123!'
 
+export const DEVELOPER_EMAIL = 'developer@novaflow.ai'
+export const DEVELOPER_PASSWORD = 'Developer123!'
+
+export const OPERATOR_EMAIL = 'operator@novaflow.ai'
+export const OPERATOR_PASSWORD = 'Operator123!'
+
+export const VIEWER_EMAIL = 'viewer@novaflow.ai'
+export const VIEWER_PASSWORD = 'Viewer123!'
+
+/** 六角色演示账号（与 README / DataInitializer 一致） */
+export const ROLE_ACCOUNTS = [
+  { label: '企业所有者', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, home: /\/dashboard/ },
+  { label: '开发者', email: DEVELOPER_EMAIL, password: DEVELOPER_PASSWORD, home: /\/dashboard/ },
+  { label: '运维人员', email: OPERATOR_EMAIL, password: OPERATOR_PASSWORD, home: /\/dashboard/ },
+  { label: '企业成员', email: PORTAL_EMAIL, password: PORTAL_PASSWORD, home: /\/dashboard/ },
+  { label: '只读用户', email: VIEWER_EMAIL, password: VIEWER_PASSWORD, home: /\/dashboard/ },
+  { label: '平台超管', email: PLATFORM_EMAIL, password: PLATFORM_PASSWORD, home: /\/platform/ },
+] as const
+
 export async function loginAs(page: Page, email: string, password: string, urlPattern: RegExp) {
   await page.goto('/login')
   await page.getByTestId('login-email').fill(email)

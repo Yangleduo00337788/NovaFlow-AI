@@ -20,6 +20,10 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /global\.setup\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+      },
     },
     {
       name: 'chromium-auth',
@@ -27,7 +31,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         channel: 'chrome',
       },
-      testMatch: /auth\.spec\.ts/,
+      testMatch: /auth\.spec\.ts|auth-expiry\.spec\.ts|double-submit\.spec\.ts|error-states\.spec\.ts/,
     },
     {
       name: 'chromium',
@@ -39,10 +43,15 @@ export default defineConfig({
       dependencies: ['setup'],
       testIgnore: [
         /auth\.spec\.ts/,
+        /auth-expiry\.spec\.ts/,
+        /double-submit\.spec\.ts/,
+        /error-states\.spec\.ts/,
         /global\.setup\.ts/,
         /portal\.spec\.ts/,
         /embed\.spec\.ts/,
         /xss\.spec\.ts/,
+        /roles\.spec\.ts/,
+        /route-guard\.spec\.ts/,
       ],
       grepInvert: /平台超管页面可加载/,
     },
@@ -74,6 +83,24 @@ export default defineConfig({
         channel: 'chrome',
       },
       testMatch: /embed\.spec\.ts|xss\.spec\.ts/,
+    },
+    {
+      name: 'chromium-roles',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        storageState: { cookies: [], origins: [] },
+      },
+      testMatch: /roles\.spec\.ts/,
+    },
+    {
+      name: 'chromium-route-guard',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        storageState: { cookies: [], origins: [] },
+      },
+      testMatch: /route-guard\.spec\.ts/,
     },
   ],
   webServer: {
