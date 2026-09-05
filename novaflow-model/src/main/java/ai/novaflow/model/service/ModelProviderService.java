@@ -1,6 +1,7 @@
 package ai.novaflow.model.service;
 import ai.novaflow.common.context.TenantContexts;
 
+import ai.novaflow.common.policy.ModelProviderPolicy;
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
@@ -52,6 +53,7 @@ public class ModelProviderService {
     private final ModelUsageService modelUsageService;
     private final AuditRecorder auditRecorder;
     private final ResourceAccessService resourceAccessService;
+    private final ModelProviderPolicy modelProviderPolicy;
 
     public List<ModelProviderVO> listProviders() {
         Long tenantId = TenantContexts.requireTenantId();
@@ -80,7 +82,9 @@ public class ModelProviderService {
     }
 
     public List<ModelProviderVO> listProviderPresets() {
+        Set<String> allowed = modelProviderPolicy.allowedProviderCodes();
         return ModelProviderPreset.all().stream()
+                .filter(preset -> allowed.isEmpty() || allowed.contains(preset.getCode()))
                 .map(preset -> toProviderVO(preset, null, TenantContexts.requireTenantId()))
                 .toList();
     }
@@ -97,6 +101,7 @@ public class ModelProviderService {
     public ModelProviderVO save(ModelProviderSaveRequest request) {
         ModelProviderPreset preset = ModelProviderPreset.of(request.getProviderCode())
                 .orElseThrow(() -> new BusinessException("不支持的模型提供商"));
+        modelProviderPolicy.requireProviderAllowed(preset.getCode());
 
         Long tenantId = TenantContexts.requireTenantId();
         ModelProviderEntity existing = modelProviderMapper.selectOneByQuery(

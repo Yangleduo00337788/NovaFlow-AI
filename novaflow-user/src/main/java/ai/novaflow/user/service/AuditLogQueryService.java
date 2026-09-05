@@ -1,8 +1,12 @@
 package ai.novaflow.user.service;
+import ai.novaflow.common.security.AccountTypes;
 import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.user.entity.UserEntity;
+import ai.novaflow.user.mapper.UserMapper;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
+import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.user.domain.vo.AuditLogVO;
 import ai.novaflow.user.entity.AuditLogEntity;
@@ -25,8 +29,10 @@ public class AuditLogQueryService {
 
     private final AuditLogMapper auditLogMapper;
     private final PermissionService permissionService;
+    private final UserMapper userMapper;
 
-    public PageResult<AuditLogVO> page(
+    /** 租户域审计：仅本企业记录 */
+    public PageResult<AuditLogVO> pageTenant(
             int page,
             int pageSize,
             String action,
@@ -38,10 +44,46 @@ public class AuditLogQueryService {
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
         long userId = StpUtil.getLoginIdAsLong();
         Long tenantId = TenantContext.getTenantId();
-        permissionService.requireAnyPermission(userId, tenantId, PermissionCodes.AUDIT_VIEW, PermissionCodes.PLATFORM_MANAGE);
+        if (tenantId == null || tenantId <= 0) {
+            throw new BusinessException("需要企业上下文");
+        }
+        permissionService.requireAnyPermission(userId, tenantId, PermissionCodes.AUDIT_VIEW);
+        return executePage(tenantId, page, pageSize, action, resourceType, startDate, endDate, keyword);
+    }
 
+    /** 平台域审计：跨租户全量 */
+    public PageResult<AuditLogVO> pagePlatform(
+            int page,
+            int pageSize,
+            String action,
+            String resourceType,
+            LocalDate startDate,
+            LocalDate endDate,
+            String keyword) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
+        long userId = StpUtil.getLoginIdAsLong();
+        Long tenantId = TenantContext.getTenantId();
+        UserEntity user = userMapper.selectOneById(userId);
+        if (user == null || !AccountTypes.isPlatform(user.getAccountType())) {
+            throw new BusinessException("需要平台管理员权限");
+        }
+        permissionService.requireAnyPermission(
+                userId, tenantId, PermissionCodes.AUDIT_VIEW, PermissionCodes.PLATFORM_MANAGE);
+        return executePage(null, page, pageSize, action, resourceType, startDate, endDate, keyword);
+    }
+
+    private PageResult<AuditLogVO> executePage(
+            Long tenantId,
+            int page,
+            int pageSize,
+            String action,
+            String resourceType,
+            LocalDate startDate,
+            LocalDate endDate,
+            String keyword) {
         QueryWrapper query = QueryWrapper.create();
-        if (!isSuperAdmin(userId, tenantId)) {
+        if (tenantId != null) {
             query.eq("tenant_id", tenantId);
         }
         if (StringUtils.hasText(action)) {
@@ -67,15 +109,6 @@ public class AuditLogQueryService {
         Page<AuditLogEntity> result = auditLogMapper.paginate(Page.of(page, pageSize), query);
         List<AuditLogVO> list = result.getRecords().stream().map(this::toVO).toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
-    }
-
-    private boolean isSuperAdmin(long userId, Long tenantId) {
-        try {
-            permissionService.requireSuperAdmin(userId, tenantId);
-            return true;
-        } catch (Exception ignored) {
-            return false;
-        }
     }
 
     private AuditLogVO toVO(AuditLogEntity entity) {

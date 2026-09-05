@@ -91,6 +91,15 @@ public class DataInitializer implements CommandLineRunner {
                 "platform",
                 "平台超管",
                 "Platform123!",
+                RoleCodes.PLATFORM_ADMIN,
+                now
+        );
+        ensurePlatformUser(
+                "auditor@novaflow.ai",
+                "auditor",
+                "平台审计员",
+                "Auditor123!",
+                RoleCodes.PLATFORM_AUDITOR,
                 now
         );
         ensureDemoUser(
@@ -137,6 +146,7 @@ public class DataInitializer implements CommandLineRunner {
 
                 Demo accounts:
                   平台超管  platform@novaflow.ai
+                  平台审计  auditor@novaflow.ai
                   企业所有者 admin@novaflow.ai
                   开发者    developer@novaflow.ai
                   运维人员  operator@novaflow.ai
@@ -246,6 +256,7 @@ public class DataInitializer implements CommandLineRunner {
             String username,
             String nickname,
             String rawPassword,
+            String platformRoleCode,
             LocalDateTime now
     ) {
         UserEntity existing = userMapper.selectOneByQuery(
@@ -255,6 +266,7 @@ public class DataInitializer implements CommandLineRunner {
         );
         if (existing != null) {
             existing.setAccountType(AccountTypes.PLATFORM);
+            existing.setPlatformRoleCode(platformRoleCode);
             existing.setUpdatedAt(now);
             userMapper.update(existing);
             removeAllTenantMemberships(existing.getId(), now);
@@ -267,6 +279,7 @@ public class DataInitializer implements CommandLineRunner {
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setNickname(nickname);
         user.setAccountType(AccountTypes.PLATFORM);
+        user.setPlatformRoleCode(platformRoleCode);
         user.setStatus(1);
         user.setIsDeleted(0);
         user.setCreatedAt(now);

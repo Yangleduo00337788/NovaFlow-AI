@@ -72,6 +72,24 @@ class PlatformAccessFilterTest {
     }
 
     @Test
+    void blocksPlatformAccountFromTenantAuditApi() throws Exception {
+        stpUtil = mockStatic(StpUtil.class);
+        stpUtil.when(StpUtil::isLogin).thenReturn(true);
+        SaSession session = mock(SaSession.class);
+        stpUtil.when(StpUtil::getSession).thenReturn(session);
+        when(session.get("accountType")).thenReturn(AccountTypes.PLATFORM);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/audit-logs");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertEquals(403, response.getStatus());
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    @Test
     void blocksTenantAccountFromPlatformApi() throws Exception {
         stpUtil = mockStatic(StpUtil.class);
         stpUtil.when(StpUtil::isLogin).thenReturn(true);

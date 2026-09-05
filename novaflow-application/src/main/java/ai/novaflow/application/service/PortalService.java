@@ -45,8 +45,13 @@ public class PortalService {
                 .isNotNull("default_agent_id")
                 .orderBy("published_at", false)
                 .orderBy("app_name", true);
-        resourceAccessService.applyReadableFilter(
-                query, userId, tenantId, ResourceTypes.APPLICATION, PermissionCodes.APPLICATION_READ, "application.id");
+        resourceAccessService.applyReadableFilterAny(
+                query,
+                userId,
+                tenantId,
+                ResourceTypes.APPLICATION,
+                List.of(PermissionCodes.APPLICATION_READ, PermissionCodes.PORTAL_ACCESS),
+                "application.id");
         return applicationMapper.selectListByQuery(query).stream().map(this::toPortalVO).toList();
     }
 
@@ -111,8 +116,13 @@ public class PortalService {
         if (entity == null || entity.getDefaultAgentId() == null) {
             throw new BusinessException("应用不存在或未发布");
         }
-        resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.APPLICATION, applicationId, PermissionCodes.APPLICATION_READ);
+        resourceAccessService.requireResourceAccessAny(
+                StpUtil.getLoginIdAsLong(),
+                tenantId,
+                ResourceTypes.APPLICATION,
+                applicationId,
+                PermissionCodes.APPLICATION_READ,
+                PermissionCodes.PORTAL_ACCESS);
         return entity;
     }
 

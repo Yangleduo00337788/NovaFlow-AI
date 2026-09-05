@@ -39,6 +39,88 @@
         WHERE usage_date &gt;= #{startDate} AND usage_date &lt;= #{endDate}
     </select>
 
+    <select id="countCallsBetweenAllTenants" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM token_usage
+        WHERE usage_date &gt;= #{startDate} AND usage_date &lt;= #{endDate}
+    </select>
+
+    <select id="sumCostBetweenAllTenants" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cost), 0) FROM token_usage
+        WHERE currency = #{currency}
+          AND usage_date &gt;= #{startDate} AND usage_date &lt;= #{endDate}
+    </select>
+
+    <select id="dailyTokenTrendAllTenants" resultType="ai.novaflow.model.domain.UsageTrendPoint">
+        SELECT DATE_FORMAT(usage_date, '%m-%d') AS label,
+               COALESCE(SUM(total_tokens), 0) AS value
+        FROM token_usage
+        WHERE usage_date &gt;= #{startDate} AND usage_date &lt;= #{endDate}
+        GROUP BY usage_date
+        ORDER BY usage_date
+    </select>
+
+    <select id="topTenantsBetween" resultType="ai.novaflow.model.domain.TenantUsageAggregate">
+        SELECT tu.tenant_id AS tenantId,
+               COALESCE(NULLIF(t.tenant_name, ''), t.tenant_code) AS tenantName,
+               COUNT(*) AS calls,
+               COALESCE(SUM(tu.total_tokens), 0) AS tokens
+        FROM token_usage tu
+        LEFT JOIN tenant t ON tu.tenant_id = t.id AND t.is_deleted = 0
+        WHERE tu.usage_date &gt;= #{startDate} AND tu.usage_date &lt;= #{endDate}
+        GROUP BY tu.tenant_id, t.tenant_name, t.tenant_code
+        ORDER BY tokens DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countCallsSince" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM token_usage
+        WHERE created_at &gt;= #{since}
+    </select>
+
+    <select id="topTenantsByCallsSince" resultType="ai.novaflow.model.domain.TenantUsageAggregate">
+        SELECT tu.tenant_id AS tenantId,
+               COALESCE(NULLIF(t.tenant_name, ''), t.tenant_code) AS tenantName,
+               COUNT(*) AS calls,
+               COALESCE(SUM(tu.total_tokens), 0) AS tokens
+        FROM token_usage tu
+        LEFT JOIN tenant t ON tu.tenant_id = t.id AND t.is_deleted = 0
+        WHERE tu.created_at &gt;= #{since}
+        GROUP BY tu.tenant_id, t.tenant_name, t.tenant_code
+        ORDER BY calls DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listTenantTrafficBaselines" resultType="ai.novaflow.model.domain.TenantTrafficSpikeAggregate">
+        SELECT tu.tenant_id AS tenantId,
+               COALESCE(NULLIF(t.tenant_name, ''), t.tenant_code) AS tenantName,
+               SUM(CASE WHEN tu.usage_date = #{today} THEN 1 ELSE 0 END) AS todayCalls,
+               CAST(SUM(CASE
+                   WHEN tu.usage_date &gt;= DATE_SUB(#{today}, INTERVAL #{lookbackDays} DAY)
+                        AND tu.usage_date &lt; #{today}
+                   THEN 1 ELSE 0 END) AS SIGNED) / #{lookbackDays} AS avgDailyCalls
+        FROM token_usage tu
+        LEFT JOIN tenant t ON tu.tenant_id = t.id AND t.is_deleted = 0
+        WHERE tu.usage_date &gt;= DATE_SUB(#{today}, INTERVAL #{lookbackDays} DAY)
+          AND tu.usage_date &lt;= #{today}
+        GROUP BY tu.tenant_id, t.tenant_name, t.tenant_code
+        HAVING todayCalls &gt; 0
+        ORDER BY todayCalls DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="topModelsAllTenants" resultType="ai.novaflow.model.domain.ModelUsageAggregate">
+        SELECT mc.model_name AS modelName,
+               mc.display_name AS displayName,
+               COUNT(*) AS calls,
+               COALESCE(SUM(tu.total_tokens), 0) AS tokens
+        FROM token_usage tu
+        LEFT JOIN model_config mc ON tu.model_config_id = mc.id
+        WHERE tu.usage_date &gt;= #{startDate} AND tu.usage_date &lt;= #{endDate}
+        GROUP BY tu.model_config_id, mc.model_name, mc.display_name
+        ORDER BY tokens DESC
+        LIMIT #{limit}
+    </select>
+
     <select id="countCallsBetween" resultType="java.lang.Long">
         SELECT COUNT(*) FROM token_usage
         WHERE tenant_id = #{tenantId}

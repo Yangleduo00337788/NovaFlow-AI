@@ -55,4 +55,20 @@ class RolePermissionMatrixTest {
         assertTrue(RolePermissionMatrix.MEMBER.contains(PermissionCodes.AGENT_CHAT));
         assertFalse(RolePermissionMatrix.MEMBER.contains(PermissionCodes.AGENT_PUBLISH));
     }
+
+    @Test
+    void memberCanReadApplicationsForPortalAcl() {
+        assertTrue(RolePermissionMatrix.MEMBER.contains(PermissionCodes.APPLICATION_READ));
+    }
+
+    @Test
+    void developerCanPublishApplicationsPerV33() {
+        assertTrue(RolePermissionMatrix.DEVELOPER.contains(PermissionCodes.APPLICATION_PUBLISH));
+    }
+
+    @Test
+    void operatorCannotManageApiKeys() {
+        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.API_READ));
+        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.API_CREATE));
+    }
 }

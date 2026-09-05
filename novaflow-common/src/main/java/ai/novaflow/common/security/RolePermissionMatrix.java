@@ -21,7 +21,7 @@ public final class RolePermissionMatrix {
             PermissionCodes.MCP_READ, PermissionCodes.MCP_CREATE, PermissionCodes.MCP_UPDATE, PermissionCodes.MCP_DELETE,
             PermissionCodes.PROMPT_READ, PermissionCodes.PROMPT_CREATE, PermissionCodes.PROMPT_EDIT, PermissionCodes.PROMPT_DELETE,
             PermissionCodes.API_READ, PermissionCodes.API_CREATE, PermissionCodes.API_UPDATE, PermissionCodes.API_DELETE,
-            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_MANAGE,
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_MANAGE,
             PermissionCodes.MONITOR_VIEW, PermissionCodes.TRACE_VIEW,
             PermissionCodes.SEARCH_GLOBAL,
             PermissionCodes.PORTAL_ACCESS
@@ -44,6 +44,7 @@ public final class RolePermissionMatrix {
             PermissionCodes.AGENT_READ, PermissionCodes.AGENT_CHAT,
             PermissionCodes.WORKFLOW_READ,
             PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_SEARCH,
+            PermissionCodes.APPLICATION_READ,
             PermissionCodes.PORTAL_ACCESS,
             PermissionCodes.SEARCH_GLOBAL
     );

@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * 平台账号与租户账号 API 域隔离：平台账号仅可访问平台/认证/审计接口。
+ * 平台账号与租户账号 API 域隔离：平台账号仅可访问平台治理与认证接口。
  */
 @Component
 @Order(2)
@@ -29,8 +29,7 @@ public class PlatformAccessFilter extends OncePerRequestFilter {
 
     private static final List<String> PLATFORM_ALLOWED_PREFIXES = List.of(
             "/api/v1/platform/",
-            "/api/v1/auth/",
-            "/api/v1/audit-logs"
+            "/api/v1/auth/"
     );
 
     @Override

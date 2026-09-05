@@ -2,6 +2,7 @@ package ai.novaflow.user.service;
 
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.security.AccountTypes;
+import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.PermissionEntity;
 import ai.novaflow.user.entity.RoleEntity;
@@ -16,6 +17,7 @@ import ai.novaflow.user.mapper.UserMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,10 +53,17 @@ public class PermissionService {
         return getPermissionCodesByRoleId(role.getId());
     }
 
+    public RoleEntity resolvePlatformRole(UserEntity user) {
+        String roleCode = StringUtils.hasText(user.getPlatformRoleCode())
+                ? user.getPlatformRoleCode().trim()
+                : RoleCodes.PLATFORM_ADMIN;
+        return requireSystemRole(roleCode);
+    }
+
     public RoleEntity resolveRole(long userId, Long tenantId) {
         UserEntity user = userMapper.selectOneById(userId);
         if (user != null && AccountTypes.isPlatform(user.getAccountType())) {
-            return requireSystemRole(RoleCodes.PLATFORM_ADMIN);
+            return resolvePlatformRole(user);
         }
         if (tenantId == null) {
             return null;
@@ -87,12 +96,12 @@ public class PermissionService {
     public void requireSuperAdmin(long userId, Long tenantId) {
         UserEntity user = userMapper.selectOneById(userId);
         if (user != null && AccountTypes.isPlatform(user.getAccountType())) {
-            return;
+            RoleEntity role = resolvePlatformRole(user);
+            if (getPermissionCodesByRoleId(role.getId()).contains(PermissionCodes.PLATFORM_MANAGE)) {
+                return;
+            }
         }
-        RoleEntity role = resolveRole(userId, tenantId);
-        if (role == null || !RoleCodes.PLATFORM_ADMIN.equals(role.getRoleCode())) {
-            throw new BusinessException("需要平台超级管理员权限");
-        }
+        throw new BusinessException("需要平台超级管理员权限");
     }
 
     public RoleEntity requireSystemRole(String roleCode) {

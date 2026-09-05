@@ -2,6 +2,7 @@ package ai.novaflow.user.service;
 
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.IpBlacklistChecker;
 import ai.novaflow.security.ratelimit.AuthRateLimiter;
 import ai.novaflow.security.ratelimit.LoginFailureLockService;
 import ai.novaflow.security.session.SessionTenantIds;
@@ -26,7 +27,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,14 +52,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthRateLimiter authRateLimiter;
     private final LoginFailureLockService loginFailureLockService;
+    private final IpBlacklistChecker ipBlacklistChecker;
     private final AuditLogService auditLogService;
-
-    @Value("${novaflow.auth.registration-enabled:true}")
-    private boolean registrationEnabled;
+    private final PlatformSystemConfigService platformSystemConfigService;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.getEmail();
         String clientIp = httpRequest.getRemoteAddr();
+        ipBlacklistChecker.requireAllowed(clientIp);
         authRateLimiter.checkLogin(email, clientIp);
         loginFailureLockService.checkLocked(email, clientIp);
 
@@ -90,7 +90,7 @@ public class AuthService {
     }
 
     private LoginVO loginPlatformUser(UserEntity user, HttpServletRequest httpRequest, String clientIp) {
-        RoleEntity role = permissionService.requireSystemRole(RoleCodes.PLATFORM_ADMIN);
+        RoleEntity role = permissionService.resolvePlatformRole(user);
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", 0L);
@@ -159,10 +159,11 @@ public class AuthService {
 
     @Transactional
     public LoginVO register(RegisterRequest request, HttpServletRequest httpRequest) {
-        if (!registrationEnabled) {
+        if (!platformSystemConfigService.isRegistrationEnabled()) {
             throw new BusinessException("当前环境未开放自助注册，请联系管理员邀请");
         }
         String clientIp = httpRequest.getRemoteAddr();
+        ipBlacklistChecker.requireAllowed(clientIp);
         authRateLimiter.checkRegister(request.getEmail(), clientIp);
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException("两次输入的密码不一致");
@@ -263,7 +264,7 @@ public class AuthService {
         long userId = StpUtil.getLoginIdAsLong();
         UserEntity user = userMapper.selectOneById(userId);
         if (user != null && AccountTypes.isPlatform(user.getAccountType())) {
-            RoleEntity role = permissionService.requireSystemRole(RoleCodes.PLATFORM_ADMIN);
+            RoleEntity role = permissionService.resolvePlatformRole(user);
             return buildPlatformLoginVO(user, role);
         }
 

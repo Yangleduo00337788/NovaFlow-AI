@@ -8,8 +8,9 @@ import ai.novaflow.agent.entity.AgentApiKeyEntity;
 import ai.novaflow.agent.entity.AgentEmbedTokenEntity;
 import ai.novaflow.agent.entity.AgentEntity;
 import ai.novaflow.agent.mapper.AgentMapper;
-import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import cn.dev33.satoken.stp.StpUtil;
 import ai.novaflow.workflow.service.WorkflowService;
 import com.mybatisflex.core.query.QueryWrapper;
 import ai.novaflow.user.service.AuditLogService;
@@ -34,7 +35,7 @@ public class AgentPublishService {
         AgentEntity agent = agentService.getAgentEntityOrThrow(agentId);
         AgentApiKeyEntity apiKey = agentApiKeyService.findByAgentId(agentId);
         AgentEmbedTokenEntity embedToken = agentEmbedTokenService.findByAgentId(agentId);
-        return buildPublishVO(agent, apiKey, embedToken, null, null);
+        return redactApiSecretsIfNeeded(buildPublishVO(agent, apiKey, embedToken, null, null));
     }
 
     @Transactional
@@ -53,12 +54,12 @@ public class AgentPublishService {
         agentMapper.update(agent);
 
         auditLogService.record("agent.publish", "agent", agentId, "发布 Agent v" + agent.getVersion());
-        return buildPublishVO(
+        return redactApiSecretsIfNeeded(buildPublishVO(
                 agent,
                 agentApiKeyService.findByAgentId(agentId),
                 agentEmbedTokenService.findByAgentId(agentId),
                 rawApiKey,
-                rawEmbedToken);
+                rawEmbedToken));
     }
 
     @Transactional
@@ -86,12 +87,12 @@ public class AgentPublishService {
         }
         String rawApiKey = agentApiKeyService.issueApiKey(agentId, agent.getTenantId());
         auditLogService.record("agent.rotate_api_key", "agent", agentId, "轮换 API Key");
-        return buildPublishVO(
+        return redactApiSecretsIfNeeded(buildPublishVO(
                 agent,
                 agentApiKeyService.findByAgentId(agentId),
                 agentEmbedTokenService.findByAgentId(agentId),
                 rawApiKey,
-                null);
+                null));
     }
 
     @Transactional
@@ -102,12 +103,12 @@ public class AgentPublishService {
         }
         String rawEmbedToken = agentEmbedTokenService.issueEmbedToken(agentId, agent.getTenantId());
         auditLogService.record("agent.rotate_embed_token", "agent", agentId, "轮换 Embed Token");
-        return buildPublishVO(
+        return redactApiSecretsIfNeeded(buildPublishVO(
                 agent,
                 agentApiKeyService.findByAgentId(agentId),
                 agentEmbedTokenService.findByAgentId(agentId),
                 null,
-                rawEmbedToken);
+                rawEmbedToken));
     }
 
     public AgentEntity requirePublishedAgent(Long agentId, Long tenantId) {
@@ -171,6 +172,24 @@ public class AgentPublishService {
                 .welcomeEndpoint("/api/v1/open/agents/" + agent.getId() + "/welcome")
                 .embedPath("/embed/agents/" + agent.getId())
                 .build();
+    }
+
+    private AgentPublishVO redactApiSecretsIfNeeded(AgentPublishVO vo) {
+        if (vo == null || canViewApiSecrets()) {
+            return vo;
+        }
+        return AgentPublishVO.builder()
+                .agentId(vo.getAgentId())
+                .status(vo.getStatus())
+                .version(vo.getVersion())
+                .publishedAt(vo.getPublishedAt())
+                .build();
+    }
+
+    private boolean canViewApiSecrets() {
+        return StpUtil.hasPermission(PermissionCodes.API_READ)
+                || StpUtil.hasPermission(PermissionCodes.API_CREATE)
+                || StpUtil.hasPermission(PermissionCodes.API_UPDATE);
     }
 
     private int safeVersion(Integer version) {

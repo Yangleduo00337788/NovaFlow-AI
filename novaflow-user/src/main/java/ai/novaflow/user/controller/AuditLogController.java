@@ -6,7 +6,6 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.user.domain.vo.AuditLogVO;
 import ai.novaflow.user.service.AuditLogQueryService;
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.annotation.SaMode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +22,7 @@ public class AuditLogController {
 
     private final AuditLogQueryService auditLogQueryService;
 
-    @SaCheckPermission(value = {PermissionCodes.AUDIT_VIEW, PermissionCodes.PLATFORM_MANAGE}, mode = SaMode.OR)
+    @SaCheckPermission(PermissionCodes.AUDIT_VIEW)
     @GetMapping
     public ApiResult<PageResult<AuditLogVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -33,6 +32,7 @@ public class AuditLogController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String keyword) {
-        return ApiResult.ok(auditLogQueryService.page(page, pageSize, action, resourceType, startDate, endDate, keyword));
+        return ApiResult.ok(auditLogQueryService.pageTenant(
+                page, pageSize, action, resourceType, startDate, endDate, keyword));
     }
 }

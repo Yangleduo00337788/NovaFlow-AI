@@ -22,6 +22,8 @@ public class UserEntity {
     private String avatarUrl;
     private String phone;
     private String accountType;
+    @Column("platform_role_code")
+    private String platformRoleCode;
     private Integer status;
     private LocalDateTime lastLoginAt;
     private String lastLoginIp;

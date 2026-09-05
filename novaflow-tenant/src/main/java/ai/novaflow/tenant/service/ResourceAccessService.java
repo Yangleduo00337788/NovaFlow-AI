@@ -193,13 +193,32 @@ public class ResourceAccessService {
             String permissionCode,
             String resourceIdColumn
     ) {
+        applyReadableFilterAny(query, userId, tenantId, resourceType, List.of(permissionCode), resourceIdColumn);
+    }
+
+    /**
+     * 资源可读过滤：满足任一权限码即可（如门户场景 application:read 与 portal:access）。
+     */
+    public void applyReadableFilterAny(
+            QueryWrapper query,
+            long userId,
+            Long tenantId,
+            String resourceType,
+            List<String> permissionCodes,
+            String resourceIdColumn
+    ) {
         if (tenantId == null || !StringUtils.hasText(resourceType) || !StringUtils.hasText(resourceIdColumn)) {
             return;
         }
         if (resourceAclBypassChecker.bypassesResourceAcl(userId, tenantId)) {
             return;
         }
-        Set<String> grantCodes = ResourcePermissionHierarchy.acceptableGrantCodes(permissionCode);
+        Set<String> grantCodes = new HashSet<>();
+        if (permissionCodes != null) {
+            for (String permissionCode : permissionCodes) {
+                grantCodes.addAll(ResourcePermissionHierarchy.acceptableGrantCodes(permissionCode));
+            }
+        }
         if (grantCodes.isEmpty()) {
             query.and("1 = 0");
             return;

@@ -10,6 +10,7 @@ public class PlatformGlobalStatsVO {
     private long tenantCount;
     private long activeTenantCount;
     private long totalMembers;
+    private long totalUsers;
     private long totalAgents;
     private long totalKnowledgeBases;
     private long totalWorkflows;

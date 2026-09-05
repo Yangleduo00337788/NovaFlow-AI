@@ -2,6 +2,8 @@ package ai.novaflow.model.mapper;
 
 import ai.novaflow.model.domain.CostAllocationAggregate;
 import ai.novaflow.model.domain.ModelUsageAggregate;
+import ai.novaflow.model.domain.TenantTrafficSpikeAggregate;
+import ai.novaflow.model.domain.TenantUsageAggregate;
 import ai.novaflow.model.domain.TokenUsageLogRow;
 import ai.novaflow.model.domain.UsageTrendPoint;
 import ai.novaflow.model.domain.UsageTypeAggregate;
@@ -27,6 +29,22 @@ public interface TokenUsageMapper extends BaseMapper<TokenUsageEntity> {
     Long sumTokensBetween(Long tenantId, LocalDate startDate, LocalDate endDate);
 
     Long sumTokensBetweenAllTenants(LocalDate startDate, LocalDate endDate);
+
+    Long countCallsBetweenAllTenants(LocalDate startDate, LocalDate endDate);
+
+    BigDecimal sumCostBetweenAllTenants(String currency, LocalDate startDate, LocalDate endDate);
+
+    List<UsageTrendPoint> dailyTokenTrendAllTenants(LocalDate startDate, LocalDate endDate);
+
+    List<TenantUsageAggregate> topTenantsBetween(LocalDate startDate, LocalDate endDate, int limit);
+
+    Long countCallsSince(java.time.LocalDateTime since);
+
+    List<TenantUsageAggregate> topTenantsByCallsSince(java.time.LocalDateTime since, int limit);
+
+    List<TenantTrafficSpikeAggregate> listTenantTrafficBaselines(LocalDate today, int lookbackDays, int limit);
+
+    List<ModelUsageAggregate> topModelsAllTenants(LocalDate startDate, LocalDate endDate, int limit);
 
     Long countCallsBetween(Long tenantId, LocalDate startDate, LocalDate endDate);
 

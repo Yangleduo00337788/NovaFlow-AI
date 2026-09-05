@@ -83,7 +83,7 @@ public class AgentController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.AGENT_EDIT, PermissionCodes.API_READ}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
     @GetMapping("/{id}/publish")
     public ApiResult<AgentPublishVO> publishInfo(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.getPublishInfo(id));
@@ -100,13 +100,13 @@ public class AgentController {
         return ApiResult.ok(agentPublishService.unpublish(id));
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.API_CREATE, PermissionCodes.API_UPDATE}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionCodes.API_CREATE, PermissionCodes.API_UPDATE}, mode = SaMode.OR)
     @PostMapping("/{id}/rotate-api-key")
     public ApiResult<AgentPublishVO> rotateApiKey(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.rotateApiKey(id));
     }
 
-    @SaCheckPermission(PermissionCodes.AGENT_PUBLISH)
+    @SaCheckPermission(value = {PermissionCodes.API_CREATE, PermissionCodes.API_UPDATE}, mode = SaMode.OR)
     @PostMapping("/{id}/rotate-embed-token")
     public ApiResult<AgentPublishVO> rotateEmbedToken(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.rotateEmbedToken(id));
