@@ -18,8 +18,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      # 排除 local（需本机 MySQL/Redis）与 testcontainers（需 Docker 全栈）集成测试
       - name: Build and test
-        run: mvn -B -q clean test
+        run: mvn -B -q clean test -Dtest.excludedGroups=local,testcontainers
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
