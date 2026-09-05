@@ -6,7 +6,7 @@
     <parent>
         <groupId>ai.novaflow</groupId>
         <artifactId>novaflow-ai</artifactId>
-        <version>1.1.0</version>
+        <version>1.1.1</version>
     </parent>
     <artifactId>novaflow-billing</artifactId>
     <name>novaflow-billing</name>
@@ -53,6 +53,10 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>5.3.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
