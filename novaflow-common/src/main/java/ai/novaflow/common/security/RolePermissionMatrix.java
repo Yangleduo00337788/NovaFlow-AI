@@ -3,7 +3,7 @@ package ai.novaflow.common.security;
 import java.util.Set;
 
 /**
- * 租户内置角色的权限矩阵（与 V29__rbac_v2_roles_and_resource_acl.sql 对齐，供代码与测试引用）。
+ * 租户内置角色的权限矩阵（与 V29 + V30–V34 对齐，供代码与测试引用）。
  */
 public final class RolePermissionMatrix {
 
@@ -21,9 +21,8 @@ public final class RolePermissionMatrix {
             PermissionCodes.MCP_READ, PermissionCodes.MCP_CREATE, PermissionCodes.MCP_UPDATE, PermissionCodes.MCP_DELETE,
             PermissionCodes.PROMPT_READ, PermissionCodes.PROMPT_CREATE, PermissionCodes.PROMPT_EDIT, PermissionCodes.PROMPT_DELETE,
             PermissionCodes.API_READ, PermissionCodes.API_CREATE, PermissionCodes.API_UPDATE, PermissionCodes.API_DELETE,
-            PermissionCodes.APPLICATION_MANAGE,
-            PermissionCodes.MONITOR_VIEW, PermissionCodes.TRACE_VIEW, PermissionCodes.LOG_READ,
-            PermissionCodes.BILLING_VIEW,
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_MANAGE,
+            PermissionCodes.MONITOR_VIEW, PermissionCodes.TRACE_VIEW,
             PermissionCodes.SEARCH_GLOBAL,
             PermissionCodes.PORTAL_ACCESS
     );
@@ -33,9 +32,9 @@ public final class RolePermissionMatrix {
             PermissionCodes.AGENT_READ, PermissionCodes.AGENT_PUBLISH, PermissionCodes.AGENT_CHAT,
             PermissionCodes.WORKFLOW_READ, PermissionCodes.WORKFLOW_PUBLISH, PermissionCodes.WORKFLOW_EXECUTE,
             PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_SEARCH,
-            PermissionCodes.APPLICATION_MANAGE,
+            PermissionCodes.MODEL_READ,
+            PermissionCodes.APPLICATION_READ, PermissionCodes.APPLICATION_PUBLISH,
             PermissionCodes.MONITOR_VIEW, PermissionCodes.TRACE_VIEW, PermissionCodes.LOG_READ,
-            PermissionCodes.BILLING_VIEW,
             PermissionCodes.SEARCH_GLOBAL,
             PermissionCodes.PORTAL_ACCESS
     );
@@ -54,13 +53,8 @@ public final class RolePermissionMatrix {
             PermissionCodes.AGENT_READ,
             PermissionCodes.WORKFLOW_READ,
             PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_SEARCH,
-            PermissionCodes.MODEL_READ,
-            PermissionCodes.TOOL_READ, PermissionCodes.MCP_READ,
-            PermissionCodes.PROMPT_READ,
-            PermissionCodes.API_READ,
-            PermissionCodes.APPLICATION_MANAGE,
-            PermissionCodes.MONITOR_VIEW, PermissionCodes.TRACE_VIEW, PermissionCodes.LOG_READ,
-            PermissionCodes.BILLING_VIEW,
+            PermissionCodes.APPLICATION_READ,
+            PermissionCodes.MONITOR_VIEW,
             PermissionCodes.SEARCH_GLOBAL,
             PermissionCodes.PORTAL_ACCESS
     );

@@ -10,9 +10,11 @@ import ai.novaflow.application.mapper.ApplicationMapper;
 import ai.novaflow.chat.domain.vo.ConversationMessageVO;
 import ai.novaflow.chat.domain.vo.ConversationVO;
 import ai.novaflow.chat.service.ConversationService;
-import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
+import ai.novaflow.user.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -30,19 +32,22 @@ public class PortalService {
     private final ApplicationMapper applicationMapper;
     private final AgentMapper agentMapper;
     private final ConversationService conversationService;
+    private final ResourceAccessService resourceAccessService;
 
     public List<PortalAppVO> listPublishedApps() {
         Long tenantId = TenantContexts.requireTenantId();
-        return applicationMapper.selectListByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", tenantId)
-                        .eq("is_deleted", 0)
-                        .eq("status", 1)
-                        .eq("publish_status", PUBLISH_STATUS_PUBLISHED)
-                        .isNotNull("default_agent_id")
-                        .orderBy("published_at", false)
-                        .orderBy("app_name", true)
-        ).stream().map(this::toPortalVO).toList();
+        long userId = StpUtil.getLoginIdAsLong();
+        QueryWrapper query = QueryWrapper.create()
+                .eq("tenant_id", tenantId)
+                .eq("is_deleted", 0)
+                .eq("status", 1)
+                .eq("publish_status", PUBLISH_STATUS_PUBLISHED)
+                .isNotNull("default_agent_id")
+                .orderBy("published_at", false)
+                .orderBy("app_name", true);
+        resourceAccessService.applyReadableFilter(
+                query, userId, tenantId, ResourceTypes.APPLICATION, PermissionCodes.APPLICATION_READ, "application.id");
+        return applicationMapper.selectListByQuery(query).stream().map(this::toPortalVO).toList();
     }
 
     public PortalAppDetailVO getPublishedApp(Long applicationId) {
@@ -106,6 +111,8 @@ public class PortalService {
         if (entity == null || entity.getDefaultAgentId() == null) {
             throw new BusinessException("应用不存在或未发布");
         }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.APPLICATION, applicationId, PermissionCodes.APPLICATION_READ);
         return entity;
     }
 
