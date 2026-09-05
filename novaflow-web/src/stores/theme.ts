@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import type { AppScope } from '@/config/theme-colors'
+import { themeTokensForScope } from '@/config/theme-colors'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -21,11 +23,17 @@ export function applyTheme(mode: ThemeMode) {
   document.documentElement.style.colorScheme = mode
 }
 
+export function applyScope(scope: AppScope) {
+  document.documentElement.setAttribute('data-scope', scope)
+}
+
 export const useThemeStore = defineStore('theme', () => {
   const mode = ref<ThemeMode>(readStoredTheme())
+  const scope = ref<AppScope>('tenant')
 
   const isDark = computed(() => mode.value === 'dark')
   const siderTheme = computed(() => (isDark.value ? 'dark' : 'light'))
+  const tokens = computed(() => themeTokensForScope(scope.value))
 
   function setTheme(next: ThemeMode) {
     mode.value = next
@@ -33,9 +41,14 @@ export const useThemeStore = defineStore('theme', () => {
     applyTheme(next)
   }
 
+  function setScope(next: AppScope) {
+    scope.value = next
+    applyScope(next)
+  }
+
   function toggle() {
     setTheme(isDark.value ? 'light' : 'dark')
   }
 
-  return { mode, isDark, siderTheme, setTheme, toggle }
+  return { mode, scope, isDark, siderTheme, tokens, setTheme, setScope, toggle }
 })

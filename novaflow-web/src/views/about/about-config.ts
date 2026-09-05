@@ -66,10 +66,18 @@ export const aboutHomeMeta = {
   subtitle: '企业级 AI Agent 开发平台 · 协议、文档与支持',
 }
 
+export function resolveAboutBase(path: string): string {
+  return path.startsWith('/platform/about') ? '/platform/about' : '/about'
+}
+
 export function getAboutPageMeta(path: string) {
-  if (path === '/about' || path === '/about/') {
+  const aboutBase = resolveAboutBase(path)
+  if (path === aboutBase || path === `${aboutBase}/`) {
     return aboutHomeMeta
   }
-  const matched = aboutNavItems.find((item) => path === item.path || path.startsWith(`${item.path}/`))
+  const matched = aboutNavItems.find((item) => {
+    const scopedPath = item.path.replace('/about', aboutBase)
+    return path === scopedPath || path.startsWith(`${scopedPath}/`)
+  })
   return matched ?? aboutHomeMeta
 }

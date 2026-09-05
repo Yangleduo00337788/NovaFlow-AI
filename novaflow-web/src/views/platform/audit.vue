@@ -1,9 +1,9 @@
 <template>
-  <div class="audit-page page-shell">
+  <div class="platform-admin-page platform-audit-page page-shell">
     <div class="page-header">
       <div>
         <h1>审计日志</h1>
-        <p>查询本企业内的关键操作记录</p>
+        <p>查询全平台跨租户的关键操作记录</p>
       </div>
     </div>
 
@@ -54,8 +54,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import type { Dayjs } from 'dayjs'
 import { message } from 'ant-design-vue'
-import { fetchAuditLogs, type AuditLogItem } from '@/api/audit'
+import { fetchPlatformAuditLogs, type AuditLogItem } from '@/api/audit'
 import { formatDateTime } from '@/utils/datetime'
+import '@/views/platform/shared/styles.css'
 
 const loading = ref(false)
 const logs = ref<AuditLogItem[]>([])
@@ -91,7 +92,7 @@ const pagination = computed(() => ({
 async function loadLogs() {
   loading.value = true
   try {
-    const res = await fetchAuditLogs({
+    const res = await fetchPlatformAuditLogs({
       page: page.value,
       pageSize: pageSize.value,
       keyword: filters.keyword || undefined,

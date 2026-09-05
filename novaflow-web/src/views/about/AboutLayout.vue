@@ -10,7 +10,7 @@
 
     <div class="about-panel page-card">
       <aside class="about-nav">
-        <router-link to="/about" class="about-brand" :class="{ active: isHome }">
+        <router-link :to="aboutBase" class="about-brand" :class="{ active: isHome }">
           <span class="brand-dot" />
           <span class="brand-text">
             <span class="brand-name">关于 NovaFlow</span>
@@ -19,7 +19,7 @@
         </router-link>
         <nav class="about-nav-list">
           <router-link
-            v-for="item in aboutNavItems"
+            v-for="item in navItems"
             :key="item.path"
             :to="item.path"
             class="about-nav-item"
@@ -41,12 +41,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { aboutNavItems, getAboutPageMeta } from './about-config'
+import { aboutNavItems, getAboutPageMeta, resolveAboutBase } from './about-config'
 
 const route = useRoute()
 
-const isHome = computed(() => route.path === '/about' || route.path === '/about/')
+const aboutBase = computed(() => resolveAboutBase(route.path))
+const isHome = computed(() => route.path === aboutBase.value || route.path === `${aboutBase.value}/`)
 const pageMeta = computed(() => getAboutPageMeta(route.path))
+const navItems = computed(() =>
+  aboutNavItems.map((item) => ({
+    ...item,
+    path: item.path.replace('/about', aboutBase.value),
+  })),
+)
 
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`)

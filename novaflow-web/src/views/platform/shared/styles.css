@@ -1,0 +1,114 @@
+.platform-admin-page .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.platform-admin-page .stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.platform-admin-page .stat-item .label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.platform-admin-page .stat-item strong {
+  font-size: 20px;
+}
+
+.platform-admin-page .list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.platform-admin-page .list-toolbar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.platform-admin-page .list-toolbar-meta {
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.platform-admin-page .membership-cell,
+.platform-admin-page .detail-cell {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-admin-page .ops-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.platform-admin-page .ops-stats-grid .sub-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.platform-admin-page .ops-panels {
+  margin-top: 8px;
+}
+
+.platform-admin-page .ops-panel-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.platform-admin-page .trend-panel {
+  margin-top: 20px;
+}
+
+.platform-admin-page .trend-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.platform-admin-page .trend-bar-item {
+  display: grid;
+  grid-template-columns: 48px 1fr 80px;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.platform-admin-page .trend-bar-track {
+  height: 8px;
+  background: var(--border-color, #f0f0f0);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.platform-admin-page .trend-bar-fill {
+  height: 100%;
+  background: var(--platform-accent, #7c3aed);
+  border-radius: 4px;
+}
+
+.platform-admin-page .trend-value {
+  text-align: right;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1200px) {
+  .platform-admin-page .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

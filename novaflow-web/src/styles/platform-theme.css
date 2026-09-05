@@ -1,0 +1,83 @@
+/* 平台治理域主题：紫色系，与租户 Studio 蓝色系区分 */
+
+[data-scope='platform'] {
+  --primary: #7c3aed;
+  --menu-active-bg: #ede9fe;
+  --menu-hover-bg: #f5f3ff;
+  --user-toggle-bg: #ede9fe;
+  --user-toggle-hover-bg: #ddd6fe;
+  --user-toggle-open-bg: #c4b5fd;
+  --auth-focus-ring: color-mix(in srgb, #7c3aed 18%, transparent);
+  --platform-accent: #7c3aed;
+  --platform-accent-soft: #ede9fe;
+  --platform-surface: #faf5ff;
+}
+
+[data-scope='platform'][data-theme='dark'] {
+  --primary: #a78bfa;
+  --menu-active-bg: rgba(124, 58, 237, 0.2);
+  --menu-hover-bg: rgba(124, 58, 237, 0.1);
+  --user-toggle-bg: rgba(124, 58, 237, 0.18);
+  --user-toggle-hover-bg: rgba(124, 58, 237, 0.28);
+  --user-toggle-open-bg: rgba(124, 58, 237, 0.34);
+  --auth-focus-ring: color-mix(in srgb, #a78bfa 22%, transparent);
+  --platform-accent: #a78bfa;
+  --platform-accent-soft: rgba(124, 58, 237, 0.22);
+  --platform-surface: #1e1b4b;
+}
+
+.auth-page--platform {
+  background:
+    radial-gradient(circle at 85% 12%, color-mix(in srgb, var(--platform-accent) 18%, transparent), transparent 42%),
+    radial-gradient(circle at 12% 88%, color-mix(in srgb, var(--platform-accent) 10%, transparent), transparent 38%),
+    var(--bg);
+}
+
+.auth-page--platform .auth-card {
+  border-color: color-mix(in srgb, var(--platform-accent) 22%, var(--card-border));
+}
+
+.auth-page--platform .auth-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--platform-accent);
+  background: var(--platform-accent-soft);
+}
+
+.auth-page--platform .auth-tab.active::after {
+  background: var(--platform-accent);
+}
+
+.auth-switch-link {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.auth-switch-link a {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-switch-link a:hover {
+  text-decoration: underline;
+}
+
+.platform-layout {
+  background: var(--bg);
+}
+
+.platform-layout .main-content {
+  background: linear-gradient(180deg, var(--platform-surface) 0%, transparent 220px);
+}

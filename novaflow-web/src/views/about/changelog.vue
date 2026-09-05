@@ -116,14 +116,14 @@ const v101Engineering = [
 const productForm = [
   '企业管理端（Studio）：控制台主体，含 AI 应用开发与企业治理，面向企业管理员与开发者。',
   '应用门户：v1.1 已交付同站应用中心、对话与会话历史；v1.0 另可通过 Embed / Open API 使用已发布应用。',
-  '总控：v1.0 提供 /platform、/audit，与 Studio 同一套登录、同一应用。',
+  '总控：独立平台治理域（`/platform/login` + `/platform/*`），与 Studio 分登录入口与主题色。',
 ]
 
 const newFeatures = [
   { title: '工作流 Agent 节点', desc: '在工作流中调用已发布的 Agent，支持多 Agent 协作编排与串联执行。' },
   { title: '私有化部署', desc: '提供服务端与前端 Docker 镜像，配合编排文件一键启动完整环境，适配企业内网部署。' },
   { title: '链路追踪', desc: '工作流与 Agent 执行过程自动记录追踪信息，支持对接外部监控与观测平台。' },
-  { title: '总控（同站）', desc: '平台管理员可在 /platform、/audit 管理租户、配额与审计。' },
+  { title: '总控（平台域）', desc: '平台管理员通过 /platform/login 进入治理后台，管理租户、用户、计费与审计。' },
   { title: '审计日志', desc: '关键操作全程留痕，支持按动作、资源类型与时间范围筛选查询。' },
   { title: '全局搜索', desc: '顶栏快速检索应用、Agent、知识库与工作流，一键跳转至目标页面。' },
 ]

@@ -31,3 +31,15 @@ export function fetchAuditLogs(params: {
 }) {
   return request.get<ApiResult<AuditLogPage>>('/v1/audit-logs', { params })
 }
+
+export function fetchPlatformAuditLogs(params: {
+  page?: number
+  pageSize?: number
+  action?: string
+  resourceType?: string
+  startDate?: string
+  endDate?: string
+  keyword?: string
+}) {
+  return request.get<ApiResult<AuditLogPage>>('/v1/platform/audit-logs', { params })
+}
