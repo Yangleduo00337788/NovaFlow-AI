@@ -177,7 +177,7 @@ import {
 import AppLogo from '@/components/common/AppLogo.vue'
 import PortalChatPanel from '@/components/portal/PortalChatPanel.vue'
 import { fetchPortalApps, fetchPortalConversationMessages, fetchPortalConversations, type PortalAppItem, type PortalConversationItem } from '@/api/portal'
-import { getDefaultHomeByRole, portalAppPath } from '@/config/access'
+import { getDefaultHome, isPortalOnlyRole, portalAppPath } from '@/config/access'
 import { APP_LOGIN_PATH } from '@/config/app'
 import { useAuthStore } from '@/stores/auth'
 
@@ -201,7 +201,10 @@ const activeConversationKey = ref('')
 const userName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
 const tenantName = computed(() => auth.tenant?.tenantName || '')
 const userInitial = computed(() => (userName.value[0] || 'U').toUpperCase())
-const canReturnToStudio = computed(() => auth.hasAnyPermission(['dashboard:view', 'agent:read', 'tenant:manage']))
+const canReturnToStudio = computed(() =>
+  !isPortalOnlyRole(auth.roleCode)
+  && auth.hasAnyPermission(['dashboard:view', 'agent:read', 'tenant:manage']),
+)
 
 const filteredApps = computed(() => {
   const q = keyword.value.trim().toLowerCase()
@@ -285,7 +288,7 @@ function onConversationChanged(conversationKey?: string) {
 }
 
 function goStudio() {
-  router.push(getDefaultHomeByRole(auth.roleCode))
+  router.push(getDefaultHome(auth.user?.accountType, auth.roleCode))
 }
 
 function onLogout() {

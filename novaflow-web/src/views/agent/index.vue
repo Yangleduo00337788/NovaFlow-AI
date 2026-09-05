@@ -390,7 +390,7 @@
           <a-descriptions-item v-if="publishInfo.publishedAt" label="发布时间">
             {{ formatDateTime(publishInfo.publishedAt) }}
           </a-descriptions-item>
-          <a-descriptions-item v-if="publishInfo.apiKeyPrefix" label="API Key 前缀">
+          <a-descriptions-item v-if="canViewApiSecrets && publishInfo.apiKeyPrefix" label="API Key 前缀">
             <span class="key-prefix">{{ publishInfo.apiKeyPrefix }}...</span>
             <a-popconfirm
               v-if="canRotateApiKey"
@@ -424,7 +424,7 @@
           <a-button type="primary" size="small" @click="copyText(revealedApiKey)">复制 API Key</a-button>
         </div>
 
-        <div v-if="publishInfo.status === 1" class="endpoint-section">
+        <div v-if="canViewApiSecrets && publishInfo.status === 1" class="endpoint-section">
           <div class="section-label">API 端点</div>
           <p class="endpoint-tip">命令行或第三方系统请使用后端地址 <code>{{ apiBaseUrl }}</code></p>
           <div class="endpoint-item">
@@ -483,8 +483,9 @@
           >
             发布并生成 API Key
           </a-button>
-          <template v-else>
+          <template v-else-if="canViewApiSecrets">
             <a-popconfirm
+              v-if="canRotateApiKey"
               title="轮换后旧 Key 将立即失效，需同步更新所有调用方"
               ok-text="确认轮换"
               @confirm="onRotateKey"
@@ -492,12 +493,18 @@
               <a-button :loading="publishLoading">轮换 API Key</a-button>
             </a-popconfirm>
             <a-popconfirm
+              v-if="canRotateEmbedToken"
               title="轮换后旧 Embed Token 将立即失效，需同步更新 iframe"
               ok-text="确认轮换"
               @confirm="onRotateEmbedToken"
             >
               <a-button :loading="publishLoading">轮换 Embed Token</a-button>
             </a-popconfirm>
+            <a-popconfirm title="确认下线该 Agent？对外 API 将立即停止" @confirm="onUnpublish">
+              <a-button danger :loading="publishLoading">下线</a-button>
+            </a-popconfirm>
+          </template>
+          <template v-else>
             <a-popconfirm title="确认下线该 Agent？对外 API 将立即停止" @confirm="onUnpublish">
               <a-button danger :loading="publishLoading">下线</a-button>
             </a-popconfirm>
@@ -575,7 +582,9 @@ const canEdit = computed(() => auth.hasPermission('agent:edit'))
 const canDelete = computed(() => auth.hasPermission('agent:delete'))
 const canPublish = computed(() => auth.hasPermission('agent:publish'))
 const canDebug = computed(() => auth.hasAnyPermission(['agent:debug', 'agent:edit']))
-const canRotateApiKey = computed(() => auth.hasAnyPermission(['api:create', 'api:update', 'agent:publish']))
+const canViewApiSecrets = computed(() => auth.hasAnyPermission(['api:read', 'api:create', 'api:update']))
+const canRotateApiKey = computed(() => auth.hasAnyPermission(['api:create', 'api:update']))
+const canRotateEmbedToken = computed(() => auth.hasAnyPermission(['api:create', 'api:update']))
 const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
 const agentPermissionOptions = RESOURCE_PERMISSION_OPTIONS.AGENT
 

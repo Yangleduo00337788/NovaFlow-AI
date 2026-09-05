@@ -54,12 +54,6 @@ export const menuGroups: MenuGroup[] = [
       { key: 'audit', label: '审计日志', path: '/audit', icon: 'log', permissions: ['audit:view'] },
     ],
   },
-  {
-    title: '平台治理',
-    items: [
-      { key: 'platform', label: '租户管理', path: '/platform', icon: 'platform', permissions: ['platform:manage'] },
-    ],
-  },
 ]
 
 const routePermissionMap: Record<string, string[]> = {
@@ -79,13 +73,12 @@ const routePermissionMap: Record<string, string[]> = {
   '/permission': ['member:manage', 'role:read'],
   '/settings': ['tenant:manage'],
   '/billing': ['billing:view', 'billing:manage'],
-  '/platform': ['platform:manage'],
   '/audit': ['audit:view'],
   '/portal': ['portal:access'],
   '/about': [],
 }
 
-/** 按权限码过滤菜单；有权限的入口全部展示，不按路径切换菜单集 */
+/** 按权限码过滤租户 Studio 菜单 */
 export function filterMenuGroups(ctx: RouteAccessContext): MenuGroup[] {
   return menuGroups
     .map((group) => ({
@@ -101,6 +94,8 @@ export function getRoutePermissions(path: string): string[] | undefined {
     .sort((a, b) => b.length - a.length)[0]
   return matched ? routePermissionMap[matched] : undefined
 }
+
+export type RoutePermissionResolver = (path: string) => string[] | undefined
 
 export function getBreadcrumbByPath(path: string): BreadcrumbInfo {
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {

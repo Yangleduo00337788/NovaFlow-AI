@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { LoginResponse } from '@/api/auth'
+import { isPlatformAccount } from '@/config/account'
 
 const TOKEN_KEY = 'novaflow_token'
 const USER_KEY = 'novaflow_user'
@@ -42,6 +43,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = () => !!token.value
 
   const roleCode = computed(() => user.value?.roleCode || '')
+  const accountType = computed(() => user.value?.accountType)
+  const isPlatform = computed(() => isPlatformAccount(accountType.value))
 
   function hasPermission(...codes: string[]) {
     if (codes.length === 0) {
@@ -63,6 +66,8 @@ export const useAuthStore = defineStore('auth', () => {
     tenant,
     permissions,
     roleCode,
+    accountType,
+    isPlatform,
     setAuth,
     clear,
     isLoggedIn,

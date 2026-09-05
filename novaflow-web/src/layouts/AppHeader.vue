@@ -45,7 +45,7 @@
 
     <div class="right">
       <ThemeToggle />
-      <a-button type="text" class="icon-btn" title="关于" @click="router.push('/about')"><QuestionCircleOutlined /></a-button>
+      <a-button type="text" class="icon-btn" title="关于" @click="router.push(aboutPath)"><QuestionCircleOutlined /></a-button>
       <a-dropdown
         v-model:open="notificationOpen"
         :trigger="['click']"
@@ -131,6 +131,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { logout } from '@/api/auth'
+import { resolveLoginPath } from '@/config/app'
 import {
   fetchNotifications,
   fetchUnreadNotificationCount,
@@ -139,22 +140,29 @@ import {
   type UserNotification,
 } from '@/api/notification'
 import { getBreadcrumbByPath } from '@/config/menu'
+import { getPlatformBreadcrumbByPath, isPlatformScopePath } from '@/config/platformMenu'
 import { getMenuIcon } from '@/config/menuIcons'
 import { formatDateTime } from '@/utils/datetime'
 import { globalSearch, type GlobalSearchItem } from '@/api/search'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
-withDefaults(defineProps<{ collapsed: boolean; showSiderToggle?: boolean }>(), {
+const props = withDefaults(defineProps<{ collapsed: boolean; showSiderToggle?: boolean; scope?: 'tenant' | 'platform' }>(), {
   showSiderToggle: true,
+  scope: 'tenant',
 })
 defineEmits<{ toggle: [] }>()
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const breadcrumb = computed(() => getBreadcrumbByPath(route.path))
+const breadcrumb = computed(() =>
+  props.scope === 'platform' || isPlatformScopePath(route.path)
+    ? getPlatformBreadcrumbByPath(route.path)
+    : getBreadcrumbByPath(route.path),
+)
 const breadcrumbIcon = computed(() => getMenuIcon(breadcrumb.value.icon))
-const canGlobalSearch = computed(() => auth.hasPermission('search:global'))
+const canGlobalSearch = computed(() => props.scope !== 'platform' && auth.hasPermission('search:global'))
+const aboutPath = computed(() => (props.scope === 'platform' ? '/platform/about' : '/about'))
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
 const roleName = computed(() => auth.user?.roleName || '用户')
 const userInitial = computed(() => {
@@ -339,7 +347,7 @@ async function onLogout() {
     await logout()
   } finally {
     auth.clear()
-    router.push('/login')
+    router.push(resolveLoginPath(props.scope === 'platform' ? '/platform' : '/dashboard'))
   }
 }
 </script>
@@ -378,6 +386,7 @@ async function onLogout() {
   gap: 4px;
   flex: 0 0 auto;
   min-width: 0;
+  margin-left: auto;
 }
 
 .global-search {

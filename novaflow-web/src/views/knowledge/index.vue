@@ -61,7 +61,8 @@
             <a-tag color="green">{{ item.embeddingModel }}</a-tag>
             <span class="kb-time">{{ formatDateTime(item.updatedAt) }}</span>
           </div>
-          <div v-if="canCreate || canDelete" class="kb-actions" @click.stop>
+          <div v-if="canCreate || canDelete || canManageResource" class="kb-actions" @click.stop>
+            <a-button v-if="canManageResource" type="link" @click="openResourcePerm(item.id)">资源授权</a-button>
             <a-button v-if="canCreate" type="link" @click="openEdit(item)">编辑</a-button>
             <a-popconfirm v-if="canDelete" title="确认删除该知识库及全部文档？" @confirm="onDelete(item.id)">
               <a-button type="link" danger>删除</a-button>
@@ -169,6 +170,14 @@
         </a-button>
       </a-form>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      :open="resourcePermOpen"
+      resource-type="KNOWLEDGE"
+      :resource-id="resourcePermId"
+      :permission-options="knowledgePermissionOptions"
+      @close="resourcePermOpen = false"
+    />
   </div>
 </template>
 
@@ -195,12 +204,18 @@ import { fetchEmbeddingOptions } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
 import { formatFileSize } from '@/utils/filesize'
 import { useAuthStore } from '@/stores/auth'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const canCreate = computed(() => auth.hasPermission('knowledge:create'))
 const canDelete = computed(() => auth.hasPermission('knowledge:delete'))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const knowledgePermissionOptions = RESOURCE_PERMISSION_OPTIONS.KNOWLEDGE
+const resourcePermOpen = ref(false)
+const resourcePermId = ref<number | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const modelsLoading = ref(false)
@@ -304,6 +319,12 @@ function openEdit(item: KnowledgeBaseItem) {
   form.retrievalScoreThreshold = item.retrievalScoreThreshold
   form.visibility = item.visibility
   drawerOpen.value = true
+}
+
+function openResourcePerm(id: number) {
+  if (!canManageResource.value) return
+  resourcePermId.value = id
+  resourcePermOpen.value = true
 }
 
 async function onSave() {

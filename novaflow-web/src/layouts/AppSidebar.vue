@@ -100,7 +100,7 @@ import { useRoute } from 'vue-router'
 import { DashboardOutlined, CrownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import { fetchPlanSummary } from '@/api/org'
-import { canAccessRoute } from '@/config/access'
+import { canAccessRoute, createRouteAccessContext } from '@/config/access'
 import { filterMenuGroups } from '@/config/menu'
 import { getMenuIcon } from '@/config/menuIcons'
 import { useAuthStore } from '@/stores/auth'
@@ -112,10 +112,7 @@ const route = useRoute()
 const themeStore = useThemeStore()
 const auth = useAuthStore()
 
-const routeAccess = computed(() => ({
-  roleCode: auth.roleCode,
-  hasAnyPermission: auth.hasAnyPermission.bind(auth),
-}))
+const routeAccess = computed(() => createRouteAccessContext(auth))
 
 const visibleMenuGroups = computed(() => filterMenuGroups(routeAccess.value))
 const showDashboard = computed(() => canAccessRoute('/dashboard', routeAccess.value))

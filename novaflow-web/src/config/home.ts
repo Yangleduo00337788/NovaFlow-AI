@@ -1,5 +1,5 @@
-import { getDefaultHomeByRole } from '@/config/access'
+import { getDefaultHome } from '@/config/access'
 
-export function getDefaultHomePath(roleCode: string): string {
-  return getDefaultHomeByRole(roleCode)
+export function getDefaultHomePath(roleCode: string, accountType?: string | null): string {
+  return getDefaultHome(accountType, roleCode)
 }

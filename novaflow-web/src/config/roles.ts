@@ -1,6 +1,7 @@
 /** 与后端 RoleCodes 保持一致 */
 export const RoleCodes = {
   PLATFORM_ADMIN: 'super_admin',
+  PLATFORM_AUDITOR: 'platform_auditor',
   TENANT_OWNER: 'tenant_owner',
   TENANT_ADMIN: 'tenant_admin',
   DEVELOPER: 'developer',
