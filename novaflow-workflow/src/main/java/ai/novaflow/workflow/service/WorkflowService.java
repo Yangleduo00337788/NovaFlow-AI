@@ -25,6 +25,7 @@ import ai.novaflow.workflow.mapper.WorkflowEdgeMapper;
 import ai.novaflow.workflow.mapper.WorkflowMapper;
 import ai.novaflow.workflow.mapper.WorkflowNodeMapper;
 import ai.novaflow.workflow.util.WorkflowElBuilder;
+import ai.novaflow.workflow.util.WorkflowPublishValidator;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -306,46 +307,8 @@ public class WorkflowService {
     }
 
     private void validateForPublish(List<WorkflowNodeEntity> nodes, List<WorkflowEdgeEntity> edges) {
-        if (nodes == null || nodes.isEmpty()) {
-            throw new BusinessException("发布失败：请至少添加一个节点");
-        }
-        long startCount = nodes.stream().filter(node -> WorkflowNodeType.START.equals(node.getNodeType())).count();
-        long endCount = nodes.stream().filter(node -> WorkflowNodeType.END.equals(node.getNodeType())).count();
-        if (startCount != 1) {
-            throw new BusinessException("发布失败：工作流需要且仅需要一个开始节点");
-        }
-        if (endCount < 1) {
-            throw new BusinessException("发布失败：工作流至少需要一个结束节点");
-        }
-        if (edges == null || edges.isEmpty()) {
-            throw new BusinessException("发布失败：请连接节点后再发布");
-        }
-        for (WorkflowNodeEntity node : nodes) {
-            Map<String, Object> config = parseConfig(node.getNodeConfig());
-            if (WorkflowNodeType.LLM.equals(node.getNodeType()) && toLong(config.get("modelConfigId")) == null) {
-                throw new BusinessException("发布失败：LLM 节点「" + node.getNodeName() + "」未配置模型");
-            }
-            if (WorkflowNodeType.TOOL.equals(node.getNodeType()) && toLong(config.get("toolId")) == null) {
-                throw new BusinessException("发布失败：工具节点「" + node.getNodeName() + "」未选择工具");
-            }
-            if (WorkflowNodeType.KNOWLEDGE.equals(node.getNodeType()) && toLong(config.get("knowledgeBaseId")) == null) {
-                throw new BusinessException("发布失败：知识库节点「" + node.getNodeName() + "」未选择知识库");
-            }
-        }
-    }
-
-    private Long toLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        try {
-            return Long.parseLong(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        WorkflowPublishValidator.validateGraph(nodes, edges);
+        WorkflowPublishValidator.validateNodeConfigs(nodes, this::parseConfig);
     }
 
     private WorkflowEntity getWorkflowOrThrow(Long id) {
