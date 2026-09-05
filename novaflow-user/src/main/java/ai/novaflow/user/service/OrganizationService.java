@@ -3,6 +3,7 @@ import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.context.TenantContext;
+import ai.novaflow.common.security.AccountTypes;
 import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
@@ -53,7 +54,6 @@ import java.util.stream.Collectors;
 public class OrganizationService {
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).+$");
-    private static final Set<String> ASSIGNABLE_ROLE_CODES = RoleCodes.ASSIGNABLE_TENANT_ROLES;
 
     private final TenantMapper tenantMapper;
     private final TenantMemberMapper tenantMemberMapper;
@@ -316,6 +316,7 @@ public class OrganizationService {
             user.setEmail(email);
             user.setUsername(buildUsername(email));
             user.setNickname(resolveNickname(request.getNickname(), email));
+            user.setAccountType(AccountTypes.TENANT);
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
             user.setStatus(1);
             user.setIsDeleted(0);
@@ -323,6 +324,9 @@ public class OrganizationService {
             user.setUpdatedAt(now);
             userMapper.insert(user);
         } else {
+            if (AccountTypes.isPlatform(user.getAccountType())) {
+                throw new BusinessException("不能邀请平台管理员加入企业");
+            }
             ensureUserNotInOtherTenant(user.getId(), tenantId);
         }
 
@@ -756,10 +760,7 @@ public class OrganizationService {
     }
 
     private RoleEntity requireAssignableRole(String roleCode) {
-        if (roleCode == null || !ASSIGNABLE_ROLE_CODES.contains(roleCode)) {
-            throw new BusinessException("不能分配该角色");
-        }
-        return permissionService.requireSystemRole(roleCode);
+        return permissionService.requireAssignableRole(TenantContexts.requireTenantId(), roleCode);
     }
 
     private void ensureNotProtectedMemberRole(RoleEntity role) {

@@ -2,7 +2,6 @@ package ai.novaflow.user.domain.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
@@ -15,7 +14,6 @@ public class MemberInviteRequest {
     private String nickname;
 
     @NotBlank(message = "角色不能为空")
-    @Pattern(regexp = "tenant_admin|developer|operator|member|viewer", message = "角色编码无效")
     private String roleCode;
 
     private String password;

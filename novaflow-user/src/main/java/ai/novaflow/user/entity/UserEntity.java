@@ -21,6 +21,7 @@ public class UserEntity {
     private String nickname;
     private String avatarUrl;
     private String phone;
+    private String accountType;
     private Integer status;
     private LocalDateTime lastLoginAt;
     private String lastLoginIp;

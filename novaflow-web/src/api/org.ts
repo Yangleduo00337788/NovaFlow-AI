@@ -150,6 +150,10 @@ export function fetchMembers(params?: { page?: number; pageSize?: number; keywor
   return request.get<ApiResult<{ list: MemberItem[]; total: number }>>('/v1/org/members', { params })
 }
 
+export function fetchAssignableRoles() {
+  return request.get<ApiResult<{ id: number; roleCode: string; roleName: string }[]>>('/v1/roles/assignable')
+}
+
 export function inviteMember(data: MemberInviteRequest) {
   return request.post<ApiResult<MemberItem>>('/v1/org/members/invite', data)
 }

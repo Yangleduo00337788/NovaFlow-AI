@@ -23,6 +23,7 @@ export interface LoginResponse {
     username: string
     nickname: string
     email: string
+    accountType?: string
     roleCode: string
     roleName: string
   }

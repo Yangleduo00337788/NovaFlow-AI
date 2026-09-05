@@ -2,15 +2,21 @@ package ai.novaflow.user.controller;
 import ai.novaflow.common.security.PermissionCodes;
 
 import ai.novaflow.common.domain.ApiResult;
+import ai.novaflow.user.domain.dto.RoleSaveRequest;
 import ai.novaflow.user.domain.vo.MemberVO;
 import ai.novaflow.user.domain.vo.PermissionVO;
 import ai.novaflow.user.domain.vo.RoleVO;
 import ai.novaflow.user.service.RoleManagementService;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaMode;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,10 +36,35 @@ public class RoleController {
         return ApiResult.ok(roleManagementService.listRoles());
     }
 
+    @SaCheckPermission(value = {PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE, PermissionCodes.USER_CREATE}, mode = SaMode.OR)
+    @GetMapping("/roles/assignable")
+    public ApiResult<List<RoleVO>> listAssignableRoles() {
+        return ApiResult.ok(roleManagementService.listAssignableRoles());
+    }
+
     @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
     @GetMapping("/roles/{id}")
     public ApiResult<RoleVO> roleDetail(@PathVariable Long id) {
         return ApiResult.ok(roleManagementService.getRole(id));
+    }
+
+    @SaCheckPermission(value = {PermissionCodes.ROLE_CREATE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
+    @PostMapping("/roles")
+    public ApiResult<RoleVO> createRole(@Valid @RequestBody RoleSaveRequest request) {
+        return ApiResult.ok(roleManagementService.createRole(request));
+    }
+
+    @SaCheckPermission(value = {PermissionCodes.ROLE_UPDATE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
+    @PutMapping("/roles/{id}")
+    public ApiResult<RoleVO> updateRole(@PathVariable Long id, @Valid @RequestBody RoleSaveRequest request) {
+        return ApiResult.ok(roleManagementService.updateRole(id, request));
+    }
+
+    @SaCheckPermission(value = {PermissionCodes.ROLE_DELETE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)
+    @DeleteMapping("/roles/{id}")
+    public ApiResult<Void> deleteRole(@PathVariable Long id) {
+        roleManagementService.deleteRole(id);
+        return ApiResult.ok();
     }
 
     @SaCheckPermission(value = {PermissionCodes.ROLE_READ, PermissionCodes.MEMBER_MANAGE, PermissionCodes.TENANT_MANAGE}, mode = SaMode.OR)

@@ -2,6 +2,7 @@ import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getRoutePermissions } from '@/config/menu'
 import { getDefaultHomeByRole } from '@/config/access'
+import { isPlatformAccount } from '@/config/account'
 import { APP_LOGIN_PATH } from '@/config/app'
 
 export function installRouterGuard(router: Router) {
@@ -20,6 +21,16 @@ export function installRouterGuard(router: Router) {
         return { path: APP_LOGIN_PATH, query: { redirect: to.fullPath } }
       }
       return true
+    }
+
+    const accountType = auth.user?.accountType
+    if (isPlatformAccount(accountType)) {
+      const allowed = to.path.startsWith('/platform') || to.path.startsWith('/about')
+      if (!allowed) {
+        return '/platform'
+      }
+    } else if (to.path.startsWith('/platform')) {
+      return getDefaultHomeByRole(auth.roleCode)
     }
 
     const requiredPermissions =

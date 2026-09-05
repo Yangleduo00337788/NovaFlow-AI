@@ -1,15 +1,18 @@
 package ai.novaflow.user.service;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.AccountTypes;
 import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.PermissionEntity;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.RolePermissionEntity;
+import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.user.mapper.PermissionMapper;
 import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.user.mapper.RolePermissionMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
+import ai.novaflow.user.mapper.UserMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ public class PermissionService {
     private final RoleMapper roleMapper;
     private final RolePermissionMapper rolePermissionMapper;
     private final PermissionMapper permissionMapper;
+    private final UserMapper userMapper;
 
     public List<String> getRoleCodes(long userId, Long tenantId) {
         RoleEntity role = resolveRole(userId, tenantId);
@@ -44,24 +48,14 @@ public class PermissionService {
         if (role == null) {
             return Collections.emptyList();
         }
-        List<RolePermissionEntity> links = rolePermissionMapper.selectListByQuery(
-                QueryWrapper.create().eq("role_id", role.getId())
-        );
-        if (links.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Long> permissionIds = links.stream().map(RolePermissionEntity::getPermissionId).toList();
-        return permissionMapper.selectListByQuery(
-                QueryWrapper.create().in("id", permissionIds)
-        ).stream()
-                .map(PermissionEntity::getPermissionCode)
-                .filter(Objects::nonNull)
-                .distinct()
-                .sorted()
-                .toList();
+        return getPermissionCodesByRoleId(role.getId());
     }
 
     public RoleEntity resolveRole(long userId, Long tenantId) {
+        UserEntity user = userMapper.selectOneById(userId);
+        if (user != null && AccountTypes.isPlatform(user.getAccountType())) {
+            return requireSystemRole(RoleCodes.PLATFORM_ADMIN);
+        }
         if (tenantId == null) {
             return null;
         }
@@ -91,6 +85,10 @@ public class PermissionService {
     }
 
     public void requireSuperAdmin(long userId, Long tenantId) {
+        UserEntity user = userMapper.selectOneById(userId);
+        if (user != null && AccountTypes.isPlatform(user.getAccountType())) {
+            return;
+        }
         RoleEntity role = resolveRole(userId, tenantId);
         if (role == null || !RoleCodes.PLATFORM_ADMIN.equals(role.getRoleCode())) {
             throw new BusinessException("需要平台超级管理员权限");
@@ -108,6 +106,29 @@ public class PermissionService {
             throw new BusinessException("角色不存在: " + roleCode);
         }
         return role;
+    }
+
+    public RoleEntity requireAssignableRole(Long tenantId, String roleCode) {
+        if (roleCode == null || roleCode.isBlank()) {
+            throw new BusinessException("不能分配该角色");
+        }
+        if (RoleCodes.ASSIGNABLE_TENANT_ROLES.contains(roleCode)) {
+            return requireSystemRole(roleCode);
+        }
+        if (RoleCodes.isCustomRole(roleCode)) {
+            RoleEntity custom = roleMapper.selectOneByQuery(
+                    QueryWrapper.create()
+                            .eq("tenant_id", tenantId)
+                            .eq("role_code", roleCode)
+                            .eq("is_system", 0)
+                            .eq("is_deleted", 0)
+            );
+            if (custom == null) {
+                throw new BusinessException("不能分配该角色");
+            }
+            return custom;
+        }
+        throw new BusinessException("不能分配该角色");
     }
 
     public Map<Long, RoleEntity> getRolesByIds(List<Long> roleIds) {

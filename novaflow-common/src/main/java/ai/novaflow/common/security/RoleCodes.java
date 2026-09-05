@@ -16,7 +16,17 @@ public final class RoleCodes {
     public static final String MEMBER = "member";
     public static final String VIEWER = "viewer";
 
-    /** 组织邀请可分配的企业角色（不含平台超管与企业 Owner） */
+    /** 租户侧可见的系统角色（不含平台超管） */
+    public static final Set<String> TENANT_SYSTEM_ROLES = Set.of(
+            TENANT_OWNER,
+            TENANT_ADMIN,
+            DEVELOPER,
+            OPERATOR,
+            MEMBER,
+            VIEWER
+    );
+
+    public static final String CUSTOM_ROLE_PREFIX = "custom_";
     public static final Set<String> ASSIGNABLE_TENANT_ROLES = Set.of(
             TENANT_ADMIN, DEVELOPER, OPERATOR, MEMBER, VIEWER
     );
@@ -45,5 +55,9 @@ public final class RoleCodes {
 
     public static boolean isProtectedMemberRole(String roleCode) {
         return roleCode != null && PROTECTED_MEMBER_ROLES.contains(roleCode);
+    }
+
+    public static boolean isCustomRole(String roleCode) {
+        return roleCode != null && roleCode.startsWith(CUSTOM_ROLE_PREFIX);
     }
 }

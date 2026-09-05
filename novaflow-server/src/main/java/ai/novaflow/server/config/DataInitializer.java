@@ -14,6 +14,8 @@ import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
 import ai.novaflow.tenant.support.TenantLimits;
+import ai.novaflow.common.security.AccountTypes;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.user.mapper.RoleMapper;
@@ -28,6 +30,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 幂等初始化演示租户、角色演示账号与已发布应用（供门户使用）。
@@ -74,7 +77,7 @@ public class DataInitializer implements CommandLineRunner {
 
         LocalDateTime now = LocalDateTime.now();
         TenantEntity tenant = ensureDemoTenant(now);
-        UserEntity adminUser = ensureDemoUser(
+        UserEntity adminUser =         ensureDemoUser(
                 "admin@novaflow.ai",
                 "admin",
                 "张三",
@@ -83,13 +86,11 @@ public class DataInitializer implements CommandLineRunner {
                 tenant,
                 now
         );
-        ensureDemoUser(
+        ensurePlatformUser(
                 "platform@novaflow.ai",
                 "platform",
                 "平台超管",
                 "Platform123!",
-                superAdminRole,
-                tenant,
                 now
         );
         ensureDemoUser(
@@ -202,6 +203,7 @@ public class DataInitializer implements CommandLineRunner {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setNickname(nickname);
+        user.setAccountType(AccountTypes.TENANT);
         user.setStatus(1);
         user.setIsDeleted(0);
         user.setCreatedAt(now);
@@ -237,6 +239,52 @@ public class DataInitializer implements CommandLineRunner {
         newMember.setCreatedAt(now);
         newMember.setUpdatedAt(now);
         tenantMemberMapper.insert(newMember);
+    }
+
+    private void ensurePlatformUser(
+            String email,
+            String username,
+            String nickname,
+            String rawPassword,
+            LocalDateTime now
+    ) {
+        UserEntity existing = userMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("email", email)
+                        .eq("is_deleted", 0)
+        );
+        if (existing != null) {
+            existing.setAccountType(AccountTypes.PLATFORM);
+            existing.setUpdatedAt(now);
+            userMapper.update(existing);
+            removeAllTenantMemberships(existing.getId(), now);
+            return;
+        }
+
+        UserEntity user = new UserEntity();
+        user.setUsername(resolveUniqueUsername(username));
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setNickname(nickname);
+        user.setAccountType(AccountTypes.PLATFORM);
+        user.setStatus(1);
+        user.setIsDeleted(0);
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        userMapper.insert(user);
+    }
+
+    private void removeAllTenantMemberships(Long userId, LocalDateTime now) {
+        List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
+                QueryWrapper.create()
+                        .eq("user_id", userId)
+                        .eq("is_deleted", 0)
+        );
+        for (TenantMemberEntity member : members) {
+            member.setIsDeleted(1);
+            member.setUpdatedAt(now);
+            tenantMemberMapper.update(member);
+        }
     }
 
     private String resolveUniqueUsername(String base) {

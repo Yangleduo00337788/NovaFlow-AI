@@ -320,7 +320,7 @@
           <a-input v-model:value="inviteForm.nickname" placeholder="显示名称" />
         </a-form-item>
         <a-form-item label="角色" required>
-          <a-select v-model:value="inviteForm.roleCode" :options="ROLE_OPTIONS" />
+          <a-select v-model:value="inviteForm.roleCode" :options="roleOptions" />
         </a-form-item>
         <a-form-item label="部门">
           <a-tree-select
@@ -350,7 +350,7 @@
           <a-input :value="editingMember?.email" disabled />
         </a-form-item>
         <a-form-item label="角色">
-          <a-select v-model:value="memberForm.roleCode" :options="ROLE_OPTIONS" />
+          <a-select v-model:value="memberForm.roleCode" :options="roleOptions" />
         </a-form-item>
         <a-form-item label="部门">
           <a-tree-select
@@ -379,12 +379,12 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined, UserAddOutlined } from '@ant-design/icons-vue'
 import {
-  ROLE_OPTIONS,
   createDepartment,
   createWorkspace,
   deleteDepartment,
   deleteTenant,
   deleteWorkspace,
+  fetchAssignableRoles,
   fetchDepartments,
   fetchMembers,
   fetchTenant,
@@ -449,6 +449,7 @@ const workspaceForm = reactive({ workspaceName: '', description: '' })
 
 const memberLoading = ref(false)
 const members = ref<MemberItem[]>([])
+const roleOptions = ref<{ value: string; label: string }[]>([])
 const memberKeyword = ref('')
 const memberDeptFilter = ref<number | undefined>(undefined)
 const memberPage = ref(1)
@@ -865,6 +866,21 @@ async function onRemoveMember(id: number) {
   }
 }
 
+async function loadAssignableRoles() {
+  try {
+    const res = await fetchAssignableRoles()
+    roleOptions.value = (res.data.data || []).map((role) => ({
+      value: role.roleCode,
+      label: role.roleName,
+    }))
+    if (roleOptions.value.length && !roleOptions.value.some((item) => item.value === inviteForm.roleCode)) {
+      inviteForm.roleCode = roleOptions.value[0].value
+    }
+  } catch {
+    message.error('加载可分配角色失败')
+  }
+}
+
 onMounted(() => {
   if (canManageTenant.value) {
     activeTab.value = 'tenant'
@@ -876,6 +892,9 @@ onMounted(() => {
   if (canReadUsers.value || canTransferOwner.value) {
     loadDepartments()
     loadMembers()
+  }
+  if (canInviteUser.value || canUpdateUser.value) {
+    loadAssignableRoles()
   }
 })
 </script>

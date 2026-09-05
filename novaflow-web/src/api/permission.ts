@@ -54,3 +54,25 @@ export function fetchPermissions() {
 export function fetchGroupedPermissions() {
   return request.get<ApiResult<Record<string, PermissionItem[]>>>('/v1/permissions/grouped')
 }
+
+export interface RoleSaveRequest {
+  roleName: string
+  description?: string
+  permissionCodes: string[]
+}
+
+export function fetchAssignableRoles() {
+  return request.get<ApiResult<RoleItem[]>>('/v1/roles/assignable')
+}
+
+export function createRole(data: RoleSaveRequest) {
+  return request.post<ApiResult<RoleItem>>('/v1/roles', data)
+}
+
+export function updateRole(id: number, data: RoleSaveRequest) {
+  return request.put<ApiResult<RoleItem>>(`/v1/roles/${id}`, data)
+}
+
+export function deleteRole(id: number) {
+  return request.delete<ApiResult<void>>(`/v1/roles/${id}`)
+}

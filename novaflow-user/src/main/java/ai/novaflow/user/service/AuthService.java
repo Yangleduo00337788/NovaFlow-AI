@@ -9,6 +9,7 @@ import ai.novaflow.user.domain.dto.LoginRequest;
 import ai.novaflow.user.domain.dto.RegisterRequest;
 import ai.novaflow.user.domain.vo.LoginVO;
 import ai.novaflow.common.security.RoleCodes;
+import ai.novaflow.common.security.AccountTypes;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
@@ -82,6 +83,37 @@ public class AuthService {
         }
         loginFailureLockService.clearFailures(email, clientIp);
 
+        if (AccountTypes.isPlatform(user.getAccountType())) {
+            return loginPlatformUser(user, httpRequest, clientIp);
+        }
+        return loginTenantUser(user, httpRequest, clientIp);
+    }
+
+    private LoginVO loginPlatformUser(UserEntity user, HttpServletRequest httpRequest, String clientIp) {
+        RoleEntity role = permissionService.requireSystemRole(RoleCodes.PLATFORM_ADMIN);
+
+        StpUtil.login(user.getId());
+        StpUtil.getSession().set("tenantId", 0L);
+        StpUtil.getSession().set("accountType", AccountTypes.PLATFORM);
+        StpUtil.getSession().set("roleCode", role.getRoleCode());
+
+        user.setLastLoginAt(LocalDateTime.now());
+        user.setLastLoginIp(clientIp);
+        userMapper.update(user);
+
+        auditLogService.record(
+                "auth.login",
+                "user",
+                user.getId(),
+                "平台管理员登录",
+                0L,
+                user.getId(),
+                clientIp);
+
+        return buildPlatformLoginVO(user, role);
+    }
+
+    private LoginVO loginTenantUser(UserEntity user, HttpServletRequest httpRequest, String clientIp) {
         TenantMemberEntity member = tenantMemberMapper.selectOneByQuery(
                 QueryWrapper.create().where("user_id = ?", user.getId()).and("is_deleted = 0").limit(1)
         );
@@ -104,6 +136,7 @@ public class AuthService {
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
+        StpUtil.getSession().set("accountType", AccountTypes.TENANT);
         StpUtil.getSession().set("roleCode", role != null ? role.getRoleCode() : "user");
 
         user.setLastLoginAt(LocalDateTime.now());
@@ -176,6 +209,7 @@ public class AuthService {
         user.setEmail(request.getEmail().trim().toLowerCase(Locale.ROOT));
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setNickname(resolveNickname(request));
+        user.setAccountType(AccountTypes.TENANT);
         user.setStatus(1);
         user.setIsDeleted(0);
         user.setCreatedAt(now);
@@ -205,6 +239,7 @@ public class AuthService {
 
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
+        StpUtil.getSession().set("accountType", AccountTypes.TENANT);
         StpUtil.getSession().set("roleCode", ownerRole.getRoleCode());
 
         user.setLastLoginAt(now);
@@ -226,9 +261,13 @@ public class AuthService {
 
     public LoginVO currentUser() {
         long userId = StpUtil.getLoginIdAsLong();
-        Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
-
         UserEntity user = userMapper.selectOneById(userId);
+        if (user != null && AccountTypes.isPlatform(user.getAccountType())) {
+            RoleEntity role = permissionService.requireSystemRole(RoleCodes.PLATFORM_ADMIN);
+            return buildPlatformLoginVO(user, role);
+        }
+
+        Long tenantId = SessionTenantIds.toLong(StpUtil.getSession().get("tenantId"));
         TenantEntity tenant = tenantMapper.selectOneById(tenantId);
         RoleEntity role = permissionService.resolveRole(userId, tenantId);
 
@@ -257,6 +296,7 @@ public class AuthService {
                         .username(user.getUsername())
                         .nickname(user.getNickname())
                         .email(user.getEmail())
+                        .accountType(AccountTypes.TENANT)
                         .roleCode(role != null ? role.getRoleCode() : null)
                         .roleName(role != null ? role.getRoleName() : null)
                         .build())
@@ -264,6 +304,28 @@ public class AuthService {
                         .id(tenant.getId())
                         .tenantName(tenant.getTenantName())
                         .planType(tenant.getPlanType())
+                        .build())
+                .permissions(permissions)
+                .build();
+    }
+
+    private LoginVO buildPlatformLoginVO(UserEntity user, RoleEntity role) {
+        List<String> permissions = permissionService.getPermissionCodesByRoleId(role.getId());
+        return LoginVO.builder()
+                .token(StpUtil.getTokenValue())
+                .user(LoginVO.UserInfoVO.builder()
+                        .id(user.getId())
+                        .username(user.getUsername())
+                        .nickname(user.getNickname())
+                        .email(user.getEmail())
+                        .accountType(AccountTypes.PLATFORM)
+                        .roleCode(role.getRoleCode())
+                        .roleName(role.getRoleName())
+                        .build())
+                .tenant(LoginVO.TenantInfoVO.builder()
+                        .id(0L)
+                        .tenantName("NovaFlow 平台")
+                        .planType("platform")
                         .build())
                 .permissions(permissions)
                 .build();
