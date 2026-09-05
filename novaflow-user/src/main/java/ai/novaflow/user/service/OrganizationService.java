@@ -273,15 +273,18 @@ public class OrganizationService {
         query.orderBy("joined_at", false);
 
         Page<TenantMemberEntity> result = tenantMemberMapper.paginate(Page.of(page, pageSize), query);
-        Map<Long, UserEntity> userMap = loadUsers(result.getRecords());
-        Map<Long, RoleEntity> roleMap = loadRoles(result.getRecords());
-        Map<Long, DepartmentEntity> departmentMap = loadDepartments(result.getRecords());
-        List<MemberVO> list = result.getRecords().stream()
+        List<TenantMemberEntity> records = result.getRecords() == null ? List.of() : result.getRecords();
+        Map<Long, UserEntity> userMap = loadUsers(records);
+        Map<Long, RoleEntity> roleMap = loadRoles(records);
+        Map<Long, DepartmentEntity> departmentMap = loadDepartments(records);
+        List<MemberVO> list = records.stream()
+                .filter(Objects::nonNull)
                 .map(member -> toMemberVO(
                         member,
-                        userMap.get(member.getUserId()),
-                        roleMap.get(member.getRoleId()),
-                        departmentMap.get(member.getDepartmentId())))
+                        member.getUserId() != null ? userMap.get(member.getUserId()) : null,
+                        member.getRoleId() != null ? roleMap.get(member.getRoleId()) : null,
+                        member.getDepartmentId() != null ? departmentMap.get(member.getDepartmentId()) : null))
+                .filter(Objects::nonNull)
                 .toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
@@ -541,25 +544,51 @@ public class OrganizationService {
     }
 
     private Map<Long, UserEntity> loadUsers(List<TenantMemberEntity> members) {
-        List<Long> userIds = members.stream().map(TenantMemberEntity::getUserId).distinct().toList();
+        if (members == null || members.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> userIds = members.stream()
+                .filter(Objects::nonNull)
+                .map(TenantMemberEntity::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return userMapper.selectListByQuery(QueryWrapper.create().in("id", userIds))
-                .stream()
+        List<UserEntity> users = userMapper.selectListByQuery(QueryWrapper.create().in("id", userIds));
+        if (users == null || users.isEmpty()) {
+            return Map.of();
+        }
+        return users.stream()
+                .filter(Objects::nonNull)
+                .filter(user -> user.getId() != null)
                 .collect(Collectors.toMap(UserEntity::getId, user -> user, (a, b) -> a));
     }
 
     private Map<Long, RoleEntity> loadRoles(List<TenantMemberEntity> members) {
-        List<Long> roleIds = members.stream().map(TenantMemberEntity::getRoleId).distinct().toList();
+        if (members == null || members.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> roleIds = members.stream()
+                .filter(Objects::nonNull)
+                .map(TenantMemberEntity::getRoleId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         if (roleIds.isEmpty()) {
             return Map.of();
         }
-        return permissionService.getRolesByIds(roleIds);
+        Map<Long, RoleEntity> roles = permissionService.getRolesByIds(roleIds);
+        return roles == null ? Map.of() : roles;
     }
 
     private Map<Long, DepartmentEntity> loadDepartments(List<TenantMemberEntity> members) {
+        if (members == null || members.isEmpty()) {
+            return Map.of();
+        }
         List<Long> departmentIds = members.stream()
+                .filter(Objects::nonNull)
                 .map(TenantMemberEntity::getDepartmentId)
                 .filter(Objects::nonNull)
                 .distinct()
@@ -567,8 +596,14 @@ public class OrganizationService {
         if (departmentIds.isEmpty()) {
             return Map.of();
         }
-        return departmentMapper.selectListByQuery(QueryWrapper.create().in("id", departmentIds).eq("is_deleted", 0))
-                .stream()
+        List<DepartmentEntity> departments = departmentMapper.selectListByQuery(
+                QueryWrapper.create().in("id", departmentIds).eq("is_deleted", 0));
+        if (departments == null || departments.isEmpty()) {
+            return Map.of();
+        }
+        return departments.stream()
+                .filter(Objects::nonNull)
+                .filter(department -> department.getId() != null)
                 .collect(Collectors.toMap(DepartmentEntity::getId, item -> item, (a, b) -> a));
     }
 
@@ -630,6 +665,9 @@ public class OrganizationService {
     }
 
     private MemberVO toMemberVO(TenantMemberEntity member, UserEntity user, RoleEntity role, DepartmentEntity department) {
+        if (member == null) {
+            return null;
+        }
         return MemberVO.builder()
                 .id(member.getId())
                 .userId(member.getUserId())

@@ -54,8 +54,7 @@ public class BillingExportService {
                             overview.getQuota().getUsedTokens() + " / " + overview.getQuota().getMonthlyTokenQuota());
                 }
             }
-            summarySheet.autoSizeColumn(0);
-            summarySheet.autoSizeColumn(1);
+            autosizeColumns(summarySheet, 2);
 
             Sheet detailSheet = workbook.createSheet("明细");
             Row header = detailSheet.createRow(0);
@@ -77,9 +76,7 @@ public class BillingExportService {
                 row.createCell(7).setCellValue(record.getCost() != null ? record.getCost().doubleValue() : 0D);
                 row.createCell(8).setCellValue(record.getCurrency() != null ? record.getCurrency() : BillingCurrency.CNY.getCode());
             }
-            for (int i = 0; i < headers.length; i++) {
-                detailSheet.autoSizeColumn(i);
-            }
+            autosizeColumns(detailSheet, headers.length);
 
             workbook.write(out);
             return out.toByteArray();
@@ -184,5 +181,12 @@ public class BillingExportService {
     private String trimPdfLine(String text) {
         String trimmed = text == null ? "" : text;
         return trimmed.length() > 110 ? trimmed.substring(0, 110) + "..." : trimmed;
+    }
+
+    /** POI autoSizeColumn 在 Windows 无中文字体时会抛异常，改用固定列宽。 */
+    private void autosizeColumns(Sheet sheet, int columnCount) {
+        for (int i = 0; i < columnCount; i++) {
+            sheet.setColumnWidth(i, 18 * 256);
+        }
     }
 }
