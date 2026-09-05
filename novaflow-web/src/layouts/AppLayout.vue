@@ -1,7 +1,7 @@
 <template>
   <a-layout class="app-layout">
-    <AppSidebar v-if="showStudioChrome" :collapsed="collapsed" />
-    <a-layout>
+    <PlatformAnnouncementBanner v-if="showStudioChrome" />
+    <AppSidebar v-if="showStudioChrome" :collapsed="collapsed" />    <a-layout>
       <AppHeader
         :collapsed="collapsed"
         :show-sider-toggle="showStudioChrome"
@@ -21,6 +21,7 @@ import { isPortalPath } from '@/config/access'
 import { fetchCurrentUser } from '@/api/auth'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import PlatformAnnouncementBanner from '@/components/PlatformAnnouncementBanner.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()

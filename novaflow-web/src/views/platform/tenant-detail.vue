@@ -17,7 +17,10 @@
           </a-tag>
         </p>
       </div>
-      <a-button type="primary" :disabled="!detail" @click="openEdit">编辑租户</a-button>
+      <a-space>
+        <a-button type="primary" :disabled="!detail" @click="openEdit">编辑租户</a-button>
+        <a-button :disabled="!detail" @click="openResetOwner">重置 Owner 密码</a-button>
+      </a-space>
     </div>
 
     <a-spin :spinning="loading">
@@ -144,16 +147,36 @@
     </a-spin>
 
     <TenantEditModal v-model:open="modalOpen" :saving="saving" :form="form" @save="saveTenant" />
+
+    <a-modal
+      v-model:open="resetModalOpen"
+      title="重置 Owner 密码"
+      :confirm-loading="resetting"
+      @ok="submitResetOwner"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="新密码">
+          <a-input-password v-model:value="resetForm.newPassword" :disabled="resetForm.generatePassword" />
+        </a-form-item>
+        <a-form-item>
+          <a-checkbox v-model:checked="resetForm.generatePassword">自动生成新密码</a-checkbox>
+        </a-form-item>
+        <a-form-item>
+          <a-checkbox v-model:checked="resetForm.sendInviteEmail">发送通知邮件</a-checkbox>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   fetchPlatformTenantDetail,
+  resetTenantOwnerPassword,
   updatePlatformTenant,
   type PlatformModelUsage,
   type PlatformTenantDetail,
@@ -174,7 +197,15 @@ const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
+const resetModalOpen = ref(false)
+const resetting = ref(false)
 const detail = ref<PlatformTenantDetail | null>(null)
+
+const resetForm = reactive({
+  newPassword: '',
+  generatePassword: true,
+  sendInviteEmail: false,
+})
 
 const form = reactive({
   tenantName: '',
@@ -236,6 +267,45 @@ async function loadDetail() {
     message.error('加载租户详情失败')
   } finally {
     loading.value = false
+  }
+}
+
+function openResetOwner() {
+  resetForm.newPassword = ''
+  resetForm.generatePassword = true
+  resetForm.sendInviteEmail = false
+  resetModalOpen.value = true
+}
+
+async function submitResetOwner() {
+  if (!tenantId.value) return
+  if (!resetForm.generatePassword && !resetForm.newPassword.trim()) {
+    message.warning('请填写新密码或勾选自动生成')
+    return
+  }
+  resetting.value = true
+  try {
+    const res = await resetTenantOwnerPassword(tenantId.value, {
+      newPassword: resetForm.generatePassword ? undefined : resetForm.newPassword,
+      generatePassword: resetForm.generatePassword,
+      sendInviteEmail: resetForm.sendInviteEmail,
+    })
+    resetModalOpen.value = false
+    const result = res.data.data
+    if (result.generatedPassword) {
+      Modal.success({
+        title: 'Owner 密码已重置',
+        content: `账号：${result.ownerEmail}\n新密码：${result.generatedPassword}${
+          result.inviteEmailSent ? '\n（通知邮件已发送）' : ''
+        }`,
+      })
+    } else {
+      message.success(result.inviteEmailSent ? '密码已重置，通知邮件已发送' : 'Owner 密码已重置')
+    }
+  } catch {
+    message.error('重置失败')
+  } finally {
+    resetting.value = false
   }
 }
 

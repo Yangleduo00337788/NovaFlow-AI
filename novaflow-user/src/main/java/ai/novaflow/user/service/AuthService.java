@@ -3,6 +3,7 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.security.IpBlacklistChecker;
+import ai.novaflow.common.security.MaintenanceModeChecker;
 import ai.novaflow.security.ratelimit.AuthRateLimiter;
 import ai.novaflow.security.ratelimit.LoginFailureLockService;
 import ai.novaflow.security.session.SessionTenantIds;
@@ -55,6 +56,7 @@ public class AuthService {
     private final IpBlacklistChecker ipBlacklistChecker;
     private final AuditLogService auditLogService;
     private final PlatformSystemConfigService platformSystemConfigService;
+    private final MaintenanceModeChecker maintenanceModeChecker;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.getEmail();
@@ -114,6 +116,7 @@ public class AuthService {
     }
 
     private LoginVO loginTenantUser(UserEntity user, HttpServletRequest httpRequest, String clientIp) {
+        requireTenantAccessAllowed();
         TenantMemberEntity member = tenantMemberMapper.selectOneByQuery(
                 QueryWrapper.create().where("user_id = ?", user.getId()).and("is_deleted = 0").limit(1)
         );
@@ -159,6 +162,7 @@ public class AuthService {
 
     @Transactional
     public LoginVO register(RegisterRequest request, HttpServletRequest httpRequest) {
+        requireTenantAccessAllowed();
         if (!platformSystemConfigService.isRegistrationEnabled()) {
             throw new BusinessException("当前环境未开放自助注册，请联系管理员邀请");
         }
@@ -330,6 +334,14 @@ public class AuthService {
                         .build())
                 .permissions(permissions)
                 .build();
+    }
+
+    private void requireTenantAccessAllowed() {
+        if (maintenanceModeChecker != null && maintenanceModeChecker.isMaintenanceEnabled()) {
+            throw new BusinessException(
+                    MaintenanceModeChecker.MAINTENANCE_CODE,
+                    maintenanceModeChecker.getMaintenanceMessage());
+        }
     }
 
     private void validatePassword(String password) {

@@ -12,6 +12,7 @@ $ErrorActionPreference = 'Stop'
 $allowlistControllers = @(
     'AuthController'          # 登录/注册走 PUBLIC_API_PATHS；me/logout 仅需登录
     'HealthController'        # 健康检查公开
+    'PublicPlatformController' # 维护模式/公告公开状态（/api/v1/public/**）
     'AgentOpenController'     # Open API 独立鉴权（API Key / Embed Token）
     'NotificationController'  # 按 tenantId + userId 隔离，仅需登录
 )

@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { usePlatformStatusStore } from '@/stores/platformStatus'
 import { getRoutePermissions } from '@/config/menu'
 import { getDefaultHome, isAllowedForPortalOnlyRole, isPortalOnlyRole } from '@/config/access'
 import { IS_PLATFORM_DEPLOY } from '@/config/deploy'
@@ -21,10 +22,29 @@ function isPublicLoginPath(path: string): boolean {
   return PUBLIC_LOGIN_PATHS.includes(path as typeof PUBLIC_LOGIN_PATHS[number])
 }
 
+function shouldBypassMaintenance(path: string, accountType?: string | null): boolean {
+  if (path === '/maintenance') return true
+  if (isPlatformScopePath(path)) return true
+  if (isPlatformAccount(accountType)) return true
+  return false
+}
+
+function shouldEnforceMaintenance(path: string, accountType?: string | null): boolean {
+  return !shouldBypassMaintenance(path, accountType)
+}
+
 export function installRouterGuard(router: Router) {
-  router.beforeEach((to) => {
+  router.beforeEach(async (to) => {
     const auth = useAuthStore()
     const accountType = auth.user?.accountType
+    const platformStatus = usePlatformStatusStore()
+
+    if (to.path !== '/maintenance') {
+      await platformStatus.refresh()
+      if (platformStatus.maintenanceEnabled && shouldEnforceMaintenance(to.path, accountType)) {
+        return '/maintenance'
+      }
+    }
 
     if (to.meta.public) {
       if (isPublicLoginPath(to.path) && auth.isLoggedIn()) {

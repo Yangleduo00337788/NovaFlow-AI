@@ -21,9 +21,11 @@ import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.common.security.AccountTypes;
+import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.user.domain.dto.PlatformModelCatalogSaveRequest;
 import ai.novaflow.user.domain.dto.PlatformModelProviderUpdateRequest;
 import ai.novaflow.user.domain.dto.PlatformSettingsUpdateRequest;
+import ai.novaflow.user.domain.dto.PlatformOwnerPasswordResetRequest;
 import ai.novaflow.user.domain.dto.PlatformTenantCreateRequest;
 import ai.novaflow.user.domain.dto.PlatformTenantUpdateRequest;
 import ai.novaflow.user.domain.dto.PlatformUserUpdateRequest;
@@ -43,6 +45,9 @@ import ai.novaflow.user.domain.vo.PlatformTenantTrafficSpikeVO;
 import ai.novaflow.user.domain.vo.PlatformTenantUsageVO;
 import ai.novaflow.user.domain.vo.PlatformDashboardOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformTenantDetailVO;
+import ai.novaflow.user.domain.vo.PlatformOnboardingTemplateVO;
+import ai.novaflow.user.domain.vo.PlatformOwnerPasswordResetResultVO;
+import ai.novaflow.user.domain.vo.PlatformTenantCreateResultVO;
 import ai.novaflow.user.domain.vo.PlatformTenantHealthVO;
 import ai.novaflow.user.domain.vo.PlatformTenantVO;
 import ai.novaflow.user.domain.vo.PlatformTrendPointVO;
@@ -63,6 +68,9 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
+import ai.novaflow.tenant.support.TenantLimits;
+import ai.novaflow.user.support.OnboardingPasswordGenerator;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -105,6 +113,11 @@ public class PlatformAdminService {
     private final CryptoService cryptoService;
     private final PlatformApiAlertEventMapper platformApiAlertEventMapper;
     private final PlatformModelCatalogMapper platformModelCatalogMapper;
+    private final OnboardingMailService onboardingMailService;
+    private final PasswordEncoder passwordEncoder;
+
+    private static final List<String> ONBOARDING_PLAN_TYPES = List.of(
+            "personal", "free", "starter", "pro", "enterprise");
 
     public PageResult<PlatformTenantVO> pageTenants(int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
@@ -188,17 +201,34 @@ public class PlatformAdminService {
     }
 
     @Transactional
-    public PlatformTenantVO createTenant(PlatformTenantCreateRequest request) {
+    public PlatformTenantCreateResultVO createTenant(PlatformTenantCreateRequest request) {
         requireSuperAdmin();
+        boolean generatePassword = Boolean.TRUE.equals(request.getGeneratePassword());
+        String ownerPassword = request.getOwnerPassword();
+        if (generatePassword) {
+            ownerPassword = OnboardingPasswordGenerator.generate();
+        } else if (!StringUtils.hasText(ownerPassword)) {
+            throw new BusinessException("请填写初始密码或选择自动生成");
+        }
+
         TenantOnboardingService.ProvisionResult result = tenantOnboardingService.provisionTenantWithOwner(
                 request.getTenantName(),
                 request.getPlanType(),
                 request.getOwnerEmail(),
-                request.getOwnerPassword(),
+                ownerPassword,
                 request.getOwnerNickname(),
                 request.getContactName(),
                 request.getContactEmail(),
                 request.getContactPhone());
+
+        boolean inviteEmailSent = false;
+        if (Boolean.TRUE.equals(request.getSendInviteEmail())) {
+            inviteEmailSent = onboardingMailService.sendOwnerInvite(
+                    result.owner().getEmail(),
+                    result.tenant().getTenantName(),
+                    ownerPassword,
+                    generatePassword);
+        }
 
         auditLogService.record(
                 "platform.tenant.create",
@@ -208,7 +238,107 @@ public class PlatformAdminService {
                 TenantContext.getTenantId(),
                 StpUtil.getLoginIdAsLong());
 
-        return toPlatformTenantVO(result.tenant());
+        return PlatformTenantCreateResultVO.builder()
+                .tenant(toPlatformTenantVO(result.tenant()))
+                .ownerId(result.owner().getId())
+                .ownerEmail(result.owner().getEmail())
+                .generatedPassword(generatePassword ? ownerPassword : null)
+                .inviteEmailSent(inviteEmailSent)
+                .build();
+    }
+
+    public List<PlatformOnboardingTemplateVO> listOnboardingTemplates() {
+        requireSuperAdmin();
+        List<PlatformOnboardingTemplateVO> templates = new ArrayList<>();
+        for (String planType : ONBOARDING_PLAN_TYPES) {
+            TenantEntity sample = new TenantEntity();
+            sample.setPlanType(planType);
+            TenantLimits.applyPlanDefaults(sample);
+            templates.add(PlatformOnboardingTemplateVO.builder()
+                    .planType(planType)
+                    .planTypeLabel(resolvePlanTypeLabel(planType))
+                    .maxMembers(sample.getMaxMembers())
+                    .maxAgents(sample.getMaxAgents())
+                    .maxKnowledge(sample.getMaxKnowledge())
+                    .maxStorageMb(sample.getMaxStorageMb())
+                    .monthlyTokenQuota(sample.getMonthlyTokenQuota())
+                    .build());
+        }
+        return templates;
+    }
+
+    @Transactional
+    public PlatformOwnerPasswordResetResultVO resetTenantOwnerPassword(
+            Long tenantId,
+            PlatformOwnerPasswordResetRequest request) {
+        requireSuperAdmin();
+        getTenantOrThrow(tenantId);
+        UserEntity owner = findTenantOwnerOrThrow(tenantId);
+
+        boolean generatePassword = Boolean.TRUE.equals(request.getGeneratePassword());
+        String newPassword = request.getNewPassword();
+        if (generatePassword) {
+            newPassword = OnboardingPasswordGenerator.generate();
+        } else if (!StringUtils.hasText(newPassword)) {
+            throw new BusinessException("请填写新密码或选择自动生成");
+        }
+        tenantOnboardingService.validatePasswordStrength(newPassword);
+
+        owner.setPasswordHash(passwordEncoder.encode(newPassword));
+        owner.setUpdatedAt(LocalDateTime.now());
+        userMapper.update(owner);
+        StpUtil.logout(owner.getId());
+
+        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
+        boolean inviteEmailSent = false;
+        if (Boolean.TRUE.equals(request.getSendInviteEmail())) {
+            inviteEmailSent = onboardingMailService.sendOwnerInvite(
+                    owner.getEmail(),
+                    tenant != null ? tenant.getTenantName() : "企业",
+                    newPassword,
+                    generatePassword);
+        }
+
+        auditLogService.record(
+                "platform.tenant.owner_reset_password",
+                "tenant",
+                tenantId,
+                "重置 Owner 密码: " + owner.getEmail(),
+                TenantContext.getTenantId(),
+                StpUtil.getLoginIdAsLong());
+
+        return PlatformOwnerPasswordResetResultVO.builder()
+                .ownerId(owner.getId())
+                .ownerEmail(owner.getEmail())
+                .generatedPassword(generatePassword ? newPassword : null)
+                .inviteEmailSent(inviteEmailSent)
+                .build();
+    }
+
+    private UserEntity findTenantOwnerOrThrow(Long tenantId) {
+        RoleEntity ownerRole = roleMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", 0)
+                        .eq("role_code", RoleCodes.TENANT_OWNER)
+                        .eq("is_deleted", 0));
+        if (ownerRole == null) {
+            throw new BusinessException("系统角色未初始化");
+        }
+        TenantMemberEntity member = tenantMemberMapper.selectOneByQuery(
+                QueryWrapper.create()
+                        .eq("tenant_id", tenantId)
+                        .eq("role_id", ownerRole.getId())
+                        .eq("is_deleted", 0)
+                        .limit(1));
+        if (member == null) {
+            throw new BusinessException("未找到企业 Owner");
+        }
+        UserEntity owner = userMapper.selectOneByQuery(
+                QueryWrapper.create().eq("id", member.getUserId()).eq("is_deleted", 0));
+        if (owner == null) {
+            throw new BusinessException("Owner 用户不存在");
+        }
+        return owner;
     }
 
     @Transactional

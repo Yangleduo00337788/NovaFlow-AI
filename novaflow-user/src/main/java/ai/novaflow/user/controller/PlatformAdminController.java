@@ -8,6 +8,7 @@ import ai.novaflow.user.domain.dto.IpBlacklistUpdateRequest;
 import ai.novaflow.user.domain.dto.PlatformModelCatalogSaveRequest;
 import ai.novaflow.user.domain.dto.PlatformModelProviderUpdateRequest;
 import ai.novaflow.user.domain.dto.PlatformSettingsUpdateRequest;
+import ai.novaflow.user.domain.dto.PlatformOwnerPasswordResetRequest;
 import ai.novaflow.user.domain.dto.PlatformTenantCreateRequest;
 import ai.novaflow.user.domain.dto.PlatformTenantUpdateRequest;
 import ai.novaflow.user.domain.dto.PlatformUserUpdateRequest;
@@ -23,6 +24,9 @@ import ai.novaflow.user.domain.vo.PlatformModelProviderVO;
 import ai.novaflow.user.domain.vo.PlatformSettingsVO;
 import ai.novaflow.user.domain.vo.PlatformDashboardOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformTenantDetailVO;
+import ai.novaflow.user.domain.vo.PlatformOnboardingTemplateVO;
+import ai.novaflow.user.domain.vo.PlatformOwnerPasswordResetResultVO;
+import ai.novaflow.user.domain.vo.PlatformTenantCreateResultVO;
 import ai.novaflow.user.domain.vo.PlatformTenantVO;
 import ai.novaflow.user.domain.vo.PlatformUserVO;
 import ai.novaflow.user.service.AuditLogQueryService;
@@ -48,6 +52,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/platform")
@@ -80,9 +85,23 @@ public class PlatformAdminController {
     }
 
     @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @GetMapping("/onboarding/templates")
+    public ApiResult<List<PlatformOnboardingTemplateVO>> onboardingTemplates() {
+        return ApiResult.ok(platformAdminService.listOnboardingTemplates());
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
     @PostMapping("/tenants")
-    public ApiResult<PlatformTenantVO> createTenant(@Valid @RequestBody PlatformTenantCreateRequest request) {
+    public ApiResult<PlatformTenantCreateResultVO> createTenant(@Valid @RequestBody PlatformTenantCreateRequest request) {
         return ApiResult.ok(platformAdminService.createTenant(request));
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @PostMapping("/tenants/{id}/owner/reset-password")
+    public ApiResult<PlatformOwnerPasswordResetResultVO> resetTenantOwnerPassword(
+            @PathVariable Long id,
+            @RequestBody PlatformOwnerPasswordResetRequest request) {
+        return ApiResult.ok(platformAdminService.resetTenantOwnerPassword(id, request));
     }
 
     @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)

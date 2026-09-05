@@ -16,8 +16,14 @@ public class PlatformTenantCreateRequest {
     @Email(message = "邮箱格式不正确")
     private String ownerEmail;
 
-    @NotBlank(message = "初始密码不能为空")
+    /** 手动指定初始密码；与 generatePassword 二选一 */
     private String ownerPassword;
+
+    /** 为 true 时自动生成符合规则的初始密码 */
+    private Boolean generatePassword;
+
+    /** 创建成功后向 Owner 发送邀请邮件（需配置 SMTP） */
+    private Boolean sendInviteEmail;
 
     private String ownerNickname;
 

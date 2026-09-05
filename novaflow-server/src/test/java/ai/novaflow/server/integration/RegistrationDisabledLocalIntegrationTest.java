@@ -1,5 +1,9 @@
 package ai.novaflow.server.integration;
 
+import ai.novaflow.user.service.PlatformSystemConfigService;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -27,9 +31,22 @@ class RegistrationDisabledLocalIntegrationTest extends AbstractLocalIntegrationT
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private PlatformSystemConfigService platformSystemConfigService;
+
     @DynamicPropertySource
     static void disableRegistration(DynamicPropertyRegistry registry) {
         registry.add("novaflow.auth.registration-enabled", () -> "false");
+    }
+
+    @BeforeEach
+    void disableRegistrationInDb() {
+        platformSystemConfigService.setRegistrationEnabled(false, null);
+    }
+
+    @AfterEach
+    void restoreRegistrationInDb() {
+        platformSystemConfigService.setRegistrationEnabled(true, null);
     }
 
     @Test

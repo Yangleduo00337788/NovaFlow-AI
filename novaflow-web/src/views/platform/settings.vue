@@ -56,13 +56,13 @@
           <a-divider orientation="left">平台运营</a-divider>
           <a-form-item label="维护模式">
             <a-switch v-model:checked="maintenanceEnabled" checked-children="开启" un-checked-children="关闭" />
-            <div class="field-hint">开启后可在租户端展示维护提示（需前端接入）。</div>
+            <div class="field-hint">开启后租户 Studio / 应用门户将展示维护页并拦截登录。</div>
           </a-form-item>
           <a-form-item label="维护提示文案">
             <a-textarea v-model:value="maintenanceMessage" :rows="3" placeholder="维护期间展示给用户的说明" />
           </a-form-item>
           <a-form-item label="平台公告">
-            <a-textarea v-model:value="platformAnnouncement" :rows="3" placeholder="展示在平台运营后台的公告" />
+            <a-textarea v-model:value="platformAnnouncement" :rows="3" placeholder="展示在 Studio / 应用门户顶部的公告横幅" />
           </a-form-item>
 
           <a-form-item>

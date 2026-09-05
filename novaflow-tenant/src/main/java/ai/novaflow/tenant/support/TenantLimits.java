@@ -18,6 +18,7 @@ public final class TenantLimits {
         switch (plan) {
             case "personal" -> applyPersonalDefaults(tenant);
             case "enterprise" -> applyEnterpriseDefaults(tenant);
+            case "starter" -> applyStarterDefaults(tenant);
             case "professional", "pro" -> applyProfessionalDefaults(tenant);
             default -> applyFreeDefaults(tenant);
         }
@@ -37,6 +38,14 @@ public final class TenantLimits {
         tenant.setMaxKnowledge(3);
         tenant.setMaxStorageMb(1024);
         tenant.setMonthlyTokenQuota(100_000L);
+    }
+
+    private static void applyStarterDefaults(TenantEntity tenant) {
+        tenant.setMaxMembers(15);
+        tenant.setMaxAgents(10);
+        tenant.setMaxKnowledge(5);
+        tenant.setMaxStorageMb(2048);
+        tenant.setMonthlyTokenQuota(300_000L);
     }
 
     private static void applyProfessionalDefaults(TenantEntity tenant) {

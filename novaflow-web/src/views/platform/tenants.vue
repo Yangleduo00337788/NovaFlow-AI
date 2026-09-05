@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   createPlatformTenant,
@@ -127,6 +127,8 @@ const createForm = reactive({
   planType: 'free',
   ownerEmail: '',
   ownerPassword: '',
+  generatePassword: true,
+  sendInviteEmail: false,
   ownerNickname: '',
   contactName: '',
   contactEmail: '',
@@ -196,6 +198,8 @@ function openCreate() {
   createForm.planType = 'free'
   createForm.ownerEmail = ''
   createForm.ownerPassword = ''
+  createForm.generatePassword = true
+  createForm.sendInviteEmail = false
   createForm.ownerNickname = ''
   createForm.contactName = ''
   createForm.contactEmail = ''
@@ -212,16 +216,38 @@ async function createTenant() {
     message.warning('请填写所有者邮箱')
     return
   }
-  if (!createForm.ownerPassword.trim()) {
-    message.warning('请填写初始密码')
+  if (!createForm.generatePassword && !createForm.ownerPassword.trim()) {
+    message.warning('请填写初始密码或勾选自动生成')
     return
   }
   creating.value = true
   try {
-    await createPlatformTenant({ ...createForm })
-    message.success('租户已创建')
+    const payload = {
+      tenantName: createForm.tenantName,
+      planType: createForm.planType,
+      ownerEmail: createForm.ownerEmail,
+      ownerNickname: createForm.ownerNickname,
+      contactName: createForm.contactName,
+      contactEmail: createForm.contactEmail,
+      contactPhone: createForm.contactPhone,
+      generatePassword: createForm.generatePassword,
+      sendInviteEmail: createForm.sendInviteEmail,
+      ownerPassword: createForm.generatePassword ? undefined : createForm.ownerPassword,
+    }
+    const res = await createPlatformTenant(payload)
+    const result = res.data.data
     createModalOpen.value = false
     await loadTenants()
+    if (result.generatedPassword) {
+      Modal.success({
+        title: '租户已创建',
+        content: `Owner：${result.ownerEmail}\n初始密码：${result.generatedPassword}${
+          result.inviteEmailSent ? '\n（邀请邮件已发送）' : '\n（请通过安全渠道告知客户）'
+        }`,
+      })
+    } else {
+      message.success(result.inviteEmailSent ? '租户已创建，邀请邮件已发送' : '租户已创建')
+    }
   } catch {
     message.error('创建失败')
   } finally {

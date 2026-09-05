@@ -290,7 +290,8 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
         );
         OpenApiIntegrationFixtures.assertApiSuccess(create);
 
-        Map<?, ?> createdTenant = (Map<?, ?>) ((Map<?, ?>) create.getBody().get("data"));
+        Map<?, ?> createData = (Map<?, ?>) create.getBody().get("data");
+        Map<?, ?> createdTenant = (Map<?, ?>) createData.get("tenant");
         long tenantId = ((Number) createdTenant.get("id")).longValue();
 
         ResponseEntity<Map> users = restTemplate.exchange(
@@ -402,7 +403,8 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
         );
         OpenApiIntegrationFixtures.assertApiSuccess(create);
 
-        Map<?, ?> createdTenant = (Map<?, ?>) ((Map<?, ?>) create.getBody().get("data"));
+        Map<?, ?> createData = (Map<?, ?>) create.getBody().get("data");
+        Map<?, ?> createdTenant = (Map<?, ?>) createData.get("tenant");
         long tenantId = ((Number) createdTenant.get("id")).longValue();
 
         Map<String, Object> updateBody = Map.of(
@@ -655,5 +657,160 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
             }
         }
         throw new IllegalStateException("User not found: " + email);
+    }
+
+    @Test
+    void platformTenantOnboardingEnhancement() {
+        OpenApiIntegrationFixtures.LoginSession session = OpenApiIntegrationFixtures.loginPlatform(restTemplate);
+        var headers = OpenApiIntegrationFixtures.adminHeaders(session.token());
+
+        ResponseEntity<Map> templates = restTemplate.exchange(
+                "/api/v1/platform/onboarding/templates",
+                HttpMethod.GET,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(templates);
+        List<?> templateList = (List<?>) templates.getBody().get("data");
+        org.junit.jupiter.api.Assertions.assertFalse(templateList.isEmpty());
+
+        String uniqueEmail = "phase31-" + System.currentTimeMillis() + "@novaflow.test";
+        Map<String, Object> createBody = new java.util.HashMap<>();
+        createBody.put("tenantName", "Phase31 Onboarding Corp");
+        createBody.put("planType", "starter");
+        createBody.put("ownerEmail", uniqueEmail);
+        createBody.put("generatePassword", true);
+        createBody.put("sendInviteEmail", false);
+
+        ResponseEntity<Map> create = restTemplate.exchange(
+                "/api/v1/platform/tenants",
+                HttpMethod.POST,
+                new HttpEntity<>(createBody, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(create);
+        Map<?, ?> createData = (Map<?, ?>) create.getBody().get("data");
+        org.junit.jupiter.api.Assertions.assertNotNull(createData.get("generatedPassword"));
+        long tenantId = ((Number) ((Map<?, ?>) createData.get("tenant")).get("id")).longValue();
+        Object initialPassword = createData.get("generatedPassword");
+
+        Map<String, Object> resetBody = Map.of(
+                "generatePassword", true,
+                "sendInviteEmail", false
+        );
+        ResponseEntity<Map> reset = restTemplate.exchange(
+                "/api/v1/platform/tenants/" + tenantId + "/owner/reset-password",
+                HttpMethod.POST,
+                new HttpEntity<>(resetBody, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(reset);
+        Map<?, ?> resetData = (Map<?, ?>) reset.getBody().get("data");
+        org.junit.jupiter.api.Assertions.assertNotNull(resetData.get("generatedPassword"));
+
+        ResponseEntity<Map> initialLogin = restTemplate.exchange(
+                "/api/v1/auth/login",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("email", uniqueEmail, "password", initialPassword), null),
+                Map.class
+        );
+        org.junit.jupiter.api.Assertions.assertNotEquals(0, initialLogin.getBody().get("code"));
+
+        ResponseEntity<Map> ownerLogin = restTemplate.exchange(
+                "/api/v1/auth/login",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of(
+                        "email", uniqueEmail,
+                        "password", resetData.get("generatedPassword")
+                ), null),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(ownerLogin);
+
+        OpenApiIntegrationFixtures.LoginSession platformAgain = OpenApiIntegrationFixtures.loginPlatform(restTemplate);
+        headers = OpenApiIntegrationFixtures.adminHeaders(platformAgain.token());
+
+        long targetUserId = ((Number) createData.get("ownerId")).longValue();
+        restTemplate.exchange(
+                "/api/v1/platform/users/" + targetUserId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+        restTemplate.exchange(
+                "/api/v1/platform/tenants/" + tenantId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+    }
+
+    @Test
+    void platformMaintenanceTenantEnforcement() {
+        OpenApiIntegrationFixtures.LoginSession platform = OpenApiIntegrationFixtures.loginPlatform(restTemplate);
+        var platformHeaders = OpenApiIntegrationFixtures.adminHeaders(platform.token());
+
+        ResponseEntity<Map> publicStatus = restTemplate.exchange(
+                "/api/v1/public/platform-status",
+                HttpMethod.GET,
+                new HttpEntity<>(null, null),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(publicStatus);
+
+        ResponseEntity<Map> enable = restTemplate.exchange(
+                "/api/v1/platform/settings",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of(
+                        "maintenanceEnabled", true,
+                        "maintenanceMessage", "Phase34 maintenance test",
+                        "platformAnnouncement", "Phase34 announcement"
+                ), platformHeaders),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(enable);
+
+        ResponseEntity<Map> publicAfter = restTemplate.exchange(
+                "/api/v1/public/platform-status",
+                HttpMethod.GET,
+                new HttpEntity<>(null, null),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(publicAfter);
+        Map<?, ?> statusData = (Map<?, ?>) publicAfter.getBody().get("data");
+        org.junit.jupiter.api.Assertions.assertEquals(true, statusData.get("maintenanceEnabled"));
+
+        ResponseEntity<Map> tenantLogin = restTemplate.exchange(
+                "/api/v1/auth/login",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of(
+                        "email", "admin@novaflow.ai",
+                        "password", "Admin123!"
+                ), null),
+                Map.class
+        );
+        org.junit.jupiter.api.Assertions.assertNotEquals(0, tenantLogin.getBody().get("code"));
+
+        ResponseEntity<Map> platformRelogin = restTemplate.exchange(
+                "/api/v1/auth/login",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of(
+                        "email", "platform@novaflow.ai",
+                        "password", "Platform123!"
+                ), null),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(platformRelogin);
+
+        restTemplate.exchange(
+                "/api/v1/platform/settings",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of(
+                        "maintenanceEnabled", false,
+                        "maintenanceMessage", "",
+                        "platformAnnouncement", ""
+                ), platformHeaders),
+                Map.class
+        );
     }
 }

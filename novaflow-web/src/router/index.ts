@@ -70,6 +70,12 @@ const fullAppRoutes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    path: '/maintenance',
+    name: 'maintenance',
+    component: () => import('@/views/maintenance/index.vue'),
+    meta: { public: true, title: '系统维护' },
+  },
+  {
     path: '/embed/agents/:id',
     name: 'embed-agent',
     component: () => import('@/views/embed/agent.vue'),

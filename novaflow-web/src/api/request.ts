@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { resolveLoginPath } from '@/config/app'
 
 const AUTH_ERROR_CODES = new Set([40101, 401])
+const MAINTENANCE_ERROR_CODE = 50301
 
 function handleUnauthorized(message?: string) {
   const auth = useAuthStore()
@@ -33,6 +34,13 @@ request.interceptors.response.use(
     }
     const result = response.data as ApiResult<unknown>
     if (result.code !== 0) {
+      if (result.code === MAINTENANCE_ERROR_CODE) {
+        if (!window.location.pathname.startsWith('/maintenance')) {
+          const msg = encodeURIComponent(result.message || '系统维护中')
+          window.location.href = `/maintenance?message=${msg}`
+        }
+        return Promise.reject(new Error(result.message || '系统维护中'))
+      }
       if (AUTH_ERROR_CODES.has(result.code)) {
         handleUnauthorized(result.message)
         return Promise.reject(new Error(result.message || '登录已过期'))
@@ -47,6 +55,13 @@ request.interceptors.response.use(
     if (status === 401 || (result && AUTH_ERROR_CODES.has(result.code))) {
       handleUnauthorized(result?.message)
       return Promise.reject(new Error(result?.message || '登录已过期'))
+    }
+    if (result?.code === MAINTENANCE_ERROR_CODE) {
+      if (!window.location.pathname.startsWith('/maintenance')) {
+        const msg = encodeURIComponent(result.message || '系统维护中')
+        window.location.href = `/maintenance?message=${msg}`
+      }
+      return Promise.reject(new Error(result.message || '系统维护中'))
     }
     const message = result?.message || error.message || '请求失败'
     return Promise.reject(new Error(message))

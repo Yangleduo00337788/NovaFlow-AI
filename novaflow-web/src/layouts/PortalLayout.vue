@@ -1,5 +1,6 @@
 <template>
   <div class="portal-shell">
+    <PlatformAnnouncementBanner />
     <router-view />
   </div>
 </template>
@@ -7,6 +8,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { fetchCurrentUser } from '@/api/auth'
+import PlatformAnnouncementBanner from '@/components/PlatformAnnouncementBanner.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()

@@ -291,11 +291,38 @@ export interface PlatformTenantCreatePayload {
   tenantName: string
   planType?: string
   ownerEmail: string
-  ownerPassword: string
+  ownerPassword?: string
+  generatePassword?: boolean
+  sendInviteEmail?: boolean
   ownerNickname?: string
   contactName?: string
   contactEmail?: string
   contactPhone?: string
+}
+
+export interface PlatformTenantCreateResult {
+  tenant: PlatformTenant
+  ownerId: number
+  ownerEmail: string
+  generatedPassword?: string
+  inviteEmailSent: boolean
+}
+
+export interface PlatformOnboardingTemplate {
+  planType: string
+  planTypeLabel: string
+  maxMembers?: number
+  maxAgents?: number
+  maxKnowledge?: number
+  maxStorageMb?: number
+  monthlyTokenQuota?: number
+}
+
+export interface PlatformOwnerPasswordResetResult {
+  ownerId: number
+  ownerEmail: string
+  generatedPassword?: string
+  inviteEmailSent: boolean
 }
 
 export function fetchPlatformTenants(params: { page?: number; pageSize?: number; keyword?: string }) {
@@ -310,8 +337,22 @@ export function fetchPlatformTenantDetail(id: number) {
   return request.get<ApiResult<PlatformTenantDetail>>(`/v1/platform/tenants/${id}/detail`)
 }
 
+export function fetchOnboardingTemplates() {
+  return request.get<ApiResult<PlatformOnboardingTemplate[]>>('/v1/platform/onboarding/templates')
+}
+
 export function createPlatformTenant(data: PlatformTenantCreatePayload) {
-  return request.post<ApiResult<PlatformTenant>>('/v1/platform/tenants', data)
+  return request.post<ApiResult<PlatformTenantCreateResult>>('/v1/platform/tenants', data)
+}
+
+export function resetTenantOwnerPassword(
+  tenantId: number,
+  data: { newPassword?: string; generatePassword?: boolean; sendInviteEmail?: boolean },
+) {
+  return request.post<ApiResult<PlatformOwnerPasswordResetResult>>(
+    `/v1/platform/tenants/${tenantId}/owner/reset-password`,
+    data,
+  )
 }
 
 export function updatePlatformTenant(id: number, data: Record<string, unknown>) {

@@ -156,6 +156,15 @@ Assert-Ok 'settings maintenance update' (
     $settingsPut.code -eq 0 -and
     $settingsPut.data.maintenanceEnabled -eq $true
 ) "announcement=$($settingsPut.data.platformAnnouncement)"
+
+$publicStatus = Api-Get '/public/platform-status'
+Assert-Ok 'public platform status' (
+    $publicStatus.code -eq 0 -and
+    $publicStatus.data.maintenanceEnabled -eq $true
+) "announcement=$($publicStatus.data.platformAnnouncement)"
+
+$templates = Api-Get '/platform/onboarding/templates' $platformHeaders
+Assert-Ok 'onboarding templates' ($templates.code -eq 0 -and $templates.data.Count -gt 0) "count=$($templates.data.Count)"
 $settingsGet = Api-Get '/platform/settings' $platformHeaders
 Assert-Ok 'settings maintenance get' (
     $settingsGet.data.maintenanceEnabled -eq $true -and

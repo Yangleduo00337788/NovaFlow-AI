@@ -85,6 +85,31 @@ function Get-NovaLoginToken {
     throw "Login failed ($Email) after 3 attempts: $lastError"
 }
 
+function Wait-NovaMaintenanceOff {
+    param(
+        [int]$TimeoutSec = 45,
+        [string]$PlatformToken
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $status = Invoke-NovaApi -Method GET -Path '/api/v1/public/platform-status'
+        if ($status.code -eq 0 -and $status.raw -notmatch '"maintenanceEnabled"\s*:\s*true') {
+            return
+        }
+        if ($PlatformToken) {
+            $resetPath = Join-Path $script:NovaFlowTmpDir 'maintenance-wait-reset.json'
+            Write-NovaJson -Path $resetPath -Data @{
+                maintenanceEnabled   = $false
+                maintenanceMessage   = ''
+                platformAnnouncement = ''
+            }
+            Invoke-NovaApi -Method PUT -Path '/api/v1/platform/settings' -Token $PlatformToken -OutFile $resetPath | Out-Null
+        }
+        Start-Sleep -Seconds 1
+    }
+    throw "Platform maintenance still enabled after ${TimeoutSec}s"
+}
+
 function Get-NovaConfiguredProviderId {
     param(
         [string]$Token,

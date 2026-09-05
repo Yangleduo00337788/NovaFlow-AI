@@ -50,7 +50,7 @@ public class TenantOnboardingService {
             String contactName,
             String contactEmail,
             String contactPhone) {
-        validatePassword(ownerPassword);
+        validatePasswordStrength(ownerPassword);
 
         String normalizedEmail = ownerEmail.trim().toLowerCase(Locale.ROOT);
         long existing = userMapper.selectCountByQuery(
@@ -124,6 +124,10 @@ public class TenantOnboardingService {
     }
 
     private void validatePassword(String password) {
+        validatePasswordStrength(password);
+    }
+
+    public void validatePasswordStrength(String password) {
         if (!PASSWORD_PATTERN.matcher(password).matches()) {
             throw new BusinessException("密码需至少包含一个字母和一个数字");
         }
