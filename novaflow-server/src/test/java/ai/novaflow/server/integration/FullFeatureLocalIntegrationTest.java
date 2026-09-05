@@ -354,8 +354,186 @@ class FullFeatureLocalIntegrationTest extends AbstractLocalIntegrationTest {
         assertApiGet("/api/v1/billing/quota", headers);
         assertApiGet("/api/v1/billing/alerts", headers);
         assertApiGet("/api/v1/billing/records?page=1&pageSize=5", headers);
+        assertApiGet("/api/v1/billing/allocation?dimension=application", headers);
+        assertApiGet("/api/v1/billing/allocation?dimension=workspace", headers);
+        assertApiGet("/api/v1/billing/allocation?dimension=user", headers);
         assertApiGet("/api/v1/token-usage/logs?page=1&pageSize=5", headers);
         assertApiGet("/api/v1/trace/spans?page=1&pageSize=5", headers);
+    }
+
+    @Test
+    void departmentsModule() {
+        OpenApiIntegrationFixtures.LoginSession session = OpenApiIntegrationFixtures.login(restTemplate);
+        var headers = OpenApiIntegrationFixtures.adminHeaders(session.token());
+
+        assertApiGet("/api/v1/org/departments", headers);
+
+        String deptName = "Smoke-Dept-" + UUID.randomUUID().toString().substring(0, 8);
+        Map<String, Object> create = new HashMap<>();
+        create.put("deptName", deptName);
+        create.put("sortOrder", 1);
+
+        ResponseEntity<Map> created = restTemplate.exchange(
+                "/api/v1/org/departments",
+                HttpMethod.POST,
+                new HttpEntity<>(create, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(created);
+        long deptId = idFromData(created.getBody());
+
+        Map<String, Object> update = new HashMap<>();
+        update.put("deptName", deptName + "-Updated");
+        update.put("sortOrder", 2);
+        ResponseEntity<Map> updated = restTemplate.exchange(
+                "/api/v1/org/departments/" + deptId,
+                HttpMethod.PUT,
+                new HttpEntity<>(update, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(updated);
+
+        restTemplate.exchange(
+                "/api/v1/org/departments/" + deptId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+    }
+
+    @Test
+    void resourcePermissionsModule() {
+        OpenApiIntegrationFixtures.LoginSession session = OpenApiIntegrationFixtures.login(restTemplate);
+        var headers = OpenApiIntegrationFixtures.adminHeaders(session.token());
+        long appId = firstApplicationId(session.token());
+        long developerUserId = userIdByEmail(session.token(), "developer@novaflow.ai");
+
+        Map<String, Object> createAgent = new HashMap<>();
+        createAgent.put("agentName", "Smoke-ACL-" + UUID.randomUUID().toString().substring(0, 8));
+        createAgent.put("agentType", "chat");
+        createAgent.put("applicationId", appId);
+        createAgent.put("welcomeMessage", "acl smoke");
+
+        ResponseEntity<Map> created = restTemplate.exchange(
+                "/api/v1/agents",
+                HttpMethod.POST,
+                new HttpEntity<>(createAgent, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(created);
+        long agentId = idFromData(created.getBody());
+
+        assertApiGet("/api/v1/resources/AGENT/" + agentId + "/permissions", headers);
+
+        Map<String, Object> grant = Map.of(
+                "userId", developerUserId,
+                "permissionCode", "agent:read"
+        );
+        Map<String, Object> saveRequest = Map.of("grants", List.of(grant));
+        ResponseEntity<Map> granted = restTemplate.exchange(
+                "/api/v1/resources/AGENT/" + agentId + "/permissions",
+                HttpMethod.PUT,
+                new HttpEntity<>(saveRequest, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(granted);
+
+        ResponseEntity<Map> cleared = restTemplate.exchange(
+                "/api/v1/resources/AGENT/" + agentId + "/permissions",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of("grants", List.of()), headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(cleared);
+
+        ResponseEntity<Map> reGranted = restTemplate.exchange(
+                "/api/v1/resources/AGENT/" + agentId + "/permissions",
+                HttpMethod.PUT,
+                new HttpEntity<>(saveRequest, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(reGranted);
+
+        restTemplate.exchange(
+                "/api/v1/agents/" + agentId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+    }
+
+    @Test
+    void portalModule() {
+        OpenApiIntegrationFixtures.LoginSession admin = OpenApiIntegrationFixtures.login(restTemplate);
+        var adminHeaders = OpenApiIntegrationFixtures.adminHeaders(admin.token());
+        PublishedPortalApp published = createPublishedPortalApp(admin.token(), adminHeaders);
+
+        OpenApiIntegrationFixtures.LoginSession portalUser =
+                OpenApiIntegrationFixtures.login(restTemplate, "user@novaflow.ai", "User123!");
+        var portalHeaders = OpenApiIntegrationFixtures.adminHeaders(portalUser.token());
+
+        assertApiGet("/api/v1/portal/apps", portalHeaders);
+
+        ResponseEntity<Map> apps = restTemplate.exchange(
+                "/api/v1/portal/apps",
+                HttpMethod.GET,
+                new HttpEntity<>(null, portalHeaders),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(apps);
+        List<?> appList = (List<?>) apps.getBody().get("data");
+        assertNotNull(appList);
+        assertTrue(appList.stream().anyMatch(item -> published.appId() == idFromItem(item)),
+                "portal should list the published application");
+
+        assertApiGet("/api/v1/portal/apps/" + published.appId(), portalHeaders);
+        assertApiGet("/api/v1/portal/apps/" + published.appId() + "/conversations?page=1&pageSize=10", portalHeaders);
+
+        restTemplate.exchange(
+                "/api/v1/applications/" + published.appId() + "/unpublish",
+                HttpMethod.POST,
+                new HttpEntity<>(null, adminHeaders),
+                Map.class
+        );
+        restTemplate.exchange(
+                "/api/v1/agents/" + published.agentId(),
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, adminHeaders),
+                Map.class
+        );
+        restTemplate.exchange(
+                "/api/v1/applications/" + published.appId(),
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, adminHeaders),
+                Map.class
+        );
+    }
+
+    @Test
+    void transferOwnerRoundTrip() {
+        OpenApiIntegrationFixtures.LoginSession admin = OpenApiIntegrationFixtures.login(restTemplate);
+        var headers = OpenApiIntegrationFixtures.adminHeaders(admin.token());
+
+        long developerMemberId = memberIdByEmail(admin.token(), "developer@novaflow.ai");
+        long adminMemberId = memberIdByEmail(admin.token(), "admin@novaflow.ai");
+
+        ResponseEntity<Map> transferToDeveloper = restTemplate.exchange(
+                "/api/v1/org/tenant/transfer-owner",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("memberId", developerMemberId), headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(transferToDeveloper);
+
+        OpenApiIntegrationFixtures.LoginSession developer =
+                OpenApiIntegrationFixtures.login(restTemplate, "developer@novaflow.ai", "Developer123!");
+        ResponseEntity<Map> transferBack = restTemplate.exchange(
+                "/api/v1/org/tenant/transfer-owner",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("memberId", adminMemberId), OpenApiIntegrationFixtures.adminHeaders(developer.token())),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(transferBack);
     }
 
     @Test
@@ -455,5 +633,106 @@ class FullFeatureLocalIntegrationTest extends AbstractLocalIntegrationTest {
         Map<?, ?> data = (Map<?, ?>) body.get("data");
         assertNotNull(data);
         return ((Number) data.get("id")).longValue();
+    }
+
+    private long idFromItem(Object item) {
+        return ((Number) ((Map<?, ?>) item).get("id")).longValue();
+    }
+
+    private long memberIdByEmail(String token, String email) {
+        Map<?, ?> member = memberByEmail(token, email);
+        return ((Number) member.get("id")).longValue();
+    }
+
+    private long userIdByEmail(String token, String email) {
+        Map<?, ?> member = memberByEmail(token, email);
+        return ((Number) member.get("userId")).longValue();
+    }
+
+    private Map<?, ?> memberByEmail(String token, String email) {
+        ResponseEntity<Map> response = restTemplate.exchange(
+                "/api/v1/org/members?page=1&pageSize=50",
+                HttpMethod.GET,
+                new HttpEntity<>(null, OpenApiIntegrationFixtures.adminHeaders(token)),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(response);
+        Map<?, ?> data = (Map<?, ?>) response.getBody().get("data");
+        assertNotNull(data);
+        List<?> members = (List<?>) data.get("list");
+        assertNotNull(members);
+        for (Object item : members) {
+            Map<?, ?> member = (Map<?, ?>) item;
+            if (email.equals(String.valueOf(member.get("email")))) {
+                return member;
+            }
+        }
+        throw new AssertionError("member not found: " + email);
+    }
+
+    private record PublishedPortalApp(long appId, long agentId) {
+    }
+
+    private PublishedPortalApp createPublishedPortalApp(String token, org.springframework.http.HttpHeaders headers) {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        Map<String, Object> createApp = new HashMap<>();
+        createApp.put("appName", "Smoke-Portal-" + suffix);
+        createApp.put("description", "portal smoke");
+
+        ResponseEntity<Map> appCreated = restTemplate.exchange(
+                "/api/v1/applications",
+                HttpMethod.POST,
+                new HttpEntity<>(createApp, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(appCreated);
+        long appId = idFromData(appCreated.getBody());
+
+        Map<String, Object> createAgent = new HashMap<>();
+        createAgent.put("agentName", "Smoke-Portal-Agent-" + suffix);
+        createAgent.put("agentType", "chat");
+        createAgent.put("applicationId", appId);
+        createAgent.put("welcomeMessage", "portal smoke");
+
+        ResponseEntity<Map> agentCreated = restTemplate.exchange(
+                "/api/v1/agents",
+                HttpMethod.POST,
+                new HttpEntity<>(createAgent, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(agentCreated);
+        long agentId = idFromData(agentCreated.getBody());
+
+        ResponseEntity<Map> agentPublished = restTemplate.exchange(
+                "/api/v1/agents/" + agentId + "/publish",
+                HttpMethod.POST,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(agentPublished);
+
+        Map<String, Object> updateApp = new HashMap<>();
+        updateApp.put("appName", "Smoke-Portal-" + suffix);
+        updateApp.put("description", "portal smoke");
+        updateApp.put("defaultAgentId", agentId);
+        updateApp.put("agentIds", List.of(agentId));
+
+        ResponseEntity<Map> appUpdated = restTemplate.exchange(
+                "/api/v1/applications/" + appId,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateApp, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(appUpdated);
+
+        ResponseEntity<Map> appPublished = restTemplate.exchange(
+                "/api/v1/applications/" + appId + "/publish",
+                HttpMethod.POST,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(appPublished);
+
+        return new PublishedPortalApp(appId, agentId);
     }
 }

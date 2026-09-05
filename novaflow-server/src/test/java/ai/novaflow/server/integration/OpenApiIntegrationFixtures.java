@@ -149,10 +149,11 @@ public final class OpenApiIntegrationFixtures {
 
     public static PublishedAgent createAndPublishChatAgent(TestRestTemplate restTemplate) {
         LoginSession session = login(restTemplate);
-        long applicationId = firstApplicationId(restTemplate, session.token());
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        long applicationId = createApplication(restTemplate, session.token(), "E2E-OpenAPI-App-" + suffix);
 
         Map<String, Object> createRequest = new HashMap<>();
-        createRequest.put("agentName", "E2E-OpenAPI-" + UUID.randomUUID().toString().substring(0, 8));
+        createRequest.put("agentName", "E2E-OpenAPI-" + suffix);
         createRequest.put("agentType", "chat");
         createRequest.put("applicationId", applicationId);
         createRequest.put("welcomeMessage", "E2E welcome");
@@ -183,6 +184,27 @@ public final class OpenApiIntegrationFixtures {
         assertEquals(0, intCode(publishBody));
         Map<?, ?> publishData = (Map<?, ?>) publishBody.get("data");
         assertNotNull(publishData);
+
+        Map<String, Object> updateApp = new HashMap<>();
+        updateApp.put("appName", "E2E-OpenAPI-App-" + suffix);
+        updateApp.put("description", "open api fixture");
+        updateApp.put("defaultAgentId", agentId);
+        updateApp.put("agentIds", List.of(agentId));
+        ResponseEntity<Map> appUpdated = restTemplate.exchange(
+                "/api/v1/applications/" + applicationId,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateApp, adminHeaders(session.token())),
+                Map.class
+        );
+        assertApiSuccess(appUpdated);
+
+        ResponseEntity<Map> appPublished = restTemplate.exchange(
+                "/api/v1/applications/" + applicationId + "/publish",
+                HttpMethod.POST,
+                new HttpEntity<>(null, adminHeaders(session.token())),
+                Map.class
+        );
+        assertApiSuccess(appPublished);
 
         String apiKey = String.valueOf(publishData.get("apiKey"));
         String embedToken = String.valueOf(publishData.get("embedToken"));

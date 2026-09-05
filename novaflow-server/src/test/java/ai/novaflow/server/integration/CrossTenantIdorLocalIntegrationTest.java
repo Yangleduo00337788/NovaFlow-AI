@@ -1,6 +1,7 @@
 package ai.novaflow.server.integration;
 
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 跨租户 IDOR：租户 B 不得读/改/删租户 A 的资源（Z-04 / Z-06）。
+ * 跨租户 IDOR：租户 B 不得读/改/删租户 A 的资源（Z-04 / Z-05 / Z-06）。
  */
 @Tag("local")
 @Execution(ExecutionMode.SAME_THREAD)
@@ -48,6 +49,7 @@ class CrossTenantIdorLocalIntegrationTest extends AbstractLocalIntegrationTest {
                 restTemplate, tenantA.token(), "IDOR-App-" + suffix);
         long agentId = OpenApiIntegrationFixtures.createChatAgent(
                 restTemplate, tenantA.token(), appId, "IDOR-Agent-" + suffix);
+        long workflowId = createWorkflow(restTemplate, tenantA.token(), appId, "IDOR-WF-" + suffix);
 
         // 独立客户端登录 B，避免与 A 的 Cookie 串扰
         RestTemplate attacker = isolatedClient();
@@ -70,6 +72,13 @@ class CrossTenantIdorLocalIntegrationTest extends AbstractLocalIntegrationTest {
         assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/agents/" + agentId, HttpMethod.DELETE);
         assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/applications/" + appId, HttpMethod.GET);
         assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/applications/" + appId, HttpMethod.DELETE);
+        assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/workflows/" + workflowId, HttpMethod.GET);
+        assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/workflows/" + workflowId, HttpMethod.DELETE);
+
+        Long kbId = tryCreateKnowledgeBase(restTemplate, tenantA.token(), "IDOR-KB-" + suffix);
+        Assumptions.assumeTrue(kbId != null, "skip knowledge IDOR when embedding model is unavailable");
+        assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/knowledge-bases/" + kbId, HttpMethod.GET);
+        assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/knowledge-bases/" + kbId, HttpMethod.DELETE);
 
         ResponseEntity<Map> ownAgent = restTemplate.exchange(
                 "/api/v1/agents/" + agentId,
@@ -78,6 +87,37 @@ class CrossTenantIdorLocalIntegrationTest extends AbstractLocalIntegrationTest {
                 Map.class
         );
         OpenApiIntegrationFixtures.assertApiSuccess(ownAgent);
+    }
+
+    private Long tryCreateKnowledgeBase(TestRestTemplate restTemplate, String token, String kbName) {
+        try {
+            return OpenApiIntegrationFixtures.createKnowledgeBase(restTemplate, token, kbName);
+        } catch (AssertionError ex) {
+            return null;
+        }
+    }
+
+    private long createWorkflow(
+            TestRestTemplate restTemplate,
+            String token,
+            long applicationId,
+            String workflowName
+    ) {
+        Map<String, Object> request = Map.of(
+                "workflowName", workflowName,
+                "description", "IDOR test",
+                "applicationId", applicationId
+        );
+        ResponseEntity<Map> response = restTemplate.exchange(
+                "/api/v1/workflows",
+                HttpMethod.POST,
+                new HttpEntity<>(request, OpenApiIntegrationFixtures.adminHeaders(token)),
+                Map.class
+        );
+        OpenApiIntegrationFixtures.assertApiSuccess(response);
+        Map<?, ?> data = (Map<?, ?>) response.getBody().get("data");
+        assertNotNull(data);
+        return ((Number) data.get("id")).longValue();
     }
 
     private RestTemplate isolatedClient() {
