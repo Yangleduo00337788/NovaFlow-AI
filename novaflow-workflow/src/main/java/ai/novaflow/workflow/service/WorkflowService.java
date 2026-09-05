@@ -8,7 +8,7 @@ import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
-import ai.novaflow.user.service.ResourceAccessService;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.workflow.domain.WorkflowNodeCountRow;
 import ai.novaflow.workflow.domain.WorkflowNodeType;

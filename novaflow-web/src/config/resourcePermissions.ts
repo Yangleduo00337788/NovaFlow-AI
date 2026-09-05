@@ -24,6 +24,25 @@ export const RESOURCE_PERMISSION_OPTIONS = {
     { value: 'application:publish', label: '发布' },
     { value: 'application:manage', label: '管理' },
   ],
+  MODEL: [
+    { value: 'model:read', label: '查看' },
+    { value: 'model:config', label: '配置' },
+  ],
+  TOOL: [
+    { value: 'tool:read', label: '查看' },
+    { value: 'tool:update', label: '编辑' },
+    { value: 'tool:delete', label: '删除' },
+  ],
+  MCP: [
+    { value: 'mcp:read', label: '查看' },
+    { value: 'mcp:update', label: '编辑' },
+    { value: 'mcp:delete', label: '删除' },
+  ],
+  PROMPT: [
+    { value: 'prompt:read', label: '查看' },
+    { value: 'prompt:edit', label: '编辑' },
+    { value: 'prompt:delete', label: '删除' },
+  ],
 }
 
 export type ResourcePermissionType = keyof typeof RESOURCE_PERMISSION_OPTIONS

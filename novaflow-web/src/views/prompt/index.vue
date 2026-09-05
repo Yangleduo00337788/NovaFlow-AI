@@ -128,8 +128,25 @@
           <a-input v-model:value="form.changeLog" placeholder="本次修改说明（内容变更时生成新版本）" />
         </a-form-item>
         <a-button type="primary" :loading="saving" data-testid="save-prompt-btn" @click="onSave">保存</a-button>
+        <a-button
+          v-if="editingId && canManageResource"
+          block
+          style="margin-top: 12px"
+          @click="openResourcePerm(editingId)"
+        >
+          资源授权
+        </a-button>
       </a-form>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      v-if="canManageResource"
+      :open="resourcePermOpen"
+      resource-type="PROMPT"
+      :resource-id="resourcePermId"
+      :permission-options="promptPermissionOptions"
+      @close="resourcePermOpen = false"
+    />
 
     <a-drawer v-model:open="versionOpen" title="版本历史" :width="640">
       <a-list :data-source="versions" :loading="versionsLoading">
@@ -212,12 +229,23 @@ import {
 } from '@/api/prompt'
 import { fetchModelConfigs, type ModelConfigItem } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const canCreate = computed(() => auth.hasPermission('prompt:create'))
 const canEdit = computed(() => auth.hasPermission('prompt:edit'))
 const canDelete = computed(() => auth.hasAnyPermission(['prompt:delete', 'prompt:edit']))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const promptPermissionOptions = RESOURCE_PERMISSION_OPTIONS.PROMPT
+const resourcePermOpen = ref(false)
+const resourcePermId = ref<number | null>(null)
+
+function openResourcePerm(id: number) {
+  resourcePermId.value = id
+  resourcePermOpen.value = true
+}
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<PromptTemplate[]>([])

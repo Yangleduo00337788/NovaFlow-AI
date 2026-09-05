@@ -52,7 +52,11 @@ public class ResourcePermissionController {
         if (!ResourceTypes.AGENT.equals(resourceType)
                 && !ResourceTypes.WORKFLOW.equals(resourceType)
                 && !ResourceTypes.KNOWLEDGE.equals(resourceType)
-                && !ResourceTypes.APPLICATION.equals(resourceType)) {
+                && !ResourceTypes.APPLICATION.equals(resourceType)
+                && !ResourceTypes.MODEL.equals(resourceType)
+                && !ResourceTypes.TOOL.equals(resourceType)
+                && !ResourceTypes.MCP.equals(resourceType)
+                && !ResourceTypes.PROMPT.equals(resourceType)) {
             throw new BusinessException("不支持的资源类型: " + resourceType);
         }
     }

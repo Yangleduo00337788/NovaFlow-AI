@@ -73,6 +73,7 @@ public final class PermissionCodes {
     public static final String ROLE_DELETE = "role:delete";
     public static final String TENANT_MANAGE = "tenant:manage";
     public static final String TENANT_DELETE = "tenant:delete";
+    public static final String TENANT_TRANSFER = "tenant:transfer";
     public static final String MEMBER_MANAGE = "member:manage";
 
     // --- Billing / Monitor ---
@@ -94,9 +95,14 @@ public final class PermissionCodes {
             AGENT_READ, AGENT_CREATE, AGENT_EDIT
     };
 
-    /** Agent 调试入口 */
+    /** Agent 调试入口（Studio） */
     public static final String[] AGENT_DEBUG_ACCESS = {
             AGENT_DEBUG, AGENT_EDIT
+    };
+
+    /** 门户对话 / 调试发送（含 portal:access、agent:chat） */
+    public static final String[] AGENT_PORTAL_CHAT_ACCESS = {
+            AGENT_DEBUG, AGENT_EDIT, AGENT_CHAT, PORTAL_ACCESS
     };
 
     /** 工作流列表/详情 */

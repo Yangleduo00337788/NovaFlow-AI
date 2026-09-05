@@ -68,6 +68,7 @@
           <div class="tool-actions">
             <a-button type="link" size="small" @click="openSkillView(item)">查看</a-button>
             <a-button v-if="canUploadSkill" type="link" size="small" @click="openSkillReupload(item)">重新上传</a-button>
+            <a-button v-if="canManageResource" type="link" size="small" @click="openResourcePerm('TOOL', item.id)">资源授权</a-button>
             <a-popconfirm v-if="canDeleteSkill" title="确认删除该技能？" @confirm="onDelete(item.id)">
               <a-button type="link" size="small" danger>删除</a-button>
             </a-popconfirm>
@@ -160,6 +161,7 @@
                 >
                   同步市场
                 </a-button>
+                <a-button v-if="canManageResource" type="link" size="small" @click="openResourcePerm('MCP', item.id)">资源授权</a-button>
                 <a-popconfirm v-if="canDeleteMcp" title="确认删除该 MCP 服务？" @confirm="onMcpDelete(item.id)">
                   <a-button type="link" size="small" danger>删除</a-button>
                 </a-popconfirm>
@@ -335,6 +337,15 @@
         </div>
       </a-spin>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      v-if="canManageResource"
+      :open="resourcePermOpen"
+      :resource-type="resourcePermType"
+      :resource-id="resourcePermId"
+      :permission-options="resourcePermOptions"
+      @close="resourcePermOpen = false"
+    />
   </div>
 </template>
 
@@ -362,6 +373,8 @@ import {
   type McpServer,
 } from '@/api/mcp'
 import { formatDateTime } from '@/utils/datetime'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission, type ResourcePermissionType } from '@/config/resourcePermissions'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -370,6 +383,17 @@ const canDeleteSkill = computed(() => auth.hasAnyPermission(['tool:delete', 'age
 const canManageMcp = computed(() => auth.hasAnyPermission(['mcp:create', 'mcp:update', 'mcp:delete', 'agent:edit']))
 const canCreateMcp = computed(() => auth.hasAnyPermission(['mcp:create', 'agent:edit']))
 const canDeleteMcp = computed(() => auth.hasAnyPermission(['mcp:delete', 'agent:edit']))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
+const resourcePermOpen = ref(false)
+const resourcePermType = ref<ResourcePermissionType>('TOOL')
+const resourcePermId = ref<number | null>(null)
+const resourcePermOptions = computed(() => RESOURCE_PERMISSION_OPTIONS[resourcePermType.value])
+
+function openResourcePerm(type: ResourcePermissionType, id: number) {
+  resourcePermType.value = type
+  resourcePermId.value = id
+  resourcePermOpen.value = true
+}
 const activeTab = ref('skill')
 
 const pageSubtitle = computed(() =>

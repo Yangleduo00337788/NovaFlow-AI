@@ -5,6 +5,7 @@ import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.tenant.entity.ResourcePermissionEntity;
 import ai.novaflow.tenant.mapper.ResourcePermissionMapper;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.user.domain.dto.ResourcePermissionSaveRequest;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;

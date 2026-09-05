@@ -1,8 +1,8 @@
-package ai.novaflow.user.service;
+package ai.novaflow.tenant.service;
 
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.ResourceAclBypassChecker;
 import ai.novaflow.common.security.ResourcePermissionHierarchy;
-import ai.novaflow.common.security.RoleCodes;
 import ai.novaflow.tenant.entity.ResourcePermissionEntity;
 import ai.novaflow.tenant.mapper.ResourcePermissionMapper;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class ResourceAccessService {
 
     private final ResourcePermissionMapper resourcePermissionMapper;
-    private final PermissionService permissionService;
+    private final ResourceAclBypassChecker resourceAclBypassChecker;
 
     public boolean hasResourceAcl(Long tenantId, String resourceType, Long resourceId) {
         if (tenantId == null || !StringUtils.hasText(resourceType) || resourceId == null) {
@@ -84,7 +84,7 @@ public class ResourceAccessService {
         if (!hasResourceAcl(tenantId, resourceType, resourceId)) {
             return true;
         }
-        if (bypassesResourceAcl(userId, tenantId)) {
+        if (resourceAclBypassChecker.bypassesResourceAcl(userId, tenantId)) {
             return true;
         }
         return resourcePermissionMapper.selectCountByQuery(
@@ -108,7 +108,7 @@ public class ResourceAccessService {
         if (candidateIds == null || candidateIds.isEmpty()) {
             return Collections.emptySet();
         }
-        if (bypassesResourceAcl(userId, tenantId)) {
+        if (resourceAclBypassChecker.bypassesResourceAcl(userId, tenantId)) {
             return new HashSet<>(candidateIds);
         }
         List<Long> distinctCandidates = candidateIds.stream().filter(Objects::nonNull).distinct().toList();
@@ -196,7 +196,7 @@ public class ResourceAccessService {
         if (tenantId == null || !StringUtils.hasText(resourceType) || !StringUtils.hasText(resourceIdColumn)) {
             return;
         }
-        if (bypassesResourceAcl(userId, tenantId)) {
+        if (resourceAclBypassChecker.bypassesResourceAcl(userId, tenantId)) {
             return;
         }
         Set<String> grantCodes = ResourcePermissionHierarchy.acceptableGrantCodes(permissionCode);
@@ -233,16 +233,5 @@ public class ResourceAccessService {
                 )
                 """.formatted(resourceIdColumn, resourceIdColumn, inClause),
                 params.toArray());
-    }
-
-    private boolean bypassesResourceAcl(long userId, Long tenantId) {
-        var role = permissionService.resolveRole(userId, tenantId);
-        if (role == null || role.getRoleCode() == null) {
-            return false;
-        }
-        String roleCode = role.getRoleCode();
-        return RoleCodes.TENANT_OWNER.equals(roleCode)
-                || RoleCodes.TENANT_ADMIN.equals(roleCode)
-                || RoleCodes.PLATFORM_ADMIN.equals(roleCode);
     }
 }

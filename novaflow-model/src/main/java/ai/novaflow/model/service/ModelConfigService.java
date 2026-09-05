@@ -4,6 +4,10 @@ import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
+import ai.novaflow.tenant.service.ResourceAccessService;
+import cn.dev33.satoken.stp.StpUtil;
 import ai.novaflow.model.domain.BillingCurrency;
 import ai.novaflow.model.domain.ModelPriceCatalog;
 import ai.novaflow.model.domain.ModelPriceCatalog.ModelPrice;
@@ -34,6 +38,7 @@ public class ModelConfigService {
     private final ModelProviderService modelProviderService;
     private final ModelSyncService modelSyncService;
     private final AuditRecorder auditRecorder;
+    private final ResourceAccessService resourceAccessService;
 
     public List<ModelConfigVO> list(Long providerId, String modelType) {
         Long tenantId = TenantContexts.requireTenantId();
@@ -47,6 +52,16 @@ public class ModelConfigService {
             query.eq("model_type", modelType);
         }
         query.orderBy("is_default", false).orderBy("updated_at", false);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.MODEL,
+                    PermissionCodes.MODEL_READ,
+                    "model_config.id"
+            );
+        }
 
         return modelConfigMapper.selectListByQuery(query).stream()
                 .map(entity -> {
@@ -84,12 +99,22 @@ public class ModelConfigService {
     }
 
     public ModelConfigVO detail(Long id) {
+        requireModelRead(id);
         return toVO(getConfigOrThrow(id));
     }
 
     @Transactional
     public ModelConfigVO create(ModelConfigSaveRequest request) {
         ModelProviderEntity provider = modelProviderService.getProviderOrThrow(request.getProviderId());
+        if (StpUtil.isLogin()) {
+            resourceAccessService.requireResourceAccess(
+                    StpUtil.getLoginIdAsLong(),
+                    provider.getTenantId(),
+                    ResourceTypes.MODEL,
+                    provider.getId(),
+                    PermissionCodes.MODEL_CONFIG
+            );
+        }
         ensureModelUnique(provider.getId(), request.getModelName(), request.getModelType(), null);
 
         ModelConfigEntity entity = new ModelConfigEntity();
@@ -112,6 +137,7 @@ public class ModelConfigService {
 
     @Transactional
     public ModelConfigVO update(Long id, ModelConfigSaveRequest request) {
+        requireModelConfig(id);
         ModelConfigEntity entity = getConfigOrThrow(id);
         if (!entity.getProviderId().equals(request.getProviderId())) {
             throw new BusinessException("不允许修改模型所属提供商");
@@ -131,6 +157,7 @@ public class ModelConfigService {
 
     @Transactional
     public void delete(Long id) {
+        requireModelConfig(id);
         ModelConfigEntity entity = getConfigOrThrow(id);
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -141,6 +168,7 @@ public class ModelConfigService {
 
     @Transactional
     public ModelConfigVO setDefault(Long id) {
+        requireModelConfig(id);
         ModelConfigEntity entity = getConfigOrThrow(id);
         clearDefault(entity.getTenantId(), entity.getModelType(), id);
         entity.setIsDefault(1);
@@ -278,6 +306,32 @@ public class ModelConfigService {
                 .isDefault(entity.getIsDefault() != null && entity.getIsDefault() == 1)
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    private void requireModelRead(Long configId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MODEL,
+                configId,
+                PermissionCodes.MODEL_READ
+        );
+    }
+
+    private void requireModelConfig(Long configId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MODEL,
+                configId,
+                PermissionCodes.MODEL_CONFIG
+        );
     }
 
 }

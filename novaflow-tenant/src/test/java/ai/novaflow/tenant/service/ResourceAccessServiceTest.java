@@ -1,10 +1,9 @@
-package ai.novaflow.user.service;
+package ai.novaflow.tenant.service;
 
 import ai.novaflow.common.security.PermissionCodes;
-import ai.novaflow.common.security.RoleCodes;
+import ai.novaflow.common.security.ResourceAclBypassChecker;
 import ai.novaflow.tenant.entity.ResourcePermissionEntity;
 import ai.novaflow.tenant.mapper.ResourcePermissionMapper;
-import ai.novaflow.user.entity.RoleEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,7 +26,7 @@ class ResourceAccessServiceTest {
     @Mock
     private ResourcePermissionMapper resourcePermissionMapper;
     @Mock
-    private PermissionService permissionService;
+    private ResourceAclBypassChecker resourceAclBypassChecker;
     @InjectMocks
     private ResourceAccessService resourceAccessService;
 
@@ -42,9 +41,7 @@ class ResourceAccessServiceTest {
         when(resourcePermissionMapper.selectCountByQuery(any()))
                 .thenReturn(1L)
                 .thenReturn(0L);
-        RoleEntity developer = new RoleEntity();
-        developer.setRoleCode(RoleCodes.DEVELOPER);
-        when(permissionService.resolveRole(2L, 10L)).thenReturn(developer);
+        when(resourceAclBypassChecker.bypassesResourceAcl(2L, 10L)).thenReturn(false);
         assertFalse(resourceAccessService.canAccessResource(2L, 10L, "AGENT", 100L, PermissionCodes.AGENT_READ));
     }
 
@@ -58,9 +55,7 @@ class ResourceAccessServiceTest {
         when(resourcePermissionMapper.selectListByQuery(any()))
                 .thenReturn(List.of(aclRow))
                 .thenReturn(List.of(grantRow));
-        RoleEntity developer = new RoleEntity();
-        developer.setRoleCode(RoleCodes.DEVELOPER);
-        when(permissionService.resolveRole(2L, 10L)).thenReturn(developer);
+        when(resourceAclBypassChecker.bypassesResourceAcl(2L, 10L)).thenReturn(false);
 
         Set<Long> accessible = resourceAccessService.listAccessibleResourceIds(
                 2L, 10L, "AGENT", PermissionCodes.AGENT_READ, List.of(100L, 200L));

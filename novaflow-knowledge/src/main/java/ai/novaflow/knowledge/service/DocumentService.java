@@ -17,7 +17,7 @@ import ai.novaflow.knowledge.storage.DocumentStorageService;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.support.TenantQuotas;
-import ai.novaflow.user.service.ResourceAccessService;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.mybatisflex.core.paginate.Page;

@@ -31,7 +31,7 @@ import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.user.service.RecentAccessService;
-import ai.novaflow.user.service.ResourceAccessService;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mybatisflex.core.paginate.Page;
@@ -101,14 +101,17 @@ public class AgentService {
     }
 
     private AgentVO detail(Long id, boolean recordAccess) {
-        AgentEntity agent = getAgentOrThrow(id);
-        resourceAccessService.requireResourceAccess(
-                StpUtil.getLoginIdAsLong(),
-                TenantContexts.requireTenantId(),
-                ResourceTypes.AGENT,
-                id,
-                PermissionCodes.AGENT_READ
-        );
+        AgentEntity agent = loadAgentEntity(id);
+        if (StpUtil.isLogin()) {
+            assertPortalAccess(agent);
+            resourceAccessService.requireResourceAccess(
+                    StpUtil.getLoginIdAsLong(),
+                    TenantContexts.requireTenantId(),
+                    ResourceTypes.AGENT,
+                    id,
+                    PermissionCodes.AGENT_READ
+            );
+        }
         AgentConfigEntity config = agentConfigMapper.selectOneByQuery(
                 QueryWrapper.create().eq("agent_id", id).limit(1)
         );
@@ -328,6 +331,12 @@ public class AgentService {
     }
 
     private AgentEntity getAgentOrThrow(Long id) {
+        AgentEntity agent = loadAgentEntity(id);
+        assertPortalAccess(agent);
+        return agent;
+    }
+
+    private AgentEntity loadAgentEntity(Long id) {
         AgentEntity agent = agentMapper.selectOneByQuery(
                 QueryWrapper.create()
                         .eq("id", id)
@@ -337,7 +346,6 @@ public class AgentService {
         if (agent == null) {
             throw new BusinessException("Agent不存在");
         }
-        assertPortalAccess(agent);
         return agent;
     }
 

@@ -55,7 +55,7 @@ public class OrganizationController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(PermissionCodes.TENANT_DELETE)
+    @SaCheckPermission(PermissionCodes.TENANT_TRANSFER)
     @PostMapping("/tenant/transfer-owner")
     public ApiResult<Void> transferOwner(@Valid @RequestBody TransferOwnerRequest request) {
         organizationService.transferOwnership(request.getMemberId());

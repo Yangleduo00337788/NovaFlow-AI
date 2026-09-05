@@ -5,7 +5,10 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.security.UrlSafetyValidator;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.common.util.PageQueryUtils;
 import ai.novaflow.tool.domain.HttpToolDefinition;
 import ai.novaflow.tool.domain.McpToolDefinition;
@@ -45,6 +48,7 @@ public class ToolDefinitionService {
     private final ToolConfigConverter toolConfigConverter;
     private final ToolExecutorRouter toolExecutorRouter;
     private final AuditRecorder auditRecorder;
+    private final ResourceAccessService resourceAccessService;
 
     public PageResult<ToolDefinitionVO> page(int page, int pageSize, String keyword, String toolType) {
         page = PageQueryUtils.normalizePage(page);
@@ -59,6 +63,16 @@ public class ToolDefinitionService {
         }
         applyToolTypeFilter(query, toolType);
         query.orderBy("updated_at", false);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.TOOL,
+                    PermissionCodes.TOOL_READ,
+                    "tool_definition.id"
+            );
+        }
 
         Page<ToolDefinitionEntity> result = toolDefinitionMapper.paginate(Page.of(page, pageSize), query);
         List<ToolDefinitionVO> list = result.getRecords().stream().map(this::toVO).toList();
@@ -77,6 +91,16 @@ public class ToolDefinitionService {
         }
         query.and("(tool_type is null or tool_type = '' or tool_type in ('http', 'mcp'))");
         query.orderBy("display_name", true);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.TOOL,
+                    PermissionCodes.TOOL_READ,
+                    "tool_definition.id"
+            );
+        }
         return toolDefinitionMapper.selectListByQuery(query).stream().map(this::toVO).toList();
     }
 
@@ -92,6 +116,16 @@ public class ToolDefinitionService {
                     "%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%");
         }
         query.orderBy("display_name", true);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.TOOL,
+                    PermissionCodes.TOOL_READ,
+                    "tool_definition.id"
+            );
+        }
         return toolDefinitionMapper.selectListByQuery(query).stream().map(this::toVO).toList();
     }
 
@@ -166,6 +200,7 @@ public class ToolDefinitionService {
     }
 
     public ToolDefinitionVO detail(Long id) {
+        requireToolRead(id);
         ToolDefinitionEntity entity = getToolOrThrow(id);
         ToolDefinitionVO vo = toVO(entity);
         if ("skill".equalsIgnoreCase(entity.getToolType())) {
@@ -204,6 +239,7 @@ public class ToolDefinitionService {
 
     @Transactional
     public ToolDefinitionVO reuploadSkill(Long id, MultipartFile file) {
+        requireToolUpdate(id);
         ToolDefinitionEntity entity = getToolOrThrow(id);
         if (!"skill".equalsIgnoreCase(entity.getToolType())) {
             throw new BusinessException("仅 Skill 类型支持重新上传");
@@ -252,6 +288,7 @@ public class ToolDefinitionService {
 
     @Transactional
     public ToolDefinitionVO update(Long id, ToolDefinitionSaveRequest request) {
+        requireToolUpdate(id);
         ToolDefinitionEntity entity = getToolOrThrow(id);
         ensureToolNameUnique(entity.getTenantId(), request.getToolName(), id);
         validateHttpTool(request.toHttpToolDefinition());
@@ -268,6 +305,7 @@ public class ToolDefinitionService {
 
     @Transactional
     public void delete(Long id) {
+        requireToolDelete(id);
         ToolDefinitionEntity entity = getToolOrThrow(id);
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -276,6 +314,7 @@ public class ToolDefinitionService {
     }
 
     public ToolTestResultVO test(Long id, ToolTestRequest request) {
+        requireToolRead(id);
         ToolDefinitionEntity entity = getToolOrThrow(id);
         if ("mcp".equalsIgnoreCase(entity.getToolType())) {
             HttpToolDefinition tool = toolConfigConverter.toHttpTool(entity);
@@ -506,4 +545,43 @@ public class ToolDefinitionService {
             String description,
             String content
     ) {}
+
+    private void requireToolRead(Long toolId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.TOOL,
+                toolId,
+                PermissionCodes.TOOL_READ
+        );
+    }
+
+    private void requireToolUpdate(Long toolId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.TOOL,
+                toolId,
+                PermissionCodes.TOOL_UPDATE
+        );
+    }
+
+    private void requireToolDelete(Long toolId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.TOOL,
+                toolId,
+                PermissionCodes.TOOL_DELETE
+        );
+    }
 }

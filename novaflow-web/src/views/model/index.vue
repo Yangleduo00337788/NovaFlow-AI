@@ -308,6 +308,14 @@
             测试连接
           </a-button>
         </a-space>
+        <a-button
+          v-if="editingProvider?.id && canManageResource"
+          block
+          style="margin-top: 12px"
+          @click="openResourcePerm('MODEL', editingProvider.id)"
+        >
+          资源授权
+        </a-button>
       </a-form>
     </a-drawer>
 
@@ -376,8 +384,25 @@
           <a-switch v-model:checked="modelForm.isDefault" />
         </a-form-item>
         <a-button type="primary" :loading="modelSaving" @click="onSaveModel">保存</a-button>
+        <a-button
+          v-if="editingConfigId && canManageResource"
+          block
+          style="margin-top: 12px"
+          @click="openResourcePerm('MODEL', editingConfigId)"
+        >
+          资源授权
+        </a-button>
       </a-form>
     </a-drawer>
+
+    <ResourcePermissionDrawer
+      v-if="canManageResource"
+      :open="resourcePermOpen"
+      :resource-type="resourcePermType"
+      :resource-id="resourcePermId"
+      :permission-options="resourcePermOptions"
+      @close="resourcePermOpen = false"
+    />
   </div>
 </template>
 
@@ -421,10 +446,13 @@ import {
 import { mergeModelProviders, MODEL_PROVIDER_PRESETS } from '@/constants/modelProviders'
 import { formatCostSummaries, formatMoney } from '@/utils/currency'
 import ProviderIcon from '@/components/common/ProviderIcon.vue'
+import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const canConfig = computed(() => auth.hasPermission('model:config'))
+const canManageResource = computed(() => canManageResourcePermission(auth.hasAnyPermission.bind(auth)))
 
 const activeTab = ref('providers')
 const providerRegionFilter = ref('all')
@@ -443,6 +471,16 @@ const editingProvider = ref<ModelProviderItem | null>(null)
 const editingConfigId = ref<number | null>(null)
 const filterProviderId = ref<number>()
 const filterModelType = ref<string>()
+const resourcePermOpen = ref(false)
+const resourcePermType = ref('MODEL')
+const resourcePermId = ref<number | null>(null)
+const resourcePermOptions = computed(() => RESOURCE_PERMISSION_OPTIONS.MODEL)
+
+function openResourcePerm(type: string, id: number) {
+  resourcePermType.value = type
+  resourcePermId.value = id
+  resourcePermOpen.value = true
+}
 
 const providerForm = reactive({
   baseUrl: '',

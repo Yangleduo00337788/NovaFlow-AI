@@ -9,7 +9,7 @@ import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
-import ai.novaflow.user.service.ResourceAccessService;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.workflow.entity.WorkflowEntity;
 import ai.novaflow.workflow.mapper.WorkflowMapper;
 import cn.dev33.satoken.stp.StpUtil;

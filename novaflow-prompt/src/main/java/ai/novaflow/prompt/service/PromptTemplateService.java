@@ -8,7 +8,10 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.util.PageQueryUtils;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.model.domain.ResolvedModelConfig;
 import ai.novaflow.model.service.ModelResolutionService;
 import ai.novaflow.prompt.domain.PromptVariable;
@@ -49,6 +52,7 @@ public class PromptTemplateService {
     private final ModelResolutionService modelResolutionService;
     private final ChatAgentExecutor chatAgentExecutor;
     private final AuditRecorder auditRecorder;
+    private final ResourceAccessService resourceAccessService;
 
     public PageResult<PromptTemplateVO> page(int page, int pageSize, String keyword, String category) {
         page = PageQueryUtils.normalizePage(page);
@@ -65,6 +69,16 @@ public class PromptTemplateService {
             query.eq("category", category);
         }
         query.orderBy("updated_at", false);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.PROMPT,
+                    PermissionCodes.PROMPT_READ,
+                    "prompt_template.id"
+            );
+        }
 
         Page<PromptTemplateEntity> result = promptTemplateMapper.paginate(Page.of(page, pageSize), query);
         List<PromptTemplateVO> list = result.getRecords().stream().map(this::toVO).toList();
@@ -82,14 +96,26 @@ public class PromptTemplateService {
                     "%" + keyword + "%", "%" + keyword + "%");
         }
         query.orderBy("template_name", true);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.PROMPT,
+                    PermissionCodes.PROMPT_READ,
+                    "prompt_template.id"
+            );
+        }
         return promptTemplateMapper.selectListByQuery(query).stream().map(this::toVO).toList();
     }
 
     public PromptTemplateVO detail(Long id) {
+        requirePromptRead(id);
         return toVO(getTemplateOrThrow(id));
     }
 
     public List<PromptVersionVO> listVersions(Long templateId) {
+        requirePromptRead(templateId);
         getTemplateOrThrow(templateId);
         return promptTemplateVersionMapper.selectListByQuery(
                 QueryWrapper.create()
@@ -131,6 +157,7 @@ public class PromptTemplateService {
 
     @Transactional
     public PromptTemplateVO update(Long id, PromptTemplateSaveRequest request) {
+        requirePromptEdit(id);
         PromptTemplateEntity entity = getTemplateOrThrow(id);
         ensureNameUnique(entity.getTenantId(), request.getTemplateName(), id);
 
@@ -157,6 +184,7 @@ public class PromptTemplateService {
 
     @Transactional
     public PromptTemplateVO rollback(Long id, Integer version) {
+        requirePromptEdit(id);
         PromptTemplateEntity entity = getTemplateOrThrow(id);
         PromptTemplateVersionEntity versionEntity = promptTemplateVersionMapper.selectOneByQuery(
                 QueryWrapper.create()
@@ -178,6 +206,7 @@ public class PromptTemplateService {
 
     @Transactional
     public void delete(Long id) {
+        requirePromptDelete(id);
         PromptTemplateEntity entity = getTemplateOrThrow(id);
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -186,6 +215,7 @@ public class PromptTemplateService {
     }
 
     public PromptTestResultVO test(Long id, PromptTestRequest request) {
+        requirePromptRead(id);
         PromptTemplateEntity entity = getTemplateOrThrow(id);
         Map<String, Object> variables = buildDefaultVariableMap(
                 promptVariableUtils.parse(entity.getVariables()));
@@ -442,6 +472,45 @@ public class PromptTemplateService {
             current = current.getCause();
         }
         return current.getMessage() != null ? current.getMessage() : "未知错误";
+    }
+
+    private void requirePromptRead(Long templateId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.PROMPT,
+                templateId,
+                PermissionCodes.PROMPT_READ
+        );
+    }
+
+    private void requirePromptEdit(Long templateId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.PROMPT,
+                templateId,
+                PermissionCodes.PROMPT_EDIT
+        );
+    }
+
+    private void requirePromptDelete(Long templateId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.PROMPT,
+                templateId,
+                PermissionCodes.PROMPT_DELETE
+        );
     }
 
 }

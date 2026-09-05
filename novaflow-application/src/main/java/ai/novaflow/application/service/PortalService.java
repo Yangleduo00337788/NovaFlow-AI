@@ -14,7 +14,7 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
 import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.ResourceTypes;
-import ai.novaflow.user.service.ResourceAccessService;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;

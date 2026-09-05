@@ -4,8 +4,12 @@ import ai.novaflow.common.context.TenantContexts;
 import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.security.UrlSafetyValidator;
 import ai.novaflow.common.util.CryptoService;
+import ai.novaflow.tenant.service.ResourceAccessService;
+import cn.dev33.satoken.stp.StpUtil;
 import ai.novaflow.model.domain.ModelProviderPreset;
 import ai.novaflow.model.domain.dto.ModelConnectivityTestRequest;
 import ai.novaflow.model.domain.dto.ModelProviderSaveRequest;
@@ -21,6 +25,7 @@ import ai.novaflow.model.mapper.ModelConfigMapper;
 import ai.novaflow.model.mapper.ModelProviderMapper;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -29,9 +34,12 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ModelProviderService {
@@ -43,6 +51,7 @@ public class ModelProviderService {
     private final ModelSyncService modelSyncService;
     private final ModelUsageService modelUsageService;
     private final AuditRecorder auditRecorder;
+    private final ResourceAccessService resourceAccessService;
 
     public List<ModelProviderVO> listProviders() {
         Long tenantId = TenantContexts.requireTenantId();
@@ -52,8 +61,21 @@ public class ModelProviderService {
                         .eq("is_deleted", 0)
         ).stream().collect(Collectors.toMap(ModelProviderEntity::getProviderCode, Function.identity(), (a, b) -> a));
 
-        return Arrays.stream(ModelProviderPreset.values())
+        List<ModelProviderVO> providers = Arrays.stream(ModelProviderPreset.values())
                 .map(preset -> toProviderVO(preset, configuredMap.get(preset.getCode()), tenantId))
+                .toList();
+        if (!StpUtil.isLogin()) {
+            return providers;
+        }
+        long userId = StpUtil.getLoginIdAsLong();
+        List<Long> configuredIds = configuredMap.values().stream()
+                .map(ModelProviderEntity::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Set<Long> accessibleIds = resourceAccessService.listAccessibleResourceIds(
+                userId, tenantId, ResourceTypes.MODEL, PermissionCodes.MODEL_READ, configuredIds);
+        return providers.stream()
+                .filter(vo -> vo.getId() == null || accessibleIds.contains(vo.getId()))
                 .toList();
     }
 
@@ -64,6 +86,7 @@ public class ModelProviderService {
     }
 
     public ModelProviderVO detail(Long id) {
+        requireModelRead(id);
         ModelProviderEntity entity = getProviderOrThrow(id);
         ModelProviderPreset preset = ModelProviderPreset.of(entity.getProviderCode())
                 .orElseThrow(() -> new BusinessException("不支持的模型提供商"));
@@ -80,8 +103,25 @@ public class ModelProviderService {
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
                         .eq("provider_code", preset.getCode())
-                        .eq("is_deleted", 0)
         );
+
+        if (existing != null && existing.getIsDeleted() != null && existing.getIsDeleted() == 1) {
+            requireModelConfig(existing.getId());
+            validateSaveRequest(preset, request);
+            String apiKey = resolveSaveApiKey(preset, request.getApiKey());
+            existing.setProviderName(preset.getName());
+            existing.setBaseUrl(resolveBaseUrl(request.getBaseUrl(),
+                    StringUtils.hasText(existing.getBaseUrl()) ? existing.getBaseUrl() : preset.getDefaultBaseUrl()));
+            if (StringUtils.hasText(apiKey)) {
+                existing.setApiKeyEncrypted(cryptoService.encrypt(apiKey));
+            }
+            existing.setIsEnabled(Boolean.FALSE.equals(request.getEnabled()) ? 0 : 1);
+            existing.setIsDeleted(0);
+            existing.setUpdatedAt(LocalDateTime.now());
+            modelProviderMapper.update(existing);
+            syncFromUpstreamSafely(existing, apiKey);
+            return toProviderVO(preset, existing, tenantId);
+        }
 
         if (existing == null) {
             validateSaveRequest(preset, request);
@@ -99,10 +139,11 @@ public class ModelProviderService {
             created.setCreatedAt(LocalDateTime.now());
             created.setUpdatedAt(LocalDateTime.now());
             modelProviderMapper.insert(created);
-            modelSyncService.syncFromUpstream(created, apiKey);
+            syncFromUpstreamSafely(created, apiKey);
             return toProviderVO(preset, created, tenantId);
         }
 
+        requireModelConfig(existing.getId());
         existing.setBaseUrl(resolveBaseUrl(request.getBaseUrl(), existing.getBaseUrl()));
         if (StringUtils.hasText(request.getApiKey()) && !cryptoService.isMaskedValue(request.getApiKey())) {
             existing.setApiKeyEncrypted(cryptoService.encrypt(request.getApiKey().trim()));
@@ -115,13 +156,14 @@ public class ModelProviderService {
 
         boolean apiKeyChanged = StringUtils.hasText(request.getApiKey()) && !cryptoService.isMaskedValue(request.getApiKey());
         if (apiKeyChanged) {
-            modelSyncService.syncFromUpstream(existing, request.getApiKey().trim());
+            syncFromUpstreamSafely(existing, request.getApiKey().trim());
         }
         return toProviderVO(preset, existing, tenantId);
     }
 
     @Transactional
     public void delete(Long id) {
+        requireModelConfig(id);
         ModelProviderEntity entity = getProviderOrThrow(id);
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -140,6 +182,7 @@ public class ModelProviderService {
     }
 
     public ModelConnectivityTestVO test(Long id, ModelConnectivityTestRequest request) {
+        requireModelRead(id);
         ModelProviderEntity entity = getProviderOrThrow(id);
         String apiKey = resolveApiKey(entity, request != null ? request.getApiKey() : null);
         String baseUrl = resolveBaseUrl(
@@ -153,6 +196,7 @@ public class ModelProviderService {
     }
 
     public ModelSyncResultVO syncModels(Long id) {
+        requireModelConfig(id);
         ModelProviderEntity entity = getProviderOrThrow(id);
         return modelSyncService.syncFromUpstream(entity, resolveApiKey(entity, null));
     }
@@ -287,6 +331,42 @@ public class ModelProviderService {
             return requestBaseUrl.trim();
         }
         return fallback;
+    }
+
+    /** 保存 Provider 不因上游不可达而失败；用户可稍后手动 sync。 */
+    private void syncFromUpstreamSafely(ModelProviderEntity provider, String apiKey) {
+        try {
+            modelSyncService.syncFromUpstream(provider, apiKey);
+        } catch (BusinessException ex) {
+            log.warn("Skip upstream sync after provider save, providerId={}, code={}, reason={}",
+                    provider.getId(), provider.getProviderCode(), ex.getMessage());
+        }
+    }
+
+    private void requireModelRead(Long providerId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MODEL,
+                providerId,
+                PermissionCodes.MODEL_READ
+        );
+    }
+
+    private void requireModelConfig(Long providerId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MODEL,
+                providerId,
+                PermissionCodes.MODEL_CONFIG
+        );
     }
 
 }

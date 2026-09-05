@@ -19,7 +19,7 @@ import ai.novaflow.application.entity.ApplicationEntity;
 import ai.novaflow.application.mapper.ApplicationMapper;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
-import ai.novaflow.user.service.ResourceAccessService;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;

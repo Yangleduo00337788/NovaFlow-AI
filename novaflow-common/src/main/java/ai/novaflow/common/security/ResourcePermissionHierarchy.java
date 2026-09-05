@@ -32,7 +32,20 @@ public final class ResourcePermissionHierarchy {
             Map.entry(PermissionCodes.KNOWLEDGE_SEARCH, List.of(PermissionCodes.KNOWLEDGE_READ)),
             Map.entry(PermissionCodes.APPLICATION_MANAGE, List.of(
                     PermissionCodes.APPLICATION_PUBLISH, PermissionCodes.APPLICATION_READ)),
-            Map.entry(PermissionCodes.APPLICATION_PUBLISH, List.of(PermissionCodes.APPLICATION_READ))
+            Map.entry(PermissionCodes.APPLICATION_PUBLISH, List.of(PermissionCodes.APPLICATION_READ)),
+            Map.entry(PermissionCodes.MODEL_CONFIG, List.of(PermissionCodes.MODEL_READ)),
+            Map.entry(PermissionCodes.TOOL_DELETE, List.of(
+                    PermissionCodes.TOOL_UPDATE, PermissionCodes.TOOL_READ)),
+            Map.entry(PermissionCodes.TOOL_UPDATE, List.of(PermissionCodes.TOOL_READ)),
+            Map.entry(PermissionCodes.TOOL_CREATE, List.of(PermissionCodes.TOOL_READ)),
+            Map.entry(PermissionCodes.MCP_DELETE, List.of(
+                    PermissionCodes.MCP_UPDATE, PermissionCodes.MCP_READ)),
+            Map.entry(PermissionCodes.MCP_UPDATE, List.of(PermissionCodes.MCP_READ)),
+            Map.entry(PermissionCodes.MCP_CREATE, List.of(PermissionCodes.MCP_READ)),
+            Map.entry(PermissionCodes.PROMPT_DELETE, List.of(
+                    PermissionCodes.PROMPT_EDIT, PermissionCodes.PROMPT_READ)),
+            Map.entry(PermissionCodes.PROMPT_EDIT, List.of(PermissionCodes.PROMPT_READ)),
+            Map.entry(PermissionCodes.PROMPT_CREATE, List.of(PermissionCodes.PROMPT_READ))
     );
 
     private ResourcePermissionHierarchy() {

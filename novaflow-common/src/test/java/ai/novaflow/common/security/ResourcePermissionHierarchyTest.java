@@ -24,4 +24,14 @@ class ResourcePermissionHierarchyTest {
         assertTrue(codes.contains(PermissionCodes.AGENT_EDIT));
         assertTrue(codes.contains(PermissionCodes.AGENT_DELETE));
     }
+
+    @Test
+    void modelAndToolHierarchy() {
+        assertTrue(ResourcePermissionHierarchy.grantSatisfies(
+                PermissionCodes.MODEL_CONFIG, PermissionCodes.MODEL_READ));
+        assertTrue(ResourcePermissionHierarchy.grantSatisfies(
+                PermissionCodes.TOOL_DELETE, PermissionCodes.TOOL_READ));
+        Set<String> mcpCodes = ResourcePermissionHierarchy.acceptableGrantCodes(PermissionCodes.MCP_READ);
+        assertTrue(mcpCodes.contains(PermissionCodes.MCP_UPDATE));
+    }
 }

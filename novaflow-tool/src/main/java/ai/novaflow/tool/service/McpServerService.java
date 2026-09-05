@@ -5,7 +5,10 @@ import ai.novaflow.common.audit.AuditRecorder;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.common.exception.BusinessException;
+import ai.novaflow.common.security.PermissionCodes;
+import ai.novaflow.common.security.ResourceTypes;
 import ai.novaflow.common.util.PageQueryUtils;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.tool.domain.dto.McpServerSaveRequest;
 import ai.novaflow.tool.domain.vo.McpConnectResultVO;
 import ai.novaflow.tool.domain.vo.McpDiscoveredToolVO;
@@ -44,6 +47,7 @@ public class McpServerService {
     private final McpCommandValidator mcpCommandValidator;
     private final ObjectMapper objectMapper;
     private final AuditRecorder auditRecorder;
+    private final ResourceAccessService resourceAccessService;
 
     public PageResult<McpServerVO> page(int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
@@ -57,12 +61,23 @@ public class McpServerService {
                     "%" + keyword.trim() + "%", "%" + keyword.trim() + "%");
         }
         query.orderBy("updated_at", false);
+        if (StpUtil.isLogin()) {
+            resourceAccessService.applyReadableFilter(
+                    query,
+                    StpUtil.getLoginIdAsLong(),
+                    tenantId,
+                    ResourceTypes.MCP,
+                    PermissionCodes.MCP_READ,
+                    "mcp_server.id"
+            );
+        }
         Page<McpServerEntity> result = mcpServerMapper.paginate(Page.of(page, pageSize), query);
         List<McpServerVO> list = result.getRecords().stream().map(this::toVO).toList();
         return PageResult.of(list, result.getTotalRow(), page, pageSize);
     }
 
     public McpServerVO detail(Long id) {
+        requireMcpRead(id);
         McpServerEntity entity = getOrThrow(id);
         McpServerVO vo = toVO(entity);
         vo.setTools(parseDiscoveredTools(entity.getDiscoveredTools()));
@@ -71,6 +86,7 @@ public class McpServerService {
 
     @Transactional
     public McpConnectResultVO connect(Long id) {
+        requireMcpUpdate(id);
         McpServerEntity entity = getOrThrow(id);
         McpServerConfig config = parseStoredConfig(entity.getServerName(), entity.getServerConfig());
         mcpCommandValidator.validate(config);
@@ -93,6 +109,7 @@ public class McpServerService {
     }
 
     public McpSyncResultVO syncTools(Long id) {
+        requireMcpUpdate(id);
         McpServerEntity entity = getOrThrow(id);
         if (entity.getStatus() == null || entity.getStatus() != 1) {
             throw new BusinessException("请先完成连接测试后再同步到工具市场");
@@ -128,6 +145,7 @@ public class McpServerService {
 
     @Transactional
     public void delete(Long id) {
+        requireMcpDelete(id);
         McpServerEntity entity = getOrThrow(id);
         entity.setIsDeleted(1);
         entity.setUpdatedAt(LocalDateTime.now());
@@ -276,6 +294,45 @@ public class McpServerService {
             case 2 -> "错误";
             default -> "未连接";
         };
+    }
+
+    private void requireMcpRead(Long serverId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MCP,
+                serverId,
+                PermissionCodes.MCP_READ
+        );
+    }
+
+    private void requireMcpUpdate(Long serverId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MCP,
+                serverId,
+                PermissionCodes.MCP_UPDATE
+        );
+    }
+
+    private void requireMcpDelete(Long serverId) {
+        if (!StpUtil.isLogin()) {
+            return;
+        }
+        resourceAccessService.requireResourceAccess(
+                StpUtil.getLoginIdAsLong(),
+                TenantContexts.requireTenantId(),
+                ResourceTypes.MCP,
+                serverId,
+                PermissionCodes.MCP_DELETE
+        );
     }
 
 }

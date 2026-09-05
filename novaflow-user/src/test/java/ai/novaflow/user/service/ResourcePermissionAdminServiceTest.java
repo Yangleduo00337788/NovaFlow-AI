@@ -3,6 +3,7 @@ package ai.novaflow.user.service;
 import ai.novaflow.common.context.TenantContext;
 import ai.novaflow.tenant.entity.ResourcePermissionEntity;
 import ai.novaflow.tenant.mapper.ResourcePermissionMapper;
+import ai.novaflow.tenant.service.ResourceAccessService;
 import ai.novaflow.user.domain.dto.ResourcePermissionSaveRequest;
 import cn.dev33.satoken.stp.StpUtil;
 import org.junit.jupiter.api.AfterEach;
