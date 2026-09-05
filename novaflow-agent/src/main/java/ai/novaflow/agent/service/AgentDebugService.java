@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -70,8 +72,12 @@ public class AgentDebugService {
         boolean realExecution = agentChatService.supportsRealExecution(agent);
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
         CompletableFuture.runAsync(() -> {
             try {
+                if (requestAttributes != null) {
+                    RequestContextHolder.setRequestAttributes(requestAttributes);
+                }
                 TenantContext.setTenantId(tenantId);
                 if (!realExecution) {
                     streamMockResponse(emitter, agent, request, tenantId, userId);
@@ -85,6 +91,7 @@ public class AgentDebugService {
                 log.error("Agent debug stream failed, agentId={}", agentId, e);
                 completeWithError(emitter, new BusinessException("模型调用失败: " + rootMessage(e)));
             } finally {
+                RequestContextHolder.resetRequestAttributes();
                 TenantContext.clear();
             }
         });

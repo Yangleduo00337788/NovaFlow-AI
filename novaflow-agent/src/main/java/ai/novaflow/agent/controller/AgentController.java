@@ -112,13 +112,23 @@ public class AgentController {
         return ApiResult.ok(agentPublishService.rotateEmbedToken(id));
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            PermissionCodes.AGENT_DEBUG,
+            PermissionCodes.AGENT_EDIT,
+            PermissionCodes.AGENT_CHAT,
+            PermissionCodes.PORTAL_ACCESS
+    }, mode = SaMode.OR)
     @GetMapping("/{id}/debug/welcome")
     public ApiResult<AgentDebugChatVO> debugWelcome(@PathVariable Long id) {
         return ApiResult.ok(agentDebugService.welcome(id));
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            PermissionCodes.AGENT_DEBUG,
+            PermissionCodes.AGENT_EDIT,
+            PermissionCodes.AGENT_CHAT,
+            PermissionCodes.PORTAL_ACCESS
+    }, mode = SaMode.OR)
     @PostMapping("/{id}/debug/chat")
     public ApiResult<AgentDebugChatVO> debugChat(
             @PathVariable Long id,
@@ -126,7 +136,7 @@ public class AgentController {
         return ApiResult.ok(agentDebugService.chat(id, request));
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = { PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT }, mode = SaMode.OR)
     @PostMapping("/{id}/debug/attachments")
     public ApiResult<DebugAttachmentVO> uploadDebugAttachment(
             @PathVariable Long id,
@@ -135,7 +145,12 @@ public class AgentController {
         return ApiResult.ok(agentDebugAttachmentService.parse(file));
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = {
+            PermissionCodes.AGENT_DEBUG,
+            PermissionCodes.AGENT_EDIT,
+            PermissionCodes.AGENT_CHAT,
+            PermissionCodes.PORTAL_ACCESS
+    }, mode = SaMode.OR)
     @PostMapping(value = "/{id}/debug/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter debugChatStream(
             @PathVariable Long id,
@@ -143,7 +158,7 @@ public class AgentController {
         return agentDebugService.streamChat(id, request);
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = { PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT }, mode = SaMode.OR)
     @DeleteMapping("/{id}/debug/conversation")
     public ApiResult<Void> clearDebugConversation(
             @PathVariable Long id,
@@ -153,7 +168,7 @@ public class AgentController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = { PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT }, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations")
     public ApiResult<PageResult<ConversationVO>> listDebugConversations(
             @PathVariable Long id,
@@ -164,7 +179,7 @@ public class AgentController {
                 id, TenantContext.getTenantId(), "debug", null, StpUtil.getLoginIdAsLong(), null, page, pageSize));
     }
 
-    @SaCheckPermission(value = {PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @SaCheckPermission(value = { PermissionCodes.AGENT_DEBUG, PermissionCodes.AGENT_EDIT }, mode = SaMode.OR)
     @GetMapping("/{id}/debug/conversations/messages")
     public ApiResult<List<ConversationMessageVO>> listDebugConversationMessages(
             @PathVariable Long id,

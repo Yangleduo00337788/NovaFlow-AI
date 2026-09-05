@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -54,9 +56,13 @@ public class AgentOpenService {
     public SseEmitter streamChat(Long agentId, String rawToken, String callerId, AgentDebugChatRequest request) {
         OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
         String scopedCallerId = requireCallerId(auth, callerId);
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         CompletableFuture.runAsync(() -> {
             try {
+                if (requestAttributes != null) {
+                    RequestContextHolder.setRequestAttributes(requestAttributes);
+                }
                 TenantContext.setTenantId(auth.tenantId());
                 agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
                 AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
@@ -68,6 +74,7 @@ public class AgentOpenService {
                 log.error("Open agent stream failed, agentId={}", agentId, e);
                 completeWithError(emitter, new BusinessException("模型调用失败: " + rootMessage(e)));
             } finally {
+                RequestContextHolder.resetRequestAttributes();
                 TenantContext.clear();
             }
         });
