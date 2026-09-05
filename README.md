@@ -383,6 +383,7 @@ npm run dev     # http://localhost:3000 （需后端 8080 已运行）
 | 邮箱 | 密码 | 角色 |
 |------|------|------|
 | `platform@novaflow.ai` | `Platform123!` | 平台超管 |
+| `auditor@novaflow.ai` | `Auditor123!` | 平台审计员（仅审计日志） |
 | `admin@novaflow.ai` | `Admin123!` | 企业所有者 |
 | `developer@novaflow.ai` | `Developer123!` | 开发者 |
 | `operator@novaflow.ai` | `Operator123!` | 运维人员 |
