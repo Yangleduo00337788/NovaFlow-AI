@@ -174,8 +174,8 @@ test.describe('组织与权限', () => {
     await expect(permissionPage).toBeVisible()
     await expect(permissionPage.getByText('系统角色', { exact: true })).toBeVisible()
     const roleList = permissionPage.locator('.role-item')
-    await expect(roleList.filter({ hasText: '超级管理员' })).toBeVisible()
     await expect(roleList.filter({ hasText: '企业所有者' })).toBeVisible()
+    await expect(roleList.filter({ hasText: '开发者' })).toBeVisible()
   })
 
   test('账单页可加载并打开成本分摊', async ({ page }) => {

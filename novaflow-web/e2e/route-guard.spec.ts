@@ -105,9 +105,12 @@ test.describe('Z-08 前端路由守卫 vs 后端权限', () => {
     await expectApiDenied(request, token, '/api/v1/platform/stats')
   })
 
-  test('平台超管：默认进入平台管理，平台 API 可用', async ({ page, request }) => {
+  test('平台超管：默认进入平台管理，平台 API 可用且租户 API 被拒', async ({ page, request }) => {
     await loginAs(page, PLATFORM_EMAIL, PLATFORM_PASSWORD, /\/platform/)
     await expect(page.locator('.platform-page')).toBeVisible()
+
+    await page.goto('/dashboard')
+    await expect(page).toHaveURL(/\/platform/)
 
     const token = await fetchApiToken(request, PLATFORM_EMAIL, PLATFORM_PASSWORD)
     const resp = await request.get(`${API_BASE}/api/v1/platform/tenants?page=1&pageSize=5`, {
@@ -115,5 +118,10 @@ test.describe('Z-08 前端路由守卫 vs 后端权限', () => {
     })
     const json = await resp.json()
     expect(json.code).toBe(0)
+
+    const tenantResp = await request.get(`${API_BASE}/api/v1/agents?page=1&pageSize=5`, {
+      headers: { Authorization: token },
+    })
+    expect(tenantResp.status()).toBe(403)
   })
 })

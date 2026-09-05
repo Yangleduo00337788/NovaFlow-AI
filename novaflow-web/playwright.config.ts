@@ -51,6 +51,7 @@ export default defineConfig({
         /embed\.spec\.ts/,
         /xss\.spec\.ts/,
         /roles\.spec\.ts/,
+        /custom-roles\.spec\.ts/,
         /route-guard\.spec\.ts/,
       ],
       grepInvert: /平台超管页面可加载/,
@@ -91,7 +92,7 @@ export default defineConfig({
         channel: 'chrome',
         storageState: { cookies: [], origins: [] },
       },
-      testMatch: /roles\.spec\.ts/,
+      testMatch: /roles\.spec\.ts|custom-roles\.spec\.ts/,
     },
     {
       name: 'chromium-route-guard',
