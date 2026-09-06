@@ -121,7 +121,7 @@ function Prepare-NovaGateEnvironment {
         maintenanceEnabled          = $false
         maintenanceMessage          = ''
         platformAnnouncement        = ''
-        batchRegisterIpLimitPerDay  = 5
+        batchRegisterIpLimitPerDay  = 0
         abnormalLoginEnabled        = $true
         newUserAgentEnabled         = $true
     }

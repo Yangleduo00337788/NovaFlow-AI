@@ -22,7 +22,7 @@ function Reset-RiskSettings {
     if (-not $script:platformToken) { return }
     $resetPath = Join-Path $script:NovaFlowTmpDir 'risk-reset.json'
     Write-NovaJson -Path $resetPath -Data @{
-        batchRegisterIpLimitPerDay = 5
+        batchRegisterIpLimitPerDay = 0
         abnormalLoginEnabled       = $true
         newUserAgentEnabled        = $true
     }
