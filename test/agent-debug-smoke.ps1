@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — Agent 调试对话验收（AG-04 ~ AG-07）
 # 用法: pwsh test/agent-debug-smoke.ps1
-# 前提: 后端 :8080 已启动；模型中心已配置可用 LLM
+# 前提: 后端 :8088 已启动；模型中心已配置可用 LLM
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

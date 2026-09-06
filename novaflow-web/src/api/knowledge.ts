@@ -128,6 +128,19 @@ export function retrieveKnowledge(knowledgeBaseId: number, data: RetrievalTestRe
   return request.post<ApiResult<RetrievalTestResult>>(`/v1/knowledge-bases/${knowledgeBaseId}/retrieve`, data)
 }
 
+export const STORAGE_QUOTA_EXCEEDED = 40036
+
+export interface TenantStorageUsage {
+  usedBytes: number
+  maxStorageMb?: number
+  usedPercent?: number
+  quotaExceeded: boolean
+}
+
+export function fetchStorageUsage() {
+  return request.get<ApiResult<TenantStorageUsage>>('/v1/knowledge-bases/storage-usage')
+}
+
 export async function uploadDocument(knowledgeBaseId: number, file: File) {
   const formData = new FormData()
   formData.append('file', file)
@@ -145,7 +158,9 @@ export async function uploadDocument(knowledgeBaseId: number, file: File) {
   )
   const result = response.data
   if (result.code !== 0) {
-    throw new Error(result.message || '上传失败')
+    const error = new Error(result.message || '上传失败') as Error & { code?: number }
+    error.code = result.code
+    throw error
   }
   return response
 }

@@ -222,6 +222,18 @@ export interface PlatformSettings {
   newUserAgentEnabled?: boolean
   batchRegisterIpLimitPerDay?: number
   storageWarnPercent?: number
+  securityAlertChannels?: string[]
+  apiMonitorAlertChannels?: string[]
+  storageQuotaAlertChannels?: string[]
+}
+
+export interface PlatformNotifyChannel {
+  emailEnabled: boolean
+  emailRecipients?: string
+  webhookEnabled: boolean
+  webhookUrl?: string
+  webhookSecretSet?: boolean
+  mailConfigured?: boolean
 }
 
 export interface PlatformSecurityOverview {
@@ -518,8 +530,29 @@ export function updatePlatformSettings(data: {
   newUserAgentEnabled?: boolean
   batchRegisterIpLimitPerDay?: number
   storageWarnPercent?: number
+  securityAlertChannels?: string[]
+  apiMonitorAlertChannels?: string[]
+  storageQuotaAlertChannels?: string[]
 }) {
   return request.put<ApiResult<PlatformSettings>>('/v1/platform/settings', data)
+}
+
+export function fetchPlatformNotifyChannels() {
+  return request.get<ApiResult<PlatformNotifyChannel>>('/v1/platform/notify-channels')
+}
+
+export function updatePlatformNotifyChannels(data: {
+  emailEnabled?: boolean
+  emailRecipients?: string
+  webhookEnabled?: boolean
+  webhookUrl?: string
+  webhookSecret?: string
+}) {
+  return request.put<ApiResult<PlatformNotifyChannel>>('/v1/platform/notify-channels', data)
+}
+
+export function testPlatformNotifyChannels() {
+  return request.post<ApiResult<void>>('/v1/platform/notify-channels/test')
 }
 
 export function fetchPlatformSecurityOverview() {

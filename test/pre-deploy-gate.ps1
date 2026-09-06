@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — 部署前门禁（健康检查 + pageSize 截断 + 认证冒烟）
 # 用法: pwsh test/pre-deploy-gate.ps1
-# 环境变量: NOVAFLOW_BASE_URL (默认 http://localhost:8080)
+# 环境变量: NOVAFLOW_BASE_URL (默认 http://localhost:8088)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot

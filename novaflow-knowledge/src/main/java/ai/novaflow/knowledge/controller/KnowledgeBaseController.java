@@ -6,8 +6,10 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.knowledge.domain.dto.KnowledgeBaseSaveRequest;
 import ai.novaflow.knowledge.domain.vo.DocumentVO;
 import ai.novaflow.knowledge.domain.vo.KnowledgeBaseVO;
+import ai.novaflow.knowledge.domain.vo.TenantStorageUsageVO;
 import ai.novaflow.knowledge.service.DocumentService;
 import ai.novaflow.knowledge.service.KnowledgeBaseService;
+import ai.novaflow.knowledge.service.TenantStorageQuotaService;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaMode;
 import jakarta.validation.Valid;
@@ -30,6 +32,13 @@ public class KnowledgeBaseController {
 
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentService documentService;
+    private final TenantStorageQuotaService tenantStorageQuotaService;
+
+    @SaCheckPermission(value = {PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_CREATE, PermissionCodes.KNOWLEDGE_UPLOAD}, mode = SaMode.OR)
+    @GetMapping("/storage-usage")
+    public ApiResult<TenantStorageUsageVO> storageUsage() {
+        return ApiResult.ok(tenantStorageQuotaService.usage());
+    }
 
     @SaCheckPermission(value = {PermissionCodes.KNOWLEDGE_READ, PermissionCodes.KNOWLEDGE_CREATE, PermissionCodes.KNOWLEDGE_UPLOAD}, mode = SaMode.OR)
     @GetMapping

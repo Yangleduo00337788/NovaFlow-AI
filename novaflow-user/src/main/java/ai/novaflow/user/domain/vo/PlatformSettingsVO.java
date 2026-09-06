@@ -21,4 +21,7 @@ public class PlatformSettingsVO {
     private boolean newUserAgentEnabled;
     private int batchRegisterIpLimitPerDay;
     private int storageWarnPercent;
+    private List<String> securityAlertChannels;
+    private List<String> apiMonitorAlertChannels;
+    private List<String> storageQuotaAlertChannels;
 }

@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — conversationKey 隔离验收（C-04）
 # 用法: pwsh test/conversation-key-isolation.ps1
-# 前提: 后端 :8080 已启动；模型中心已配置可用 LLM（debug/open chat 用例）
+# 前提: 后端 :8088 已启动；模型中心已配置可用 LLM（debug/open chat 用例）
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

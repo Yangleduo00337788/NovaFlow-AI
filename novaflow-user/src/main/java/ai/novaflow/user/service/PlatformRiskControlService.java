@@ -29,6 +29,7 @@ public class PlatformRiskControlService {
 
     private final PlatformSystemConfigService platformSystemConfigService;
     private final PlatformSecurityAlertEventMapper securityAlertEventMapper;
+    private final PlatformAlertDispatchService platformAlertDispatchService;
     private final StringRedisTemplate stringRedisTemplate;
 
     public void checkBatchRegisterAllowed(String clientIp) {
@@ -197,6 +198,7 @@ public class PlatformRiskControlService {
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         securityAlertEventMapper.insert(entity);
+        platformAlertDispatchService.dispatchSecurityAlert(entity);
     }
 
     private String normalizeIp(String clientIp) {

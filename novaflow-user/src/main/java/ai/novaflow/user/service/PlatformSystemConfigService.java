@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,6 +30,9 @@ public class PlatformSystemConfigService {
     public static final String KEY_RISK_BATCH_REGISTER_IP_LIMIT = "risk.batch_register_ip_limit_per_day";
     public static final String KEY_RISK_NEW_USER_AGENT_ENABLED = "risk.new_user_agent_enabled";
     public static final String KEY_RISK_STORAGE_WARN_PERCENT = "risk.storage_warn_percent";
+    public static final String KEY_NOTIFY_SECURITY_CHANNELS = "notify.security_channels";
+    public static final String KEY_NOTIFY_API_MONITOR_CHANNELS = "notify.api_monitor_channels";
+    public static final String KEY_NOTIFY_STORAGE_CHANNELS = "notify.storage_quota_channels";
 
     private final PlatformSystemConfigMapper configMapper;
 
@@ -155,6 +159,30 @@ public class PlatformSystemConfigService {
     public void setStorageWarnPercent(int percent, Long operatorId) {
         int normalized = Math.min(100, Math.max(50, percent));
         upsert(KEY_RISK_STORAGE_WARN_PERCENT, Integer.toString(normalized), operatorId);
+    }
+
+    public List<String> getSecurityAlertChannels() {
+        return PlatformAlertChannels.normalize(getValue(KEY_NOTIFY_SECURITY_CHANNELS));
+    }
+
+    public void setSecurityAlertChannels(List<String> channels, Long operatorId) {
+        upsert(KEY_NOTIFY_SECURITY_CHANNELS, PlatformAlertChannels.join(channels), operatorId);
+    }
+
+    public List<String> getApiMonitorAlertChannels() {
+        return PlatformAlertChannels.normalize(getValue(KEY_NOTIFY_API_MONITOR_CHANNELS));
+    }
+
+    public void setApiMonitorAlertChannels(List<String> channels, Long operatorId) {
+        upsert(KEY_NOTIFY_API_MONITOR_CHANNELS, PlatformAlertChannels.join(channels), operatorId);
+    }
+
+    public List<String> getStorageQuotaAlertChannels() {
+        return PlatformAlertChannels.normalize(getValue(KEY_NOTIFY_STORAGE_CHANNELS));
+    }
+
+    public void setStorageQuotaAlertChannels(List<String> channels, Long operatorId) {
+        upsert(KEY_NOTIFY_STORAGE_CHANNELS, PlatformAlertChannels.join(channels), operatorId);
     }
 
     private String getValue(String key) {

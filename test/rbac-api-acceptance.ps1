@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — 权限体系 API 验收（对应 docs/权限体系.md + TEST-CHECKLIST §2）
 # 用法: pwsh test/rbac-api-acceptance.ps1
-# 前提: 后端 http://localhost:8080 已启动（dev profile，开放注册）
+# 前提: 后端 http://localhost:8088 已启动（dev profile，开放注册）
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

@@ -32,7 +32,7 @@ public class StartupUrlPrinter implements ApplicationListener<ApplicationReadyEv
             return;
         }
 
-        String port = environment.getProperty("local.server.port", environment.getProperty("server.port", "8080"));
+        String port = environment.getProperty("local.server.port", environment.getProperty("server.port", "8088"));
         String contextPath = environment.getProperty("server.servlet.context-path", "");
         if (contextPath == null) {
             contextPath = "";

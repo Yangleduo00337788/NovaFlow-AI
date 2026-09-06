@@ -2,7 +2,7 @@
 
 > 对应 QA 遗漏项：部署验收、跨租户 IDOR、CC-02 回归、生产 Compose 冒烟、依赖扫描  
 > **缺口补全路线图：** 见 [`TEST-GAP-PLAN.md`](./TEST-GAP-PLAN.md)（缺口 → 脚本/单测/E2E 映射 + 分阶段计划）  
-> 前提：本机后端 `http://localhost:8080`（可用 `NOVAFLOW_BASE_URL` 覆盖）
+> 前提：本机后端 `http://localhost:8088`（可用 `NOVAFLOW_BASE_URL` 覆盖）
 
 ## 一键执行
 
@@ -95,7 +95,7 @@ pwsh test/run-pre-release-gates.ps1 -IncludeProdCompose
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `NOVAFLOW_BASE_URL` | `http://localhost:8080` | API 基址 |
+| `NOVAFLOW_BASE_URL` | `http://localhost:8088` | API 基址 |
 | `NOVAFLOW_WEB_URL` | `http://localhost:3000` | 前端 / Nginx |
 | `SKIP_DOCKER_CHECK` | — | 设为 `1` 跳过容器名检查 |
 

@@ -14,9 +14,6 @@ import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.DocumentMapper;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
 import ai.novaflow.knowledge.storage.DocumentStorageService;
-import ai.novaflow.tenant.entity.TenantEntity;
-import ai.novaflow.tenant.mapper.TenantMapper;
-import ai.novaflow.tenant.support.TenantQuotas;
 import ai.novaflow.tenant.service.ResourceAccessService;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.DigestUtil;
@@ -45,10 +42,10 @@ public class DocumentService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentStorageService documentStorageService;
-    private final TenantMapper tenantMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditRecorder auditRecorder;
     private final ResourceAccessService resourceAccessService;
+    private final TenantStorageQuotaService tenantStorageQuotaService;
 
     public PageResult<DocumentVO> page(Long knowledgeBaseId, int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
@@ -94,7 +91,7 @@ public class DocumentService {
         resourceAccessService.requireResourceAccess(
                 StpUtil.getLoginIdAsLong(), tenantId, ResourceTypes.KNOWLEDGE, knowledgeBaseId, PermissionCodes.KNOWLEDGE_UPLOAD);
         Long userId = StpUtil.getLoginIdAsLong();
-        assertStorageQuota(tenantId, file.getSize());
+        tenantStorageQuotaService.assertCanUpload(tenantId, file.getSize());
 
         String objectPath = documentStorageService.store(tenantId, knowledgeBaseId, originalFilename, file);
         String fileHash = computeHash(file);
@@ -187,24 +184,6 @@ public class DocumentService {
         } catch (IOException e) {
             return null;
         }
-    }
-
-    private void assertStorageQuota(Long tenantId, long incomingBytes) {
-        TenantEntity tenant = tenantMapper.selectOneById(tenantId);
-        if (tenant == null) {
-            return;
-        }
-        long limitMb = tenant.getMaxStorageMb() != null && tenant.getMaxStorageMb() > 0
-                ? tenant.getMaxStorageMb()
-                : 0;
-        if (limitMb <= 0) {
-            return;
-        }
-        Long used = documentMapper.sumFileSizeByTenant(tenantId);
-        TenantQuotas.assertStorageWithinLimit(
-                used != null ? used : 0L,
-                incomingBytes,
-                limitMb * 1024L * 1024L);
     }
 
     private int safeInt(Integer value) {

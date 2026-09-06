@@ -92,6 +92,20 @@
             </div>
             <a-progress :percent="overview.quota.memberUsedPercent" />
           </div>
+          <div v-if="overview.quota.maxStorageMb" class="quota-item">
+            <div class="quota-row">
+              <span>存储空间</span>
+              <span>
+                {{ formatFileSize(overview.quota.usedStorageBytes) }}
+                / {{ overview.quota.maxStorageMb }} MB
+              </span>
+            </div>
+            <a-progress
+              v-if="overview.quota.storageUsedPercent != null"
+              :percent="overview.quota.storageUsedPercent"
+              :status="overview.quota.storageUsedPercent >= 100 ? 'exception' : overview.quota.storageUsedPercent >= 80 ? 'active' : 'normal'"
+            />
+          </div>
           <div class="quota-meta">
             <span>Agent 配额：{{ overview.quota.maxAgents ?? '-' }}</span>
             <span>知识库配额：{{ overview.quota.maxKnowledge ?? '-' }}</span>
@@ -360,6 +374,7 @@ import {
 } from '@/api/billing'
 import type { TokenUsageLogItem } from '@/api/log'
 import { formatDateTime } from '@/utils/datetime'
+import { formatFileSize } from '@/utils/filesize'
 import { useAuthStore } from '@/stores/auth'
 import BillingReceiptPrinter from './BillingReceiptPrinter.vue'
 

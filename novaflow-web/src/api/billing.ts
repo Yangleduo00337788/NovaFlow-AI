@@ -38,6 +38,9 @@ export interface BillingQuota {
   memberCount: number
   maxMembers: number
   memberUsedPercent: number
+  usedStorageBytes?: number
+  maxStorageMb?: number
+  storageUsedPercent?: number
   maxAgents?: number
   maxKnowledge?: number
 }

@@ -28,6 +28,14 @@
       <div class="overview-card page-card">
         <span class="overview-label">存储大小</span>
         <strong>{{ formatFileSize(detail.totalSizeBytes) }}</strong>
+        <div v-if="storageUsage?.maxStorageMb" class="storage-quota-hint">
+          租户配额 {{ formatFileSize(storageUsage.usedBytes) }} / {{ storageUsage.maxStorageMb }} MB
+          <a-progress
+            :percent="storageUsage.usedPercent ?? 0"
+            size="small"
+            :status="storageUsage.quotaExceeded ? 'exception' : storageUsage.usedPercent && storageUsage.usedPercent >= 80 ? 'active' : 'normal'"
+          />
+        </div>
       </div>
       <div class="overview-card page-card">
         <span class="overview-label">分块总数</span>
@@ -41,12 +49,20 @@
 
     <div v-if="canUpload" class="page-card upload-section">
       <div class="section-title">上传文档</div>
+      <a-alert
+        v-if="storageUsage?.quotaExceeded"
+        type="error"
+        show-icon
+        message="存储配额已满"
+        description="当前租户存储空间已用尽，请清理文档、联系管理员升级套餐，或前往账单页查看配额。"
+        style="margin-bottom: 12px"
+      />
       <p class="section-desc">支持 PDF、Word、Excel、PPT、TXT、Markdown、HTML，单文件最大 50MB</p>
       <a-upload-dragger
         :multiple="true"
         :show-upload-list="false"
         :before-upload="beforeUpload"
-        :disabled="uploading"
+        :disabled="uploading || storageUsage?.quotaExceeded"
         accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.html,.htm"
       >
         <p class="ant-upload-drag-icon">
@@ -304,14 +320,17 @@ import {
   deleteKnowledgeBase,
   fetchDocuments,
   fetchKnowledgeBase,
+  fetchStorageUsage,
   reprocessDocument,
   retrieveKnowledge,
+  STORAGE_QUOTA_EXCEEDED,
   updateKnowledgeBase,
   uploadDocument,
   type DocumentItem,
   type KnowledgeBaseItem,
   type KnowledgeBaseSaveRequest,
   type RetrievalTestResult,
+  type TenantStorageUsage,
 } from '@/api/knowledge'
 import { fetchEmbeddingOptions, fetchModelConfigs } from '@/api/model'
 import { formatDateTime } from '@/utils/datetime'
@@ -333,6 +352,7 @@ const resourcePermOpen = ref(false)
 const kbId = computed(() => Number(route.params.id))
 
 const detail = ref<KnowledgeBaseItem | null>(null)
+const storageUsage = ref<TenantStorageUsage | null>(null)
 const documents = ref<DocumentItem[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -573,8 +593,17 @@ async function loadEmbeddingModels() {
   }
 }
 
+async function loadStorageUsage() {
+  try {
+    const res = await fetchStorageUsage()
+    storageUsage.value = res.data.data
+  } catch {
+    storageUsage.value = null
+  }
+}
+
 async function reloadAll() {
-  await Promise.all([loadDetail(), loadDocuments()])
+  await Promise.all([loadDetail(), loadDocuments(), loadStorageUsage()])
 }
 
 const beforeUpload: UploadProps['beforeUpload'] = async (file) => {
@@ -588,7 +617,13 @@ const beforeUpload: UploadProps['beforeUpload'] = async (file) => {
     message.success(`${file.name} 上传成功`)
     await reloadAll()
   } catch (e) {
-    message.error(e instanceof Error ? e.message : `${file.name} 上传失败`)
+    const err = e as Error & { code?: number }
+    if (err.code === STORAGE_QUOTA_EXCEEDED) {
+      message.error(err.message || '存储配额已满，无法上传')
+      await loadStorageUsage()
+    } else {
+      message.error(err instanceof Error ? err.message : `${file.name} 上传失败`)
+    }
   } finally {
     uploadingCount.value = Math.max(0, uploadingCount.value - 1)
     uploading.value = uploadingCount.value > 0
@@ -787,6 +822,17 @@ onUnmounted(() => {
 
 .model-name {
   font-size: 16px !important;
+}
+
+.overview-card strong.model-name {
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.storage-quota-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary, #8c8c8c);
 }
 
 .upload-section,

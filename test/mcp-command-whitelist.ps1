@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — MCP stdio 命令白名单验收（T-04）
 # 用法: pwsh test/mcp-command-whitelist.ps1
-# 前提: 后端 :8080 已启动
+# 前提: 后端 :8088 已启动
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

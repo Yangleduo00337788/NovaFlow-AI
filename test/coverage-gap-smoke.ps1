@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — 覆盖缺口：鉴权/RBAC/配置/模块读接口 + 并发组合
 # 用法: pwsh test/coverage-gap-smoke.ps1
-# 前提: 后端 :8080 已启动（含本轮 P3 修复的 JAR）
+# 前提: 后端 :8088 已启动（含本轮 P3 修复的 JAR）
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

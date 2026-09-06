@@ -625,7 +625,7 @@ const publishLoading = ref(false)
 const revealedApiKey = ref('')
 const revealedEmbedToken = ref('')
 
-const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin
+const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8088' : window.location.origin
 
 const debugDrawerWidth = computed(() => (debugWideLayout.value ? '100vw' : '50vw'))
 const editDrawerBodyStyle = {

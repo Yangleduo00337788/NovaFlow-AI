@@ -25,6 +25,7 @@ import ai.novaflow.model.mapper.TokenUsageMapper;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
+import ai.novaflow.user.mapper.PlatformStatsMapper;
 import ai.novaflow.user.service.PermissionService;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -54,6 +55,7 @@ public class BillingService {
     private final TenantMemberMapper tenantMemberMapper;
     private final PermissionService permissionService;
     private final BillingAlertService billingAlertService;
+    private final PlatformStatsMapper platformStatsMapper;
 
     public BillingOverviewVO getOverview(String month) {
         requireBillingViewPermission();
@@ -258,6 +260,11 @@ public class BillingService {
         int maxMembers = tenant.getMaxMembers() != null && tenant.getMaxMembers() > 0 ? tenant.getMaxMembers() : 100;
         long usedTokens = safeLong(tokenUsageMapper.sumTokensBetween(tenantId, startDate, endDate));
         long monthlyQuota = tenant.getMonthlyTokenQuota() != null ? tenant.getMonthlyTokenQuota() : 0L;
+        long usedStorageBytes = safeLong(platformStatsMapper.sumStorageBytesByTenant(tenantId));
+        Integer maxStorageMb = tenant.getMaxStorageMb();
+        long storageLimitBytes = maxStorageMb != null && maxStorageMb > 0
+                ? maxStorageMb.longValue() * 1024L * 1024L
+                : 0L;
 
         return BillingQuotaVO.builder()
                 .planType(tenant.getPlanType())
@@ -269,6 +276,9 @@ public class BillingService {
                 .memberCount(memberCount)
                 .maxMembers(maxMembers)
                 .memberUsedPercent(calcPercent(memberCount, maxMembers))
+                .usedStorageBytes(usedStorageBytes)
+                .maxStorageMb(maxStorageMb)
+                .storageUsedPercent(calcPercent(usedStorageBytes, storageLimitBytes))
                 .maxAgents(tenant.getMaxAgents())
                 .maxKnowledge(tenant.getMaxKnowledge())
                 .build();

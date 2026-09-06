@@ -2,7 +2,7 @@
 # NovaFlow AI — 测试脚本公共模块
 # 用法: . "$PSScriptRoot/scripts/NovaFlow-TestCommon.ps1"
 
-$script:NovaFlowBaseUrl = if ($env:NOVAFLOW_BASE_URL) { $env:NOVAFLOW_BASE_URL.TrimEnd('/') } else { 'http://localhost:8080' }
+$script:NovaFlowBaseUrl = if ($env:NOVAFLOW_BASE_URL) { $env:NOVAFLOW_BASE_URL.TrimEnd('/') } else { 'http://localhost:8088' }
 $script:NovaFlowWebUrl = if ($env:NOVAFLOW_WEB_URL) { $env:NOVAFLOW_WEB_URL.TrimEnd('/') } else { 'http://localhost:3000' }
 $script:NovaFlowTmpDir = Join-Path $env:TEMP "novaflow-test-$(Get-Random)"
 New-Item -ItemType Directory -Force -Path $script:NovaFlowTmpDir | Out-Null
@@ -62,6 +62,21 @@ function Invoke-NovaApi {
         if ($Body) { Write-NovaJson -Path $jsonPath -Data $Body }
         $args += @('-H', 'Content-Type: application/json', '--data-binary', "@$jsonPath")
     }
+    return ConvertFrom-NovaCurl (Invoke-CurlExe $args)
+}
+
+function Invoke-NovaFileUpload {
+    param(
+        [string]$Path,
+        [string]$Token,
+        [string]$FilePath,
+        [int]$MaxTimeSec = 120
+    )
+
+    $url = "$script:NovaFlowBaseUrl$Path"
+    $args = @('-s', '-w', "`nHTTP:%{http_code}", '--max-time', "$MaxTimeSec", '-X', 'POST', $url)
+    if ($Token) { $args += @('-H', "Authorization: $Token") }
+    $args += @('-F', "file=@$FilePath")
     return ConvertFrom-NovaCurl (Invoke-CurlExe $args)
 }
 

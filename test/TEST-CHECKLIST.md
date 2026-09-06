@@ -14,7 +14,7 @@
 | Maven | 3.9+ |
 | Node | 20+ |
 | Docker | MySQL 8、Redis 7、MinIO、Qdrant |
-| 后端 | `http://localhost:8080`，profile `dev` 或独立测试 profile |
+| 后端 | `http://localhost:8088`，profile `dev` 或独立测试 profile |
 | 前端 | `http://localhost:3000` |
 | 测试账号 | 需准备 super_admin、tenant_admin、developer、user 四类角色 |
 | Open API | 已发布 Agent 的 `nf_live_` Key 与 `nf_embed_` Token |

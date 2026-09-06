@@ -18,4 +18,7 @@ public class PlatformSettingsUpdateRequest {
     private Boolean newUserAgentEnabled;
     private Integer batchRegisterIpLimitPerDay;
     private Integer storageWarnPercent;
+    private List<String> securityAlertChannels;
+    private List<String> apiMonitorAlertChannels;
+    private List<String> storageQuotaAlertChannels;
 }

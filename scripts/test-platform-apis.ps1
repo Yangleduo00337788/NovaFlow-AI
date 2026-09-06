@@ -1,6 +1,6 @@
 # NovaFlow Phase 20-24 平台 API 冒烟测试
 #requires -Version 7.0
-$Base = 'http://localhost:8080/api/v1'
+$Base = 'http://localhost:8088/api/v1'
 $passed = 0
 $failed = 0
 

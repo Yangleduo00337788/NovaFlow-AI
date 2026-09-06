@@ -33,5 +33,5 @@ WORKDIR /app
 RUN addgroup -S novaflow && adduser -S novaflow -G novaflow
 COPY --from=build /workspace/novaflow-server/target/novaflow-server-*.jar app.jar
 USER novaflow
-EXPOSE 8080
+EXPOSE 8088
 ENTRYPOINT ["java", "-jar", "app.jar"]

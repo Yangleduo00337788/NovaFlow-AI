@@ -15,7 +15,7 @@ import {
   loginAs,
 } from './helpers/auth'
 
-const API_BASE = process.env.NOVAFLOW_API_URL ?? 'http://localhost:8080'
+const API_BASE = process.env.NOVAFLOW_API_URL ?? 'http://localhost:8088'
 
 async function fetchApiToken(request: APIRequestContext, email: string, password: string) {
   const resp = await request.post(`${API_BASE}/api/v1/auth/login`, {

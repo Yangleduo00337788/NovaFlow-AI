@@ -87,6 +87,9 @@ public final class PermissionCodes {
     public static final String DASHBOARD_VIEW = "dashboard:view";
     public static final String PORTAL_ACCESS = "portal:access";
     public static final String PLATFORM_MANAGE = "platform:manage";
+    public static final String PLATFORM_TENANT_VIEW = "platform:tenant:view";
+    public static final String PLATFORM_TENANT_MANAGE = "platform:tenant:manage";
+    public static final String PLATFORM_BILLING_VIEW = "platform:billing:view";
     public static final String AUDIT_VIEW = "audit:view";
     public static final String SEARCH_GLOBAL = "search:global";
 

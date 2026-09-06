@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — Open API / Embed 验收（O-01 ~ O-08, AG-10）
 # 用法: pwsh test/open-api-acceptance.ps1
-# 前提: 后端 :8080 已启动；模型中心已配置可用 LLM（chat/stream 用例）
+# 前提: 后端 :8088 已启动；模型中心已配置可用 LLM（chat/stream 用例）
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

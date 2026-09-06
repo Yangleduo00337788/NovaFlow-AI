@@ -1,5 +1,5 @@
 # NovaFlow Phase 25-30 平台 API + 前端回归冒烟
-$Base = 'http://localhost:8080/api/v1'
+$Base = 'http://localhost:8088/api/v1'
 $Web = 'http://localhost:3000'
 $passed = 0
 $failed = 0

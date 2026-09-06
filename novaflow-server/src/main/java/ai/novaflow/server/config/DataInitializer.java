@@ -102,6 +102,22 @@ public class DataInitializer implements CommandLineRunner {
                 RoleCodes.PLATFORM_AUDITOR,
                 now
         );
+        ensurePlatformUser(
+                "support@novaflow.ai",
+                "support",
+                "平台客服",
+                "Support123!",
+                RoleCodes.PLATFORM_SUPPORT,
+                now
+        );
+        ensurePlatformUser(
+                "billing@novaflow.ai",
+                "billing",
+                "平台计费",
+                "Billing123!",
+                RoleCodes.PLATFORM_BILLING,
+                now
+        );
         ensureDemoUser(
                 "user@novaflow.ai",
                 "portaluser",
@@ -147,6 +163,8 @@ public class DataInitializer implements CommandLineRunner {
                 Demo accounts:
                   平台超管  platform@novaflow.ai
                   平台审计  auditor@novaflow.ai
+                  平台客服  support@novaflow.ai
+                  平台计费  billing@novaflow.ai
                   企业所有者 admin@novaflow.ai
                   开发者    developer@novaflow.ai
                   运维人员  operator@novaflow.ai

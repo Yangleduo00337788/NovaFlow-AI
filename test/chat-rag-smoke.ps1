@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — 对话 / RAG 主路径抽测
 # 用法: pwsh test/chat-rag-smoke.ps1
-# 前提: 后端 :8080 已启动；模型中心已配置可用 LLM（及 Embedding，若测检索）
+# 前提: 后端 :8088 已启动；模型中心已配置可用 LLM（及 Embedding，若测检索）
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

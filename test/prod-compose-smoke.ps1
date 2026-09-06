@@ -6,7 +6,7 @@
 #   pwsh test/prod-compose-smoke.ps1
 #
 # 环境变量:
-#   NOVAFLOW_BASE_URL  默认 http://127.0.0.1:8080
+#   NOVAFLOW_BASE_URL  默认 http://127.0.0.1:8088
 #   NOVAFLOW_WEB_URL   默认 http://localhost:3000
 #   SKIP_DOCKER_CHECK=1  跳过 docker ps 检查
 

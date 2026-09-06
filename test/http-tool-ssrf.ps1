@@ -1,7 +1,7 @@
 #requires -Version 7.0
 # NovaFlow AI — HTTP 工具 SSRF 防护验收（T-02）
 # 用法: pwsh test/http-tool-ssrf.ps1
-# 前提: 后端 :8080 已启动
+# 前提: 后端 :8088 已启动
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')

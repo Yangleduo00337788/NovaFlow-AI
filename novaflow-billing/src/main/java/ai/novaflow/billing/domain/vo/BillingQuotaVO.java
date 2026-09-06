@@ -18,6 +18,9 @@ public class BillingQuotaVO {
     private Integer memberCount;
     private Integer maxMembers;
     private Integer memberUsedPercent;
+    private Long usedStorageBytes;
+    private Integer maxStorageMb;
+    private Integer storageUsedPercent;
     private Integer maxAgents;
     private Integer maxKnowledge;
 }

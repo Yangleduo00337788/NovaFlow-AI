@@ -62,6 +62,12 @@ export function getDefaultHome(accountType?: string | null, roleCode = ''): stri
     if (roleCode === RoleCodes.PLATFORM_AUDITOR) {
       return platformPath('/platform/audit')
     }
+    if (roleCode === RoleCodes.PLATFORM_BILLING) {
+      return platformPath('/platform/billing')
+    }
+    if (roleCode === RoleCodes.PLATFORM_SUPPORT) {
+      return platformPath('/platform/tenants')
+    }
     return defaultPlatformHome()
   }
   if (roleCode === RoleCodes.PLATFORM_ADMIN) {

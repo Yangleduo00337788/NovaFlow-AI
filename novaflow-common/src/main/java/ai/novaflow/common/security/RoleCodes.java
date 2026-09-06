@@ -9,6 +9,8 @@ public final class RoleCodes {
 
     public static final String PLATFORM_ADMIN = "super_admin";
     public static final String PLATFORM_AUDITOR = "platform_auditor";
+    public static final String PLATFORM_SUPPORT = "platform_support";
+    public static final String PLATFORM_BILLING = "platform_billing";
 
     public static final String TENANT_OWNER = "tenant_owner";
     public static final String TENANT_ADMIN = "tenant_admin";
@@ -40,6 +42,8 @@ public final class RoleCodes {
     public static final Set<String> ALL_SYSTEM_ROLES = Set.of(
             PLATFORM_ADMIN,
             PLATFORM_AUDITOR,
+            PLATFORM_SUPPORT,
+            PLATFORM_BILLING,
             TENANT_OWNER,
             TENANT_ADMIN,
             DEVELOPER,

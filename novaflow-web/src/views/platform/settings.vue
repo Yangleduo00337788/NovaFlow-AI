@@ -87,6 +87,53 @@
             <a-textarea v-model:value="platformAnnouncement" :rows="3" placeholder="展示在 Studio / 应用门户顶部的公告横幅" />
           </a-form-item>
 
+          <a-divider orientation="left">外部告警通道</a-divider>
+          <a-alert
+            type="info"
+            show-icon
+            message="配置平台级邮件/Webhook，用于风控、API 监控与存储配额告警外发。"
+            style="margin-bottom: 16px"
+          />
+          <a-form-item label="邮件">
+            <a-switch v-model:checked="notifyChannel.emailEnabled" checked-children="开启" un-checked-children="关闭" />
+            <a-input
+              v-model:value="notifyChannel.emailRecipients"
+              class="channel-input"
+              placeholder="收件人，逗号分隔；空则使用平台账号邮箱"
+            />
+            <div v-if="!notifyChannel.mailConfigured" class="field-hint">未配置 SMTP（SPRING_MAIL_HOST）时不会真正发信</div>
+          </a-form-item>
+          <a-form-item label="Webhook">
+            <a-switch v-model:checked="notifyChannel.webhookEnabled" checked-children="开启" un-checked-children="关闭" />
+            <a-input
+              v-model:value="notifyChannel.webhookUrl"
+              class="channel-input"
+              placeholder="https://example.com/hooks/novaflow"
+            />
+            <a-input-password
+              v-model:value="notifyChannel.webhookSecret"
+              class="channel-input"
+              :placeholder="notifyChannel.webhookSecretSet ? '已设置签名密钥，留空则不修改' : '可选签名密钥'"
+            />
+          </a-form-item>
+          <a-form-item>
+            <a-space>
+              <a-button :loading="channelSaving" @click="saveNotifyChannel">保存通道</a-button>
+              <a-button :loading="channelTesting" @click="testNotifyChannel">发送测试</a-button>
+            </a-space>
+          </a-form-item>
+
+          <a-divider orientation="left">告警外发策略</a-divider>
+          <a-form-item label="安全风控告警">
+            <a-checkbox-group v-model:value="securityAlertChannels" :options="alertChannelOptions" />
+          </a-form-item>
+          <a-form-item label="API 监控告警">
+            <a-checkbox-group v-model:value="apiMonitorAlertChannels" :options="alertChannelOptions" />
+          </a-form-item>
+          <a-form-item label="存储配额告警">
+            <a-checkbox-group v-model:value="storageQuotaAlertChannels" :options="alertChannelOptions" />
+          </a-form-item>
+
           <a-form-item>
             <a-button type="primary" :loading="saving" @click="saveSettings">保存配置</a-button>
           </a-form-item>
@@ -99,12 +146,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
-import { fetchPlatformSettings, updatePlatformSettings } from '@/api/platform'
+import { fetchPlatformSettings, updatePlatformSettings, fetchPlatformNotifyChannels, updatePlatformNotifyChannels, testPlatformNotifyChannels } from '@/api/platform'
 import { MODEL_PROVIDER_PRESETS } from '@/constants/modelProviders'
 import '@/views/platform/shared/styles.css'
 
 const loading = ref(false)
 const saving = ref(false)
+const channelSaving = ref(false)
+const channelTesting = ref(false)
 const registrationEnabled = ref(true)
 const hourlyCallsThreshold = ref(500)
 const trafficSpikeMultiplier = ref(3)
@@ -117,6 +166,23 @@ const abnormalLoginEnabled = ref(true)
 const newUserAgentEnabled = ref(true)
 const batchRegisterIpLimitPerDay = ref(5)
 const storageWarnPercent = ref(80)
+const securityAlertChannels = ref<string[]>([])
+const apiMonitorAlertChannels = ref<string[]>([])
+const storageQuotaAlertChannels = ref<string[]>([])
+const notifyChannel = ref({
+  emailEnabled: false,
+  emailRecipients: '',
+  webhookEnabled: false,
+  webhookUrl: '',
+  webhookSecret: '',
+  webhookSecretSet: false,
+  mailConfigured: false,
+})
+
+const alertChannelOptions = [
+  { label: '邮件', value: 'email' },
+  { label: 'Webhook', value: 'webhook' },
+]
 
 const providerOptions = computed(() =>
   MODEL_PROVIDER_PRESETS.map((item) => ({
@@ -128,8 +194,11 @@ const providerOptions = computed(() =>
 async function loadSettings() {
   loading.value = true
   try {
-    const res = await fetchPlatformSettings()
-    const data = res.data.data
+    const [settingsRes, channelRes] = await Promise.all([
+      fetchPlatformSettings(),
+      fetchPlatformNotifyChannels(),
+    ])
+    const data = settingsRes.data.data
     registrationEnabled.value = data.registrationEnabled
     hourlyCallsThreshold.value = data.hourlyCallsThreshold
     trafficSpikeMultiplier.value = data.trafficSpikeMultiplier
@@ -142,6 +211,20 @@ async function loadSettings() {
     newUserAgentEnabled.value = data.newUserAgentEnabled ?? true
     batchRegisterIpLimitPerDay.value = data.batchRegisterIpLimitPerDay ?? 5
     storageWarnPercent.value = data.storageWarnPercent ?? 80
+    securityAlertChannels.value = data.securityAlertChannels || []
+    apiMonitorAlertChannels.value = data.apiMonitorAlertChannels || []
+    storageQuotaAlertChannels.value = data.storageQuotaAlertChannels || []
+
+    const channel = channelRes.data.data
+    notifyChannel.value = {
+      emailEnabled: channel.emailEnabled,
+      emailRecipients: channel.emailRecipients || '',
+      webhookEnabled: channel.webhookEnabled,
+      webhookUrl: channel.webhookUrl || '',
+      webhookSecret: '',
+      webhookSecretSet: channel.webhookSecretSet ?? false,
+      mailConfigured: channel.mailConfigured ?? false,
+    }
   } catch {
     message.error('加载系统配置失败')
   } finally {
@@ -164,6 +247,9 @@ async function saveSettings() {
       newUserAgentEnabled: newUserAgentEnabled.value,
       batchRegisterIpLimitPerDay: batchRegisterIpLimitPerDay.value,
       storageWarnPercent: storageWarnPercent.value,
+      securityAlertChannels: securityAlertChannels.value,
+      apiMonitorAlertChannels: apiMonitorAlertChannels.value,
+      storageQuotaAlertChannels: storageQuotaAlertChannels.value,
     })
     message.success('配置已保存')
     await loadSettings()
@@ -171,6 +257,37 @@ async function saveSettings() {
     message.error('保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+async function saveNotifyChannel() {
+  channelSaving.value = true
+  try {
+    await updatePlatformNotifyChannels({
+      emailEnabled: notifyChannel.value.emailEnabled,
+      emailRecipients: notifyChannel.value.emailRecipients,
+      webhookEnabled: notifyChannel.value.webhookEnabled,
+      webhookUrl: notifyChannel.value.webhookUrl,
+      webhookSecret: notifyChannel.value.webhookSecret || undefined,
+    })
+    message.success('告警通道已保存')
+    await loadSettings()
+  } catch {
+    message.error('保存告警通道失败')
+  } finally {
+    channelSaving.value = false
+  }
+}
+
+async function testNotifyChannel() {
+  channelTesting.value = true
+  try {
+    await testPlatformNotifyChannels()
+    message.success('测试通知已发送（若通道已启用且 SMTP/Webhook 可达）')
+  } catch {
+    message.error('发送测试失败')
+  } finally {
+    channelTesting.value = false
   }
 }
 
@@ -187,5 +304,11 @@ onMounted(loadSettings)
   color: var(--text-secondary, #8c8c8c);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.channel-input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
 }
 </style>

@@ -365,16 +365,16 @@ java -jar novaflow-server/target/novaflow-server-1.1.0.jar
 
 | 服务 | 地址 |
 |------|------|
-| API | http://localhost:8080 |
-| Swagger UI | http://localhost:8080/swagger-ui.html |
-| 健康检查 | http://localhost:8080/api/v1/health |
+| API | http://localhost:8088 |
+| Swagger UI | http://localhost:8088/swagger-ui.html |
+| 健康检查 | http://localhost:8088/api/v1/health |
 
 ### 4️⃣ 启动前端
 
 ```bash
 cd novaflow-web
 npm install
-npm run dev     # http://localhost:3000 （需后端 8080 已运行）
+npm run dev     # http://localhost:3000 （需后端 8088 已运行）
 ```
 
 构建：`npm run build` → 产出 `novaflow-web/dist`。
@@ -385,6 +385,8 @@ npm run dev     # http://localhost:3000 （需后端 8080 已运行）
 |------|------|------|
 | `platform@novaflow.ai` | `Platform123!` | 平台超管 |
 | `auditor@novaflow.ai` | `Auditor123!` | 平台审计员（仅审计日志） |
+| `support@novaflow.ai` | `Support123!` | 平台客服（租户/用户运营） |
+| `billing@novaflow.ai` | `Billing123!` | 平台计费（计费大盘 + 租户只读） |
 | `admin@novaflow.ai` | `Admin123!` | 企业所有者 |
 | `developer@novaflow.ai` | `Developer123!` | 开发者 |
 | `operator@novaflow.ai` | `Operator123!` | 运维人员 |
@@ -429,7 +431,7 @@ docker compose -f deploy/docker-compose.prod.yml up -d --build
 | 服务 | 默认地址 | 说明 |
 |------|----------|------|
 | Web 控制台 | http://localhost（`WEB_PORT`） | Nginx 反代前端 + `/api` |
-| 后端 API | http://localhost:8080（`SERVER_PORT`） | 也可仅通过 Web 反代访问 |
+| 后端 API | http://localhost:8088（`SERVER_PORT`） | 也可仅通过 Web 反代访问 |
 | MinIO 控制台 | 需自行映射或进入容器 | 默认未对外暴露 9001 |
 
 查看日志：

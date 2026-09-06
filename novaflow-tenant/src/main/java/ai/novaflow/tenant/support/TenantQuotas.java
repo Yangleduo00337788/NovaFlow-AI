@@ -1,5 +1,6 @@
 package ai.novaflow.tenant.support;
 
+import ai.novaflow.common.exception.BizErrorCodes;
 import ai.novaflow.common.exception.BusinessException;
 
 /**
@@ -44,7 +45,7 @@ public final class TenantQuotas {
             return;
         }
         if (usedBytes + incomingBytes > limitBytes) {
-            throw new BusinessException(String.format(
+            throw new BusinessException(BizErrorCodes.STORAGE_QUOTA_EXCEEDED, String.format(
                     "存储空间超出套餐上限（已用 %.1fMB / 上限 %.0fMB），请升级套餐或清理文档",
                     usedBytes / 1024.0 / 1024.0,
                     limitBytes / 1024.0 / 1024.0));

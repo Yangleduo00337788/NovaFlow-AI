@@ -5,6 +5,7 @@ import ai.novaflow.common.domain.ApiResult;
 import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.user.domain.dto.IpBlacklistCreateRequest;
 import ai.novaflow.user.domain.dto.IpBlacklistUpdateRequest;
+import ai.novaflow.user.domain.dto.PlatformNotifyChannelSaveRequest;
 import ai.novaflow.user.domain.dto.PlatformModelCatalogSaveRequest;
 import ai.novaflow.user.domain.dto.PlatformModelProviderUpdateRequest;
 import ai.novaflow.user.domain.dto.PlatformSettingsUpdateRequest;
@@ -18,6 +19,7 @@ import ai.novaflow.user.domain.vo.PlatformApiAlertEventVO;
 import ai.novaflow.user.domain.vo.PlatformApiMonitorVO;
 import ai.novaflow.user.domain.vo.PlatformBillingOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformGlobalStatsVO;
+import ai.novaflow.user.domain.vo.PlatformNotifyChannelVO;
 import ai.novaflow.user.domain.vo.PlatformModelCatalogVO;
 import ai.novaflow.user.domain.vo.PlatformModelOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformModelProviderVO;
@@ -65,7 +67,10 @@ public class PlatformAdminController {
     private final AuditLogQueryService auditLogQueryService;
     private final IpBlacklistService ipBlacklistService;
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/tenants")
     public ApiResult<PageResult<PlatformTenantVO>> pageTenants(
             @RequestParam(defaultValue = "1") int page,
@@ -74,31 +79,46 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.pageTenants(page, pageSize, keyword));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/tenants/{id}")
     public ApiResult<PlatformTenantVO> getTenant(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.getTenant(id));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/tenants/{id}/detail")
     public ApiResult<PlatformTenantDetailVO> getTenantDetail(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.getTenantDetail(id));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @GetMapping("/onboarding/templates")
     public ApiResult<List<PlatformOnboardingTemplateVO>> onboardingTemplates() {
         return ApiResult.ok(platformAdminService.listOnboardingTemplates());
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @PostMapping("/tenants")
     public ApiResult<PlatformTenantCreateResultVO> createTenant(@Valid @RequestBody PlatformTenantCreateRequest request) {
         return ApiResult.ok(platformAdminService.createTenant(request));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @PostMapping("/tenants/{id}/owner/reset-password")
     public ApiResult<PlatformOwnerPasswordResetResultVO> resetTenantOwnerPassword(
             @PathVariable Long id,
@@ -106,7 +126,10 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.resetTenantOwnerPassword(id, request));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @PutMapping("/tenants/{id}")
     public ApiResult<PlatformTenantVO> updateTenant(
             @PathVariable Long id,
@@ -114,33 +137,48 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.updateTenant(id, request));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @DeleteMapping("/tenants/{id}")
     public ApiResult<Void> deleteTenant(@PathVariable Long id) {
         platformAdminService.deleteTenant(id);
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/stats")
     public ApiResult<PlatformGlobalStatsVO> globalStats() {
         return ApiResult.ok(platformAdminService.globalStats());
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/dashboard/overview")
     public ApiResult<PlatformDashboardOverviewVO> dashboardOverview() {
         return ApiResult.ok(platformAdminService.dashboardOverview());
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_BILLING_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/billing/overview")
     public ApiResult<PlatformBillingOverviewVO> billingOverview(
             @RequestParam(required = false) String month) {
         return ApiResult.ok(platformAdminService.billingOverview(month));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_BILLING_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/billing/export")
     public ResponseEntity<byte[]> exportBilling(@RequestParam(required = false) String month) {
         byte[] data = platformAdminService.exportBillingCsv(month);
@@ -230,7 +268,10 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.updateModelProvider(id, request));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/users")
     public ApiResult<PageResult<PlatformUserVO>> pageUsers(
             @RequestParam(defaultValue = "1") int page,
@@ -241,13 +282,19 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.pageUsers(page, pageSize, keyword, status, accountType));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/users/{id}")
     public ApiResult<PlatformUserVO> getUser(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.getUser(id));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @PutMapping("/users/{id}")
     public ApiResult<PlatformUserVO> updateUser(
             @PathVariable Long id,
@@ -255,7 +302,10 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.updateUser(id, request));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @PostMapping("/users/{id}/logout")
     public ApiResult<Void> forceLogoutUser(@PathVariable Long id) {
         platformAdminService.forceLogoutUser(id);
@@ -281,6 +331,25 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.updateSettings(request));
     }
 
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @GetMapping("/notify-channels")
+    public ApiResult<PlatformNotifyChannelVO> getNotifyChannels() {
+        return ApiResult.ok(platformAdminService.getNotifyChannel());
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @PutMapping("/notify-channels")
+    public ApiResult<PlatformNotifyChannelVO> saveNotifyChannels(@RequestBody PlatformNotifyChannelSaveRequest request) {
+        return ApiResult.ok(platformAdminService.saveNotifyChannel(request));
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @PostMapping("/notify-channels/test")
+    public ApiResult<Void> testNotifyChannels() {
+        platformAdminService.testNotifyChannel();
+        return ApiResult.ok();
+    }
+
     @SaCheckPermission(value = {PermissionCodes.AUDIT_VIEW, PermissionCodes.PLATFORM_MANAGE}, mode = SaMode.OR)
     @GetMapping("/audit-logs")
     public ApiResult<PageResult<AuditLogVO>> pageAuditLogs(
@@ -295,7 +364,10 @@ public class PlatformAdminController {
                 page, pageSize, action, resourceType, startDate, endDate, keyword));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/login-logs")
     public ApiResult<PageResult<AuditLogVO>> pageLoginLogs(
             @RequestParam(defaultValue = "1") int page,
@@ -336,13 +408,19 @@ public class PlatformAdminController {
         return ApiResult.ok();
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/security/overview")
     public ApiResult<PlatformSecurityOverviewVO> securityOverview() {
         return ApiResult.ok(platformAdminService.securityOverview());
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_VIEW
+    }, mode = SaMode.OR)
     @GetMapping("/security/alerts")
     public ApiResult<PageResult<PlatformSecurityAlertEventVO>> pageSecurityAlerts(
             @RequestParam(defaultValue = "1") int page,
@@ -351,7 +429,10 @@ public class PlatformAdminController {
         return ApiResult.ok(platformAdminService.pageSecurityAlerts(page, pageSize, status));
     }
 
-    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @SaCheckPermission(value = {
+            PermissionCodes.PLATFORM_MANAGE,
+            PermissionCodes.PLATFORM_TENANT_MANAGE
+    }, mode = SaMode.OR)
     @PostMapping("/security/alerts/{id}/ack")
     public ApiResult<PlatformSecurityAlertEventVO> acknowledgeSecurityAlert(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.acknowledgeSecurityAlert(id));
