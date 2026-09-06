@@ -7,6 +7,7 @@ export interface ApplicationItem {
   appName: string
   description?: string
   icon?: string
+  portalCategory?: string
   appType?: string
   defaultAgentId?: number
   defaultAgentName?: string
@@ -27,6 +28,7 @@ export interface ApplicationSaveRequest {
   appName: string
   description?: string
   icon?: string
+  portalCategory?: string
   appType?: string
   accessType?: string
   defaultAgentId?: number

@@ -44,6 +44,23 @@
               </div>
 
               <div class="section-block">
+                <h3 class="section-title">应用门户品牌化</h3>
+                <a-row :gutter="[16, 0]">
+                  <a-col :xs="24" :sm="12" :lg="10">
+                    <a-form-item label="门户 Logo URL">
+                      <a-input v-model:value="tenantForm.logoUrl" placeholder="https://example.com/logo.png" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :sm="12" :lg="6">
+                    <a-form-item label="门户主题色">
+                      <a-input v-model:value="tenantForm.portalThemeColor" placeholder="#6366f1" :maxlength="7" />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+                <p class="section-hint">保存后将在应用门户侧栏展示企业 Logo 与主题色。</p>
+              </div>
+
+              <div class="section-block">
                 <h3 class="section-title">套餐与配额</h3>
                 <div class="info-grid">
                   <div class="info-grid-item">
@@ -436,6 +453,8 @@ const transferMemberId = ref<number | undefined>(undefined)
 const tenantInfo = ref<TenantInfo | null>(null)
 const tenantForm = reactive({
   tenantName: '',
+  logoUrl: '',
+  portalThemeColor: '',
   contactName: '',
   contactEmail: '',
   contactPhone: '',
@@ -524,6 +543,8 @@ async function loadTenant() {
     const res = await fetchTenant()
     tenantInfo.value = res.data.data
     tenantForm.tenantName = tenantInfo.value?.tenantName || ''
+    tenantForm.logoUrl = tenantInfo.value?.logoUrl || ''
+    tenantForm.portalThemeColor = tenantInfo.value?.portalThemeColor || ''
     tenantForm.contactName = tenantInfo.value?.contactName || ''
     tenantForm.contactEmail = tenantInfo.value?.contactEmail || ''
     tenantForm.contactPhone = tenantInfo.value?.contactPhone || ''
@@ -994,6 +1015,12 @@ onMounted(() => {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
+}
+
+.section-hint {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .transfer-row {

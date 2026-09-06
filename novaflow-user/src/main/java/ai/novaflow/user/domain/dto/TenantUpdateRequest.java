@@ -12,6 +12,7 @@ public class TenantUpdateRequest {
     private String tenantName;
 
     private String logoUrl;
+    private String portalThemeColor;
     private String contactName;
     private String contactEmail;
     private String contactPhone;

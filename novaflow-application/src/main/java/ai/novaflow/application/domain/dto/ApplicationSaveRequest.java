@@ -12,6 +12,7 @@ public class ApplicationSaveRequest {
     private String appName;
     private String description;
     private String icon;
+    private String portalCategory;
     private String appType = "agent";
     private String accessType = "team";
     private Long defaultAgentId;

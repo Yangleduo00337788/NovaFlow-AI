@@ -104,6 +104,7 @@ public class OrganizationService {
         TenantEntity tenant = getTenantOrThrow(tenantId);
         tenant.setTenantName(request.getTenantName().trim());
         tenant.setLogoUrl(trimToNull(request.getLogoUrl()));
+        tenant.setPortalThemeColor(normalizePortalThemeColor(request.getPortalThemeColor()));
         tenant.setContactName(trimToNull(request.getContactName()));
         tenant.setContactEmail(trimToNull(request.getContactEmail()));
         tenant.setContactPhone(trimToNull(request.getContactPhone()));
@@ -640,6 +641,7 @@ public class OrganizationService {
                 .tenantCode(tenant.getTenantCode())
                 .tenantName(tenant.getTenantName())
                 .logoUrl(tenant.getLogoUrl())
+                .portalThemeColor(tenant.getPortalThemeColor())
                 .contactName(tenant.getContactName())
                 .contactEmail(tenant.getContactEmail())
                 .contactPhone(tenant.getContactPhone())
@@ -741,6 +743,17 @@ public class OrganizationService {
             candidate = base + suffix++;
         }
         return candidate;
+    }
+
+    private String normalizePortalThemeColor(String value) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+        if (!trimmed.matches("^#[0-9A-Fa-f]{6}$")) {
+            throw new BusinessException("门户主题色格式无效，请使用 #RRGGBB");
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
     }
 
     private String trimToNull(String value) {

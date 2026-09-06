@@ -15,6 +15,7 @@ public class ApplicationVO {
     private String appName;
     private String description;
     private String icon;
+    private String portalCategory;
     private String appType;
     private Long defaultAgentId;
     private String defaultAgentName;

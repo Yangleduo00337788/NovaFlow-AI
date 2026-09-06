@@ -69,6 +69,7 @@ Invoke-GateStep 'Platform risk smoke' (Join-Path $PSScriptRoot 'platform-risk-sm
 Invoke-GateStep 'Platform storage quota smoke' (Join-Path $PSScriptRoot 'platform-storage-quota-smoke.ps1')
 Invoke-GateStep 'Platform alert dispatch smoke' (Join-Path $PSScriptRoot 'platform-alert-dispatch-smoke.ps1')
 Invoke-GateStep 'Platform sub-roles smoke' (Join-Path $PSScriptRoot 'platform-sub-roles-smoke.ps1')
+Invoke-GateStep 'Portal enhancements smoke' (Join-Path $PSScriptRoot 'portal-enhancements-smoke.ps1')
 Invoke-GateStep 'Coverage gap smoke' (Join-Path $PSScriptRoot 'coverage-gap-smoke.ps1')
 Invoke-GateStep 'Auth lifecycle smoke' (Join-Path $PSScriptRoot 'auth-lifecycle-smoke.ps1')
 Invoke-GateStep 'Auth lock smoke' (Join-Path $PSScriptRoot 'auth-lock-smoke.ps1')

@@ -4,7 +4,17 @@
     <aside class="portal-sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-top">
         <div class="brand-row">
-          <AppLogo variant="sidebar" :collapsed="sidebarCollapsed" />
+          <div v-if="!sidebarCollapsed" class="portal-brand">
+            <img
+              v-if="branding?.logoUrl"
+              :src="branding.logoUrl"
+              :alt="branding.tenantName"
+              class="portal-brand-logo"
+            />
+            <AppLogo v-else variant="sidebar" :collapsed="sidebarCollapsed" />
+            <span v-if="branding?.tenantName" class="portal-brand-name">{{ branding.tenantName }}</span>
+          </div>
+          <AppLogo v-else variant="sidebar" :collapsed="sidebarCollapsed" />
           <button
             v-if="!sidebarCollapsed"
             type="button"
@@ -15,11 +25,42 @@
             <MenuFoldOutlined />
           </button>
         </div>
-        <p v-if="!sidebarCollapsed" class="brand-subtitle">你的 AI 办公助手</p>
+        <p v-if="!sidebarCollapsed" class="brand-subtitle">{{ branding?.portalSubtitle || '你的 AI 办公助手' }}</p>
 
         <div v-if="!sidebarCollapsed" class="sidebar-search">
           <SearchOutlined />
           <input v-model="keyword" type="search" placeholder="搜索应用" />
+        </div>
+
+        <div v-if="!sidebarCollapsed" class="category-bar">
+          <button
+            type="button"
+            class="category-chip"
+            :class="{ active: favoritesOnly }"
+            @click="toggleFavoritesOnly"
+          >
+            <StarFilled v-if="favoritesOnly" />
+            <StarOutlined v-else />
+            收藏
+          </button>
+          <button
+            type="button"
+            class="category-chip"
+            :class="{ active: !selectedCategory }"
+            @click="selectCategory('')"
+          >
+            全部
+          </button>
+          <button
+            v-for="cat in categories"
+            :key="cat.code"
+            type="button"
+            class="category-chip"
+            :class="{ active: selectedCategory === cat.code }"
+            @click="selectCategory(cat.code)"
+          >
+            {{ cat.label }}
+          </button>
         </div>
       </div>
 
@@ -55,6 +96,17 @@
               <strong>{{ app.appName }}</strong>
               <span>{{ app.defaultAgentName || 'AI 助手' }}</span>
             </span>
+            <button
+              v-if="!sidebarCollapsed"
+              type="button"
+              class="favorite-btn"
+              :class="{ active: app.favorited }"
+              :aria-label="app.favorited ? '取消收藏' : '收藏应用'"
+              @click.stop="onToggleFavorite(app)"
+            >
+              <StarFilled v-if="app.favorited" />
+              <StarOutlined v-else />
+            </button>
           </button>
         </a-spin>
       </div>
@@ -122,9 +174,20 @@
     <aside v-if="historyOpen" class="portal-history" aria-label="历史对话">
       <div class="history-head">
         <strong>我的对话</strong>
-        <button type="button" class="icon-btn" aria-label="关闭历史" @click="historyOpen = false">
-          ×
-        </button>
+        <div class="history-actions">
+          <a-button
+            v-if="activeConversationKey"
+            type="link"
+            size="small"
+            :loading="exporting"
+            @click="exportActiveConversation"
+          >
+            导出
+          </a-button>
+          <button type="button" class="icon-btn" aria-label="关闭历史" @click="historyOpen = false">
+            ×
+          </button>
+        </div>
       </div>
       <a-spin :spinning="loadingHistory">
         <p v-if="!loadingHistory && !historyItems.length" class="history-empty">暂无历史对话</p>
@@ -173,10 +236,24 @@ import {
   RobotOutlined,
   SearchOutlined,
   SettingOutlined,
+  StarFilled,
+  StarOutlined,
 } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import PortalChatPanel from '@/components/portal/PortalChatPanel.vue'
-import { fetchPortalApps, fetchPortalConversationMessages, fetchPortalConversations, type PortalAppItem, type PortalConversationItem } from '@/api/portal'
+import {
+  exportPortalConversation,
+  fetchPortalApps,
+  fetchPortalCategories,
+  fetchPortalConversationMessages,
+  fetchPortalConversations,
+  togglePortalFavorite,
+  type PortalAppItem,
+  type PortalCategory,
+  type PortalConversationItem,
+} from '@/api/portal'
+import { usePortalBranding } from '@/composables/usePortalBranding'
 import { getDefaultHome, isPortalOnlyRole, portalAppPath } from '@/config/access'
 import { APP_LOGIN_PATH } from '@/config/app'
 import { useAuthStore } from '@/stores/auth'
@@ -184,10 +261,15 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { branding } = usePortalBranding()
 
 const apps = ref<PortalAppItem[]>([])
+const categories = ref<PortalCategory[]>([])
 const loadingApps = ref(false)
 const keyword = ref('')
+const selectedCategory = ref('')
+const favoritesOnly = ref(false)
+const exporting = ref(false)
 const sidebarCollapsed = ref(false)
 const selectedAppId = ref<number | null>(null)
 const currentTitle = ref('NovaFlow')
@@ -214,6 +296,52 @@ const filteredApps = computed(() => {
     || (app.defaultAgentName || '').toLowerCase().includes(q),
   )
 })
+
+function selectCategory(code: string) {
+  selectedCategory.value = code
+  favoritesOnly.value = false
+  loadApps()
+}
+
+function toggleFavoritesOnly() {
+  favoritesOnly.value = !favoritesOnly.value
+  if (favoritesOnly.value) {
+    selectedCategory.value = ''
+  }
+  loadApps()
+}
+
+async function onToggleFavorite(app: PortalAppItem) {
+  try {
+    const res = await togglePortalFavorite(app.id)
+    app.favorited = res.data.data
+    if (favoritesOnly.value && !app.favorited) {
+      apps.value = apps.value.filter((item) => item.id !== app.id)
+    }
+  } catch {
+    message.error('收藏操作失败')
+  }
+}
+
+async function exportActiveConversation() {
+  if (!selectedAppId.value || !activeConversationKey.value) return
+  exporting.value = true
+  try {
+    const res = await exportPortalConversation(selectedAppId.value, activeConversationKey.value, 'markdown')
+    const blob = res.data
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `portal-chat-${selectedAppId.value}.md`
+    link.click()
+    URL.revokeObjectURL(url)
+    message.success('对话已导出')
+  } catch {
+    message.error('导出失败')
+  } finally {
+    exporting.value = false
+  }
+}
 
 function appIcon(app: PortalAppItem) {
   if (app.icon) return app.icon
@@ -299,7 +427,10 @@ function onLogout() {
 async function loadApps() {
   loadingApps.value = true
   try {
-    const res = await fetchPortalApps()
+    const res = await fetchPortalApps({
+      category: selectedCategory.value || undefined,
+      favoritesOnly: favoritesOnly.value,
+    })
     apps.value = res.data.data || []
     const routeId = resolveRouteAppId()
     if (routeId && apps.value.some((item) => item.id === routeId)) {
@@ -311,6 +442,20 @@ async function loadApps() {
     loadingApps.value = false
   }
 }
+
+async function loadCategories() {
+  try {
+    const res = await fetchPortalCategories()
+    categories.value = res.data.data || []
+  } catch {
+    categories.value = []
+  }
+}
+
+onMounted(() => {
+  loadCategories()
+  loadApps()
+})
 
 watch(
   () => route.params.id,
@@ -331,8 +476,6 @@ watch(
   },
   { immediate: true },
 )
-
-onMounted(loadApps)
 </script>
 
 <style scoped>
@@ -372,6 +515,56 @@ onMounted(loadApps)
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.portal-brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.portal-brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.category-chip.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .sidebar-search {
@@ -439,6 +632,28 @@ onMounted(loadApps)
   text-align: left;
   cursor: pointer;
   transition: background 0.15s;
+  position: relative;
+}
+
+.favorite-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorite-btn.active,
+.favorite-btn:hover {
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
 }
 
 .app-item:hover,
@@ -633,6 +848,12 @@ onMounted(loadApps)
   padding: 16px 14px 10px;
 }
 
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .history-head strong {
   font-size: 14px;
 }
@@ -720,5 +941,36 @@ onMounted(loadApps)
 .rail-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .portal-sidebar {
+    position: fixed;
+    z-index: 20;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  }
+
+  .portal-sidebar.collapsed {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: none;
+  }
+
+  .portal-history {
+    position: fixed;
+    z-index: 19;
+    right: 52px;
+    top: 0;
+    bottom: 0;
+    width: min(320px, calc(100vw - 52px));
+  }
+
+  .portal-main__header {
+    padding: 12px 16px 8px;
+  }
 }
 </style>

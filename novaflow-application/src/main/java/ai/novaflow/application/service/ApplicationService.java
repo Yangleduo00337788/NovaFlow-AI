@@ -17,6 +17,7 @@ import ai.novaflow.knowledge.entity.KnowledgeBaseEntity;
 import ai.novaflow.knowledge.mapper.KnowledgeBaseMapper;
 import ai.novaflow.application.entity.ApplicationEntity;
 import ai.novaflow.application.mapper.ApplicationMapper;
+import ai.novaflow.application.support.PortalCategories;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
 import ai.novaflow.tenant.service.ResourceAccessService;
@@ -110,6 +111,7 @@ public class ApplicationService {
         entity.setAppName(request.getAppName().trim());
         entity.setDescription(trimToNull(request.getDescription()));
         entity.setIcon(trimToNull(request.getIcon()));
+        entity.setPortalCategory(PortalCategories.normalize(request.getPortalCategory()));
         entity.setAppType(StringUtils.hasText(request.getAppType()) ? request.getAppType() : "agent");
         entity.setAccessType(StringUtils.hasText(request.getAccessType()) ? request.getAccessType() : "team");
         entity.setPublishStatus(PUBLISH_STATUS_DRAFT);
@@ -136,6 +138,7 @@ public class ApplicationService {
         entity.setAppName(request.getAppName().trim());
         entity.setDescription(trimToNull(request.getDescription()));
         entity.setIcon(trimToNull(request.getIcon()));
+        entity.setPortalCategory(PortalCategories.normalize(request.getPortalCategory()));
         if (StringUtils.hasText(request.getAppType())) {
             entity.setAppType(request.getAppType());
         }
@@ -386,6 +389,7 @@ public class ApplicationService {
                 .appName(entity.getAppName())
                 .description(entity.getDescription())
                 .icon(entity.getIcon())
+                .portalCategory(PortalCategories.normalize(entity.getPortalCategory()))
                 .appType(entity.getAppType())
                 .defaultAgentId(entity.getDefaultAgentId())
                 .defaultAgentName(resolveAgentName(entity.getDefaultAgentId()))
@@ -410,6 +414,7 @@ public class ApplicationService {
                 .appName(entity.getAppName())
                 .description(entity.getDescription())
                 .icon(entity.getIcon())
+                .portalCategory(PortalCategories.normalize(entity.getPortalCategory()))
                 .appType(entity.getAppType())
                 .defaultAgentId(entity.getDefaultAgentId())
                 .defaultAgentName(resolveAgentName(entity.getDefaultAgentId()))

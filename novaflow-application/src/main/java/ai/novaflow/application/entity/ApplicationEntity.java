@@ -18,6 +18,7 @@ public class ApplicationEntity {
     private String appName;
     private String description;
     private String icon;
+    private String portalCategory;
     private String appType;
     private Long defaultAgentId;
     private Integer publishStatus;

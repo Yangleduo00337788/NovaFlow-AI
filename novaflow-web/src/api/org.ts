@@ -6,6 +6,7 @@ export interface TenantInfo {
   tenantCode: string
   tenantName: string
   logoUrl?: string
+  portalThemeColor?: string
   contactName?: string
   contactEmail?: string
   contactPhone?: string
@@ -61,6 +62,7 @@ export interface MemberItem {
 export interface TenantUpdateRequest {
   tenantName: string
   logoUrl?: string
+  portalThemeColor?: string
   contactName?: string
   contactEmail?: string
   contactPhone?: string

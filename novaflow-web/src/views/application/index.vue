@@ -105,6 +105,9 @@
             </a-form-item>
           </a-col>
         </a-row>
+        <a-form-item label="门户分类">
+          <a-select v-model:value="form.portalCategory" :options="PORTAL_CATEGORY_OPTIONS" />
+        </a-form-item>
         <a-form-item label="描述">
           <a-textarea v-model:value="form.description" :rows="2" placeholder="应用功能说明" />
         </a-form-item>
@@ -230,6 +233,7 @@ import {
 import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
 import ResourcePermissionDrawer from '@/components/common/ResourcePermissionDrawer.vue'
+import { PORTAL_CATEGORY_OPTIONS } from '@/constants/portalCategories'
 import { RESOURCE_PERMISSION_OPTIONS, canManageResourcePermission } from '@/config/resourcePermissions'
 
 const auth = useAuthStore()
@@ -252,6 +256,7 @@ const editingId = ref<number | null>(null)
 const form = reactive<ApplicationSaveRequest>({
   appName: '',
   description: '',
+  portalCategory: 'general',
   appType: 'agent',
   accessType: 'team',
   agentIds: [],
@@ -337,6 +342,7 @@ function resetForm() {
   Object.assign(form, {
     appName: '',
     description: '',
+    portalCategory: 'general',
     appType: 'agent',
     accessType: 'team',
     agentIds: [],
@@ -364,6 +370,7 @@ async function openEdit(item: ApplicationItem) {
   Object.assign(form, {
     appName: data.appName,
     description: data.description,
+    portalCategory: data.portalCategory || 'general',
     appType: data.appType || 'agent',
     accessType: data.accessType || 'team',
     agentIds: data.agentIds || [],
