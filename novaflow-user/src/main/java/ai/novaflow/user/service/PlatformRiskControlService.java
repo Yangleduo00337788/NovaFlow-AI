@@ -222,15 +222,20 @@ public class PlatformRiskControlService {
         }
     }
 
-    /** 测试/运维：清除当日同 IP 批量注册计数（Redis）。 */
+    /** 测试/运维：清除当日同 IP 批量注册计数（Redis）及批量注册告警。 */
     public long clearRegisterCountersForToday() {
         String pattern = "novaflow:risk:register:ip:*:" + LocalDate.now();
         var keys = stringRedisTemplate.keys(pattern);
-        if (keys == null || keys.isEmpty()) {
-            return 0;
+        long deletedKeys = 0;
+        if (keys != null && !keys.isEmpty()) {
+            Long deleted = stringRedisTemplate.delete(keys);
+            deletedKeys = deleted != null ? deleted : 0;
         }
-        Long deleted = stringRedisTemplate.delete(keys);
-        return deleted != null ? deleted : 0;
+        long deletedAlerts = securityAlertEventMapper.deleteByQuery(
+                QueryWrapper.create()
+                        .eq("alert_type", ALERT_BATCH_REGISTER)
+                        .eq("event_date", LocalDate.now()));
+        return deletedKeys + deletedAlerts;
     }
 
     public static String resolveAlertTypeLabel(String alertType) {
