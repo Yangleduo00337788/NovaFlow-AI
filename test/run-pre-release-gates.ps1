@@ -24,6 +24,15 @@ $summaryFile = Join-Path $PSScriptRoot 'pre-release-gates-summary.json'
 $steps = [System.Collections.Generic.List[object]]::new()
 $failed = 0
 
+Write-Host "`n========== Prepare gate environment ==========" -ForegroundColor Cyan
+. (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')
+try {
+    Prepare-NovaGateEnvironment
+    Write-Host "Gate environment prepared." -ForegroundColor Green
+} catch {
+    Write-Host "Gate environment prep warning: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
 function Invoke-GateStep {
     param([string]$Name, [string]$ScriptPath, [string[]]$ExtraArgs = @())
     Write-Host "`n========== $Name ==========" -ForegroundColor Cyan

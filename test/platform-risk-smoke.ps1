@@ -34,6 +34,7 @@ Write-NovaLog "=== Phase 32 platform risk control ===" $logFile
 try {
     $script:platformToken = Get-NovaLoginToken 'platform@novaflow.ai' 'Platform123!'
     Wait-NovaMaintenanceOff -PlatformToken $script:platformToken
+    Invoke-NovaApi -Method POST -Path '/api/v1/platform/security/register-counters/reset' -Token $script:platformToken | Out-Null
 
     $overview = Invoke-NovaApi -Method GET -Path '/api/v1/platform/security/overview' -Token $script:platformToken
     Check 'P32-01 security overview' (

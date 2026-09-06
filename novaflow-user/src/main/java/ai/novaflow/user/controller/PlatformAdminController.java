@@ -356,4 +356,10 @@ public class PlatformAdminController {
     public ApiResult<PlatformSecurityAlertEventVO> acknowledgeSecurityAlert(@PathVariable Long id) {
         return ApiResult.ok(platformAdminService.acknowledgeSecurityAlert(id));
     }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @PostMapping("/security/register-counters/reset")
+    public ApiResult<Long> resetRegisterCounters() {
+        return ApiResult.ok(platformAdminService.resetRegisterCounters());
+    }
 }

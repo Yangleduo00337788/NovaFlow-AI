@@ -1465,6 +1465,11 @@ public class PlatformAdminService {
         return toSecurityAlertEventVO(entity);
     }
 
+    public long resetRegisterCounters() {
+        requireSuperAdmin();
+        return platformRiskControlService.clearRegisterCountersForToday();
+    }
+
     private PlatformSecurityAlertEventVO toSecurityAlertEventVO(PlatformSecurityAlertEventEntity entity) {
         return PlatformSecurityAlertEventVO.builder()
                 .id(entity.getId())

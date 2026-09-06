@@ -110,6 +110,25 @@ function Wait-NovaMaintenanceOff {
     throw "Platform maintenance still enabled after ${TimeoutSec}s"
 }
 
+function Prepare-NovaGateEnvironment {
+    param([string]$PlatformToken)
+    if (-not $PlatformToken) {
+        $PlatformToken = Get-NovaLoginToken 'platform@novaflow.ai' 'Platform123!'
+    }
+    Wait-NovaMaintenanceOff -PlatformToken $PlatformToken
+    $resetPath = Join-Path $script:NovaFlowTmpDir 'gate-prep-reset.json'
+    Write-NovaJson -Path $resetPath -Data @{
+        maintenanceEnabled          = $false
+        maintenanceMessage          = ''
+        platformAnnouncement        = ''
+        batchRegisterIpLimitPerDay  = 5
+        abnormalLoginEnabled        = $true
+        newUserAgentEnabled         = $true
+    }
+    Invoke-NovaApi -Method PUT -Path '/api/v1/platform/settings' -Token $PlatformToken -OutFile $resetPath | Out-Null
+    Invoke-NovaApi -Method POST -Path '/api/v1/platform/security/register-counters/reset' -Token $PlatformToken | Out-Null
+}
+
 function Get-NovaConfiguredProviderId {
     param(
         [string]$Token,
