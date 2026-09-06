@@ -1,5 +1,38 @@
 <template>
   <div class="about-body">
+    <div class="about-block intro-block v12-block">
+      <div class="release-head">
+        <h3 class="release-version">NovaFlow v1.2.0</h3>
+        <a-tag color="green">正式发布</a-tag>
+      </div>
+      <p class="about-block-lead">
+        平台总控运营能力全面增强：独立运营后台、租户治理、计费导出、API 监控、模型目录、
+        代开户与维护模式；新增平台风控与存储配额闭环。SSO 仍延后至 v1.3+。
+      </p>
+      <div class="release-meta">发布日期 2026-09-06</div>
+    </div>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.2 平台总控</h3>
+      <ul class="fix-list">
+        <li v-for="item in v12PlatformItems" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.2 风控与配额</h3>
+      <ul class="fix-list">
+        <li v-for="item in v12SecurityItems" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.2 工程与质量</h3>
+      <ul class="fix-list">
+        <li v-for="item in v12EngineeringItems" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
     <div class="about-block intro-block">
       <div class="release-head">
         <h3 class="release-version">NovaFlow v1.1.0</h3>
@@ -84,12 +117,32 @@
 
     <div class="about-block roadmap-block">
       <span class="roadmap-label">后续规划</span>
-      <span class="roadmap-text">v1.2：SSO（OAuth2/OIDC，按需）</span>
+      <span class="roadmap-text">v1.3+：SSO（OAuth2/OIDC，需 IdP 环境）</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const v12PlatformItems = [
+  '平台运营后台独立化：`/platform/login` + 多页面路由，支持 admin 子域独立部署（`npm run build:platform`）。',
+  '租户治理：代开户、租户详情/健康度、配额进度、计费 CSV 导出、用户封禁与强制下线。',
+  '运营大盘：租户增长/Token 趋势图表、API 调用监控与告警处置、模型供应商治理与平台模型目录。',
+  '代开户增强（Phase 31）：自动生成 Owner 密码、邀请邮件、套餐模板、Owner 密码重置。',
+  '维护模式/公告（Phase 34）：配置中心开关，Studio / Portal 维护页与公告横幅。',
+  '平台子角色：`platform_auditor` 只读审计；注册开关运行时生效。',
+]
+
+const v12SecurityItems = [
+  '平台风控（Phase 32）：同 IP 批量注册限制、异常登录与新设备登录告警、安全中心风控 Tab。',
+  '存储配额（Phase 33）：租户已用存储统计、`maxStorageMb` 对比、列表/详情/健康度进度展示。',
+]
+
+const v12EngineeringItems = [
+  '全量发布门禁 53 项通过（`run-pre-release-gates.ps1`），含平台治理、风控、存储配额冒烟。',
+  '自定义角色与平台/租户账号域隔离（Phase 11）；Model/Tool/MCP/Prompt 资源 ACL（Phase 10）。',
+  'RBAC 矩阵与门户/全局搜索资源 ACL 对齐；WorkflowPublishValidator 抽取与单测补充。',
+]
+
 const v11Items = [
   '应用门户：已发布应用列表、对话、当前用户会话历史。',
   'RBAC 对齐：保护超管成员、权限页默认当前角色、Studio 写按钮按权限码隐藏。',
@@ -144,6 +197,11 @@ const platformCapabilities = [
 .intro-block {
   background: linear-gradient(135deg, rgba(82, 196, 26, 0.08), rgba(14, 165, 233, 0.04));
   border-color: rgba(82, 196, 26, 0.18);
+}
+
+.v12-block {
+  background: linear-gradient(135deg, rgba(114, 46, 209, 0.08), rgba(22, 119, 255, 0.05));
+  border-color: rgba(114, 46, 209, 0.18);
 }
 
 .history-block {
