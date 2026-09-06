@@ -56,6 +56,8 @@ Invoke-GateStep 'RBAC API acceptance' (Join-Path $PSScriptRoot 'rbac-api-accepta
 Invoke-GateStep 'API permissions scan' (Join-Path $PSScriptRoot 'scan-api-permissions.ps1')
 Invoke-GateStep 'Platform tenant onboarding' (Join-Path $PSScriptRoot 'platform-tenant-onboarding-smoke.ps1')
 Invoke-GateStep 'Platform maintenance smoke' (Join-Path $PSScriptRoot 'platform-maintenance-smoke.ps1')
+Invoke-GateStep 'Platform risk smoke' (Join-Path $PSScriptRoot 'platform-risk-smoke.ps1')
+Invoke-GateStep 'Platform storage quota smoke' (Join-Path $PSScriptRoot 'platform-storage-quota-smoke.ps1')
 Invoke-GateStep 'Coverage gap smoke' (Join-Path $PSScriptRoot 'coverage-gap-smoke.ps1')
 Invoke-GateStep 'Auth lifecycle smoke' (Join-Path $PSScriptRoot 'auth-lifecycle-smoke.ps1')
 Invoke-GateStep 'Auth lock smoke' (Join-Path $PSScriptRoot 'auth-lock-smoke.ps1')

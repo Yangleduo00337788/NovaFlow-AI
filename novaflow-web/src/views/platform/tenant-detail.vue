@@ -64,7 +64,16 @@
             </div>
             <div class="info-item">
               <span>存储配额</span>
-              <strong>{{ formatPlatformNumber(detail.tenant.maxStorageMb) }} MB</strong>
+              <strong>
+                {{ formatStorageMb(detail.tenant.usedStorageBytes) }}
+                / {{ formatPlatformNumber(detail.tenant.maxStorageMb) }} MB
+              </strong>
+              <a-progress
+                v-if="detail.storageUsedPercent != null"
+                :percent="detail.storageUsedPercent"
+                size="small"
+                :status="detail.storageUsedPercent >= 90 ? 'exception' : 'normal'"
+              />
             </div>
             <div class="info-item">
               <span>月 Token 配额</span>
@@ -187,6 +196,7 @@ import {
   formatPlatformCost,
   formatPlatformDateTime,
   formatPlatformNumber,
+  formatStorageMb,
   quotaPercent,
 } from '@/views/platform/shared/utils'
 import '@/views/platform/shared/styles.css'

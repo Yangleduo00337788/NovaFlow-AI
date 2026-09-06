@@ -17,4 +17,8 @@ public class PlatformSettingsVO {
     private boolean maintenanceEnabled;
     private String maintenanceMessage;
     private String platformAnnouncement;
+    private boolean abnormalLoginEnabled;
+    private boolean newUserAgentEnabled;
+    private int batchRegisterIpLimitPerDay;
+    private int storageWarnPercent;
 }

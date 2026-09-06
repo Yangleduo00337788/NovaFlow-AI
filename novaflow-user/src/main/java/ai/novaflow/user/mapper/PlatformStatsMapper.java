@@ -54,6 +54,9 @@ public interface PlatformStatsMapper {
     @Select("SELECT COUNT(*) FROM workflow WHERE tenant_id = #{tenantId} AND is_deleted = 0")
     Long countWorkflowsByTenant(Long tenantId);
 
+    @Select("SELECT COALESCE(SUM(file_size), 0) FROM document WHERE tenant_id = #{tenantId} AND is_deleted = 0")
+    Long sumStorageBytesByTenant(Long tenantId);
+
     @Select("""
             SELECT DATE_FORMAT(day_col, '%m-%d') AS label, COUNT(*) AS value
             FROM (

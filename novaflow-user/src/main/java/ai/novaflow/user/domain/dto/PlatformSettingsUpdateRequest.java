@@ -14,4 +14,8 @@ public class PlatformSettingsUpdateRequest {
     private Boolean maintenanceEnabled;
     private String maintenanceMessage;
     private String platformAnnouncement;
+    private Boolean abnormalLoginEnabled;
+    private Boolean newUserAgentEnabled;
+    private Integer batchRegisterIpLimitPerDay;
+    private Integer storageWarnPercent;
 }

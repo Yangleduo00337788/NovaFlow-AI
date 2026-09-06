@@ -17,6 +17,7 @@ public class PlatformTenantDetailVO {
     private int workflowCount;
     private Integer memberUsedPercent;
     private Integer tokenUsedPercent;
+    private Integer storageUsedPercent;
     private long callsThisMonth;
     private BigDecimal costCnyThisMonth;
     private boolean expired;

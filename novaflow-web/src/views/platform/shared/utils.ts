@@ -40,3 +40,8 @@ export function quotaPercent(used?: number, limit?: number) {
   if (!limit || limit <= 0) return null
   return Math.min(100, Math.round(((used ?? 0) * 100) / limit))
 }
+
+export function formatStorageMb(bytes?: number) {
+  if (bytes == null || bytes <= 0) return '0'
+  return (bytes / (1024 * 1024)).toLocaleString(undefined, { maximumFractionDigits: 2 })
+}

@@ -55,6 +55,18 @@
               />
             </div>
           </template>
+          <template v-else-if="column.key === 'storageQuota'">
+            <div class="quota-cell">
+              <span>{{ formatStorageMb(record.usedStorageBytes) }} / {{ formatPlatformNumber(record.maxStorageMb) }} MB</span>
+              <a-progress
+                v-if="record.storageUsedPercent != null"
+                :percent="record.storageUsedPercent"
+                size="small"
+                :show-info="false"
+                :status="record.storageUsedPercent >= 90 ? 'exception' : 'normal'"
+              />
+            </div>
+          </template>
           <template v-else-if="column.key === 'status'">
             <a-badge :status="record.status === 1 ? 'success' : 'default'" :text="record.status === 1 ? '正常' : '停用'" />
           </template>
@@ -92,7 +104,7 @@ import {
 import { platformPath } from '@/config/deploy'
 import TenantCreateModal from '@/views/platform/components/TenantCreateModal.vue'
 import TenantEditModal from '@/views/platform/components/TenantEditModal.vue'
-import { formatPlatformDate, formatPlatformNumber, quotaPercent } from '@/views/platform/shared/utils'
+import { formatPlatformDate, formatPlatformNumber, formatStorageMb, quotaPercent } from '@/views/platform/shared/utils'
 import '@/views/platform/shared/styles.css'
 
 const loading = ref(false)
@@ -146,6 +158,7 @@ const columns = [
   },
   { title: '到期', key: 'expireAt', width: 120 },
   { title: '本月 Token', key: 'tokenQuota', width: 160 },
+  { title: '存储', key: 'storageQuota', width: 180 },
   { title: '状态', key: 'status', width: 100 },
   { title: '操作', key: 'actions', width: 180 },
 ]

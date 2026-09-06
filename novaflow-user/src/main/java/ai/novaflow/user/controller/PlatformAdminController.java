@@ -21,6 +21,8 @@ import ai.novaflow.user.domain.vo.PlatformGlobalStatsVO;
 import ai.novaflow.user.domain.vo.PlatformModelCatalogVO;
 import ai.novaflow.user.domain.vo.PlatformModelOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformModelProviderVO;
+import ai.novaflow.user.domain.vo.PlatformSecurityAlertEventVO;
+import ai.novaflow.user.domain.vo.PlatformSecurityOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformSettingsVO;
 import ai.novaflow.user.domain.vo.PlatformDashboardOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformTenantDetailVO;
@@ -332,5 +334,26 @@ public class PlatformAdminController {
     public ApiResult<Void> deleteIpBlacklist(@PathVariable Long id) {
         ipBlacklistService.delete(id);
         return ApiResult.ok();
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @GetMapping("/security/overview")
+    public ApiResult<PlatformSecurityOverviewVO> securityOverview() {
+        return ApiResult.ok(platformAdminService.securityOverview());
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @GetMapping("/security/alerts")
+    public ApiResult<PageResult<PlatformSecurityAlertEventVO>> pageSecurityAlerts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) String status) {
+        return ApiResult.ok(platformAdminService.pageSecurityAlerts(page, pageSize, status));
+    }
+
+    @SaCheckPermission(PermissionCodes.PLATFORM_MANAGE)
+    @PostMapping("/security/alerts/{id}/ack")
+    public ApiResult<PlatformSecurityAlertEventVO> acknowledgeSecurityAlert(@PathVariable Long id) {
+        return ApiResult.ok(platformAdminService.acknowledgeSecurityAlert(id));
     }
 }

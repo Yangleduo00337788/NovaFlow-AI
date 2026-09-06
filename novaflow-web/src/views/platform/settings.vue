@@ -53,6 +53,28 @@
             />
           </a-form-item>
 
+          <a-divider orientation="left">风控策略</a-divider>
+          <a-form-item label="异常登录 IP 告警">
+            <a-switch v-model:checked="abnormalLoginEnabled" checked-children="开启" un-checked-children="关闭" />
+            <div class="field-hint">租户用户从新 IP 登录时生成平台安全告警。</div>
+          </a-form-item>
+          <a-form-item label="新设备/浏览器登录告警">
+            <a-switch v-model:checked="newUserAgentEnabled" checked-children="开启" un-checked-children="关闭" />
+          </a-form-item>
+          <a-row :gutter="16">
+            <a-col :span="12">
+              <a-form-item label="同 IP 每日最大注册数">
+                <a-input-number v-model:value="batchRegisterIpLimitPerDay" :min="0" :max="100" style="width: 100%" />
+                <div class="field-hint">0 表示不限制；超出后拒绝注册并记录告警。</div>
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="存储使用率预警阈值 (%)">
+                <a-input-number v-model:value="storageWarnPercent" :min="50" :max="100" style="width: 100%" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+
           <a-divider orientation="left">平台运营</a-divider>
           <a-form-item label="维护模式">
             <a-switch v-model:checked="maintenanceEnabled" checked-children="开启" un-checked-children="关闭" />
@@ -91,6 +113,10 @@ const allowedProviderCodes = ref<string[]>([])
 const maintenanceEnabled = ref(false)
 const maintenanceMessage = ref('')
 const platformAnnouncement = ref('')
+const abnormalLoginEnabled = ref(true)
+const newUserAgentEnabled = ref(true)
+const batchRegisterIpLimitPerDay = ref(5)
+const storageWarnPercent = ref(80)
 
 const providerOptions = computed(() =>
   MODEL_PROVIDER_PRESETS.map((item) => ({
@@ -112,6 +138,10 @@ async function loadSettings() {
     maintenanceEnabled.value = data.maintenanceEnabled ?? false
     maintenanceMessage.value = data.maintenanceMessage || ''
     platformAnnouncement.value = data.platformAnnouncement || ''
+    abnormalLoginEnabled.value = data.abnormalLoginEnabled ?? true
+    newUserAgentEnabled.value = data.newUserAgentEnabled ?? true
+    batchRegisterIpLimitPerDay.value = data.batchRegisterIpLimitPerDay ?? 5
+    storageWarnPercent.value = data.storageWarnPercent ?? 80
   } catch {
     message.error('加载系统配置失败')
   } finally {
@@ -130,6 +160,10 @@ async function saveSettings() {
       maintenanceEnabled: maintenanceEnabled.value,
       maintenanceMessage: maintenanceMessage.value,
       platformAnnouncement: platformAnnouncement.value,
+      abnormalLoginEnabled: abnormalLoginEnabled.value,
+      newUserAgentEnabled: newUserAgentEnabled.value,
+      batchRegisterIpLimitPerDay: batchRegisterIpLimitPerDay.value,
+      storageWarnPercent: storageWarnPercent.value,
     })
     message.success('配置已保存')
     await loadSettings()

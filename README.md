@@ -26,7 +26,7 @@
 
 [![Gitee Stars](https://gitee.com/yangleduo7788/nova-flow-ai/badge/star.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/stargazers)
 [![Gitee Forks](https://gitee.com/yangleduo7788/nova-flow-ai/badge/fork.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/members)
-[![Version](https://img.shields.io/badge/version-1.1.0-informational)](./pom.xml)
+[![Version](https://img.shields.io/badge/version-1.2.0-informational)](./pom.xml)
 
 <br/>
 
@@ -75,9 +75,10 @@ NovaFlow 是 **单一 Web 应用**（`http://localhost:3000`），**一套登录
 
 **后续版本规划：**
 
-| 版本 | 规划能力 |
-|------|----------|
-| **v1.2** | SSO（OAuth2/OIDC，需 IdP 环境） |
+| 版本 | 规划能力 | 状态 |
+|------|----------|------|
+| **v1.2** | 平台总控增强（Phase 13–34）、风控（Phase 32）、存储配额（Phase 33） | ✅ 已交付 |
+| **v1.3+** | SSO（OAuth2/OIDC，需 IdP 环境） | 延后 |
 
 ---
 

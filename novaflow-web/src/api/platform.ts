@@ -19,6 +19,8 @@ export interface PlatformTenant {
   monthlyTokenQuota?: number
   memberCount?: number
   usedTokensThisMonth?: number
+  usedStorageBytes?: number
+  storageUsedPercent?: number
   createdAt?: string
   updatedAt?: string
 }
@@ -31,6 +33,7 @@ export interface PlatformTenantDetail {
   workflowCount: number
   memberUsedPercent?: number
   tokenUsedPercent?: number
+  storageUsedPercent?: number
   callsThisMonth: number
   costCnyThisMonth: number
   expired: boolean
@@ -215,6 +218,43 @@ export interface PlatformSettings {
   maintenanceEnabled?: boolean
   maintenanceMessage?: string
   platformAnnouncement?: string
+  abnormalLoginEnabled?: boolean
+  newUserAgentEnabled?: boolean
+  batchRegisterIpLimitPerDay?: number
+  storageWarnPercent?: number
+}
+
+export interface PlatformSecurityOverview {
+  openAlertCount: number
+  abnormalLoginOpenCount: number
+  batchRegisterOpenCount: number
+  newUserAgentOpenCount: number
+}
+
+export interface PlatformSecurityAlertEvent {
+  id: number
+  alertType: string
+  alertTypeLabel?: string
+  severity: string
+  userId?: number
+  userEmail?: string
+  tenantId?: number
+  clientIp?: string
+  userAgent?: string
+  message: string
+  metricValue?: number
+  threshold?: number
+  status: string
+  ackedBy?: number
+  ackedAt?: string
+  createdAt?: string
+}
+
+export interface PlatformSecurityAlertEventPage {
+  list: PlatformSecurityAlertEvent[]
+  total: number
+  page: number
+  pageSize: number
 }
 
 export interface PlatformApiAlertEvent {
@@ -474,8 +514,28 @@ export function updatePlatformSettings(data: {
   maintenanceEnabled?: boolean
   maintenanceMessage?: string
   platformAnnouncement?: string
+  abnormalLoginEnabled?: boolean
+  newUserAgentEnabled?: boolean
+  batchRegisterIpLimitPerDay?: number
+  storageWarnPercent?: number
 }) {
   return request.put<ApiResult<PlatformSettings>>('/v1/platform/settings', data)
+}
+
+export function fetchPlatformSecurityOverview() {
+  return request.get<ApiResult<PlatformSecurityOverview>>('/v1/platform/security/overview')
+}
+
+export function fetchPlatformSecurityAlerts(params: {
+  page?: number
+  pageSize?: number
+  status?: string
+}) {
+  return request.get<ApiResult<PlatformSecurityAlertEventPage>>('/v1/platform/security/alerts', { params })
+}
+
+export function acknowledgePlatformSecurityAlert(id: number) {
+  return request.post<ApiResult<PlatformSecurityAlertEvent>>(`/v1/platform/security/alerts/${id}/ack`)
 }
 
 export function fetchPlatformLoginLogs(params: {

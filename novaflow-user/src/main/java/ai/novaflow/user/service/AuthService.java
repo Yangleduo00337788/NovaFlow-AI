@@ -57,6 +57,7 @@ public class AuthService {
     private final AuditLogService auditLogService;
     private final PlatformSystemConfigService platformSystemConfigService;
     private final MaintenanceModeChecker maintenanceModeChecker;
+    private final PlatformRiskControlService platformRiskControlService;
 
     public LoginVO login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.getEmail();
@@ -137,6 +138,7 @@ public class AuthService {
         }
         RoleEntity role = roleMapper.selectOneById(member.getRoleId());
 
+        String previousIp = user.getLastLoginIp();
         StpUtil.login(user.getId());
         StpUtil.getSession().set("tenantId", tenant.getId());
         StpUtil.getSession().set("accountType", AccountTypes.TENANT);
@@ -145,6 +147,9 @@ public class AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         user.setLastLoginIp(httpRequest.getRemoteAddr());
         userMapper.update(user);
+
+        platformRiskControlService.onTenantLoginSuccess(
+                user, tenant, clientIp, resolveUserAgent(httpRequest), previousIp);
 
         TenantContext.setTenantId(tenant.getId());
 
@@ -168,6 +173,7 @@ public class AuthService {
         }
         String clientIp = httpRequest.getRemoteAddr();
         ipBlacklistChecker.requireAllowed(clientIp);
+        platformRiskControlService.checkBatchRegisterAllowed(clientIp);
         authRateLimiter.checkRegister(request.getEmail(), clientIp);
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException("两次输入的密码不一致");
@@ -259,7 +265,11 @@ public class AuthService {
                 tenant.getId(),
                 "注册企业: " + tenant.getTenantName(),
                 tenant.getId(),
-                user.getId());
+                user.getId(),
+                clientIp);
+
+        platformRiskControlService.onRegisterSuccess(
+                request.getEmail(), clientIp, resolveUserAgent(httpRequest), tenant.getId());
 
         return buildLoginVO(user, tenant, ownerRole);
     }
@@ -392,5 +402,17 @@ public class AuthService {
             candidate = base + "-" + UUID.randomUUID().toString().substring(0, 4);
         }
         return candidate;
+    }
+
+    private String resolveUserAgent(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String userAgent = request.getHeader("User-Agent");
+        if (!org.springframework.util.StringUtils.hasText(userAgent)) {
+            return null;
+        }
+        String trimmed = userAgent.trim();
+        return trimmed.length() > 500 ? trimmed.substring(0, 500) : trimmed;
     }
 }

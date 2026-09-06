@@ -25,6 +25,10 @@ public class PlatformSystemConfigService {
     public static final String KEY_MAINTENANCE_ENABLED = "platform.maintenance_enabled";
     public static final String KEY_MAINTENANCE_MESSAGE = "platform.maintenance_message";
     public static final String KEY_PLATFORM_ANNOUNCEMENT = "platform.announcement";
+    public static final String KEY_RISK_ABNORMAL_LOGIN_ENABLED = "risk.abnormal_login_enabled";
+    public static final String KEY_RISK_BATCH_REGISTER_IP_LIMIT = "risk.batch_register_ip_limit_per_day";
+    public static final String KEY_RISK_NEW_USER_AGENT_ENABLED = "risk.new_user_agent_enabled";
+    public static final String KEY_RISK_STORAGE_WARN_PERCENT = "risk.storage_warn_percent";
 
     private final PlatformSystemConfigMapper configMapper;
 
@@ -36,6 +40,12 @@ public class PlatformSystemConfigService {
 
     @Value("${novaflow.platform.api-monitor.traffic-spike-multiplier:3}")
     private double defaultTrafficSpikeMultiplier;
+
+    @Value("${novaflow.platform.risk.batch-register-ip-limit-per-day:5}")
+    private int defaultBatchRegisterIpLimitPerDay;
+
+    @Value("${novaflow.platform.risk.storage-warn-percent:80}")
+    private int defaultStorageWarnPercent;
 
     public boolean isRegistrationEnabled() {
         return parseBoolean(getValue(KEY_REGISTRATION_ENABLED), defaultRegistrationEnabled);
@@ -112,6 +122,39 @@ public class PlatformSystemConfigService {
 
     public void setPlatformAnnouncement(String announcement, Long operatorId) {
         upsert(KEY_PLATFORM_ANNOUNCEMENT, announcement != null ? announcement : "", operatorId);
+    }
+
+    public boolean isAbnormalLoginEnabled() {
+        return parseBoolean(getValue(KEY_RISK_ABNORMAL_LOGIN_ENABLED), true);
+    }
+
+    public void setAbnormalLoginEnabled(boolean enabled, Long operatorId) {
+        upsert(KEY_RISK_ABNORMAL_LOGIN_ENABLED, Boolean.toString(enabled), operatorId);
+    }
+
+    public boolean isNewUserAgentEnabled() {
+        return parseBoolean(getValue(KEY_RISK_NEW_USER_AGENT_ENABLED), true);
+    }
+
+    public void setNewUserAgentEnabled(boolean enabled, Long operatorId) {
+        upsert(KEY_RISK_NEW_USER_AGENT_ENABLED, Boolean.toString(enabled), operatorId);
+    }
+
+    public int getBatchRegisterIpLimitPerDay() {
+        return (int) parseLong(getValue(KEY_RISK_BATCH_REGISTER_IP_LIMIT), defaultBatchRegisterIpLimitPerDay);
+    }
+
+    public void setBatchRegisterIpLimitPerDay(int limit, Long operatorId) {
+        upsert(KEY_RISK_BATCH_REGISTER_IP_LIMIT, Integer.toString(Math.max(0, limit)), operatorId);
+    }
+
+    public int getStorageWarnPercent() {
+        return (int) parseLong(getValue(KEY_RISK_STORAGE_WARN_PERCENT), defaultStorageWarnPercent);
+    }
+
+    public void setStorageWarnPercent(int percent, Long operatorId) {
+        int normalized = Math.min(100, Math.max(50, percent));
+        upsert(KEY_RISK_STORAGE_WARN_PERCENT, Integer.toString(normalized), operatorId);
     }
 
     private String getValue(String key) {

@@ -40,6 +40,8 @@ import ai.novaflow.user.domain.vo.PlatformModelProviderVO;
 import ai.novaflow.user.domain.vo.PlatformModelOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformModelUsageVO;
 import ai.novaflow.user.domain.vo.PlatformProviderStatVO;
+import ai.novaflow.user.domain.vo.PlatformSecurityAlertEventVO;
+import ai.novaflow.user.domain.vo.PlatformSecurityOverviewVO;
 import ai.novaflow.user.domain.vo.PlatformSettingsVO;
 import ai.novaflow.user.domain.vo.PlatformTenantTrafficSpikeVO;
 import ai.novaflow.user.domain.vo.PlatformTenantUsageVO;
@@ -53,12 +55,14 @@ import ai.novaflow.user.domain.vo.PlatformTenantVO;
 import ai.novaflow.user.domain.vo.PlatformTrendPointVO;
 import ai.novaflow.user.domain.vo.PlatformUserMembershipVO;
 import ai.novaflow.user.domain.vo.PlatformUserVO;
+import ai.novaflow.user.entity.PlatformSecurityAlertEventEntity;
 import ai.novaflow.user.entity.PlatformApiAlertEventEntity;
 import ai.novaflow.user.entity.PlatformModelCatalogEntity;
 import ai.novaflow.user.entity.AuditLogEntity;
 import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.user.mapper.AuditLogMapper;
+import ai.novaflow.user.mapper.PlatformSecurityAlertEventMapper;
 import ai.novaflow.user.mapper.PlatformApiAlertEventMapper;
 import ai.novaflow.user.mapper.PlatformModelCatalogMapper;
 import ai.novaflow.user.mapper.PlatformStatsMapper;
@@ -115,6 +119,8 @@ public class PlatformAdminService {
     private final PlatformModelCatalogMapper platformModelCatalogMapper;
     private final OnboardingMailService onboardingMailService;
     private final PasswordEncoder passwordEncoder;
+    private final PlatformRiskControlService platformRiskControlService;
+    private final PlatformSecurityAlertEventMapper platformSecurityAlertEventMapper;
 
     private static final List<String> ONBOARDING_PLAN_TYPES = List.of(
             "personal", "free", "starter", "pro", "enterprise");
@@ -160,6 +166,7 @@ public class PlatformAdminService {
         int maxMembers = tenant.getMaxMembers() != null && tenant.getMaxMembers() > 0 ? tenant.getMaxMembers() : 100;
         long monthlyTokenQuota = tenant.getMonthlyTokenQuota() != null ? tenant.getMonthlyTokenQuota() : 0L;
         long usedTokens = base.getUsedTokensThisMonth() != null ? base.getUsedTokensThisMonth() : 0L;
+        Integer storageUsedPercent = base.getStorageUsedPercent();
 
         long callsThisMonth = safeLong(tokenUsageMapper.countCallsBetween(tenantId, monthStart, monthEnd));
         BigDecimal costCny = tokenUsageMapper.sumCostBetween(tenantId, BillingCurrency.CNY.getCode(), monthStart, monthEnd);
@@ -191,6 +198,7 @@ public class PlatformAdminService {
                 .workflowCount(workflowCount)
                 .memberUsedPercent(calcPercent(memberCount, maxMembers))
                 .tokenUsedPercent(calcPercent(usedTokens, monthlyTokenQuota))
+                .storageUsedPercent(storageUsedPercent)
                 .callsThisMonth(callsThisMonth)
                 .costCnyThisMonth(costCny)
                 .expired(expired)
@@ -484,7 +492,10 @@ public class PlatformAdminService {
             long usedTokens = safeLong(tokenUsageMapper.sumTokensBetween(tenant.getId(), monthStart, monthEnd));
             Integer tokenUsedPercent = calcPercent(usedTokens, monthlyTokenQuota);
             Integer memberUsedPercent = calcPercent(memberCount, maxMembers);
+            long usedStorageBytes = resolveUsedStorageBytes(tenant.getId());
+            Integer storageUsedPercent = calcStoragePercent(usedStorageBytes, tenant.getMaxStorageMb());
             Integer daysUntilExpiry = resolveDaysUntilExpiry(tenant.getExpireAt());
+            int storageWarnPercent = platformSystemConfigService.getStorageWarnPercent();
 
             List<String> reasons = new ArrayList<>();
             String healthStatus = "HEALTHY";
@@ -519,7 +530,13 @@ public class PlatformAdminService {
                 healthStatus = escalateHealth(healthStatus, "WARNING");
                 reasons.add("套餐将在 " + daysUntilExpiry + " 天内到期");
             }
-
+            if (storageUsedPercent != null && storageUsedPercent >= 100) {
+                healthStatus = "CRITICAL";
+                reasons.add("存储配额已用尽");
+            } else if (storageUsedPercent != null && storageUsedPercent >= storageWarnPercent) {
+                healthStatus = escalateHealth(healthStatus, "WARNING");
+                reasons.add("存储使用率超过 " + storageWarnPercent + "%");
+            }
             if ("HEALTHY".equals(healthStatus)) {
                 continue;
             }
@@ -1046,6 +1063,10 @@ public class PlatformAdminService {
                 .maintenanceEnabled(platformSystemConfigService.isMaintenanceEnabled())
                 .maintenanceMessage(platformSystemConfigService.getMaintenanceMessage())
                 .platformAnnouncement(platformSystemConfigService.getPlatformAnnouncement())
+                .abnormalLoginEnabled(platformSystemConfigService.isAbnormalLoginEnabled())
+                .newUserAgentEnabled(platformSystemConfigService.isNewUserAgentEnabled())
+                .batchRegisterIpLimitPerDay(platformSystemConfigService.getBatchRegisterIpLimitPerDay())
+                .storageWarnPercent(platformSystemConfigService.getStorageWarnPercent())
                 .build();
     }
 
@@ -1084,6 +1105,22 @@ public class PlatformAdminService {
         if (request.getPlatformAnnouncement() != null) {
             platformSystemConfigService.setPlatformAnnouncement(request.getPlatformAnnouncement(), operatorId);
             detail.append(" platformAnnouncement=updated");
+        }
+        if (request.getAbnormalLoginEnabled() != null) {
+            platformSystemConfigService.setAbnormalLoginEnabled(request.getAbnormalLoginEnabled(), operatorId);
+            detail.append(" abnormalLoginEnabled=").append(request.getAbnormalLoginEnabled());
+        }
+        if (request.getNewUserAgentEnabled() != null) {
+            platformSystemConfigService.setNewUserAgentEnabled(request.getNewUserAgentEnabled(), operatorId);
+            detail.append(" newUserAgentEnabled=").append(request.getNewUserAgentEnabled());
+        }
+        if (request.getBatchRegisterIpLimitPerDay() != null) {
+            platformSystemConfigService.setBatchRegisterIpLimitPerDay(request.getBatchRegisterIpLimitPerDay(), operatorId);
+            detail.append(" batchRegisterIpLimitPerDay=").append(request.getBatchRegisterIpLimitPerDay());
+        }
+        if (request.getStorageWarnPercent() != null) {
+            platformSystemConfigService.setStorageWarnPercent(request.getStorageWarnPercent(), operatorId);
+            detail.append(" storageWarnPercent=").append(request.getStorageWarnPercent());
         }
         if (detail.length() > "更新系统配置:".length()) {
             auditLogService.record(
@@ -1253,6 +1290,7 @@ public class PlatformAdminService {
         YearMonth current = YearMonth.now();
         long usedTokens = safeLong(tokenUsageMapper.sumTokensBetween(
                 tenant.getId(), current.atDay(1), current.atEndOfMonth()));
+        long usedStorageBytes = resolveUsedStorageBytes(tenant.getId());
         return PlatformTenantVO.builder()
                 .id(tenant.getId())
                 .tenantCode(tenant.getTenantCode())
@@ -1271,6 +1309,8 @@ public class PlatformAdminService {
                 .monthlyTokenQuota(tenant.getMonthlyTokenQuota())
                 .memberCount(memberCount)
                 .usedTokensThisMonth(usedTokens)
+                .usedStorageBytes(usedStorageBytes)
+                .storageUsedPercent(calcStoragePercent(usedStorageBytes, tenant.getMaxStorageMb()))
                 .createdAt(tenant.getCreatedAt())
                 .updatedAt(tenant.getUpdatedAt())
                 .build();
@@ -1381,6 +1421,81 @@ public class PlatformAdminService {
                     .build());
         }
         return memberships;
+    }
+
+    public PlatformSecurityOverviewVO securityOverview() {
+        requireSuperAdmin();
+        return platformRiskControlService.securityOverview();
+    }
+
+    public PageResult<PlatformSecurityAlertEventVO> pageSecurityAlerts(int page, int pageSize, String status) {
+        page = PageQueryUtils.normalizePage(page);
+        pageSize = PageQueryUtils.normalizePageSize(pageSize);
+        requireSuperAdmin();
+        QueryWrapper query = QueryWrapper.create().orderBy("created_at", false);
+        if (StringUtils.hasText(status)) {
+            query.eq("status", status.trim().toUpperCase(Locale.ROOT));
+        }
+        Page<PlatformSecurityAlertEventEntity> result =
+                platformSecurityAlertEventMapper.paginate(Page.of(page, pageSize), query);
+        List<PlatformSecurityAlertEventVO> list =
+                result.getRecords().stream().map(this::toSecurityAlertEventVO).toList();
+        return PageResult.of(list, result.getTotalRow(), page, pageSize);
+    }
+
+    @Transactional
+    public PlatformSecurityAlertEventVO acknowledgeSecurityAlert(Long alertId) {
+        requireSuperAdmin();
+        PlatformSecurityAlertEventEntity entity = platformSecurityAlertEventMapper.selectOneById(alertId);
+        if (entity == null) {
+            throw new BusinessException("告警不存在");
+        }
+        entity.setStatus(PlatformRiskControlService.STATUS_ACKED);
+        entity.setAckedBy(StpUtil.getLoginIdAsLong());
+        entity.setAckedAt(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
+        platformSecurityAlertEventMapper.update(entity);
+        auditLogService.record(
+                "platform.security_alert.ack",
+                "security_alert",
+                alertId,
+                "确认安全告警: " + entity.getMessage(),
+                TenantContext.getTenantId(),
+                StpUtil.getLoginIdAsLong());
+        return toSecurityAlertEventVO(entity);
+    }
+
+    private PlatformSecurityAlertEventVO toSecurityAlertEventVO(PlatformSecurityAlertEventEntity entity) {
+        return PlatformSecurityAlertEventVO.builder()
+                .id(entity.getId())
+                .alertType(entity.getAlertType())
+                .alertTypeLabel(PlatformRiskControlService.resolveAlertTypeLabel(entity.getAlertType()))
+                .severity(entity.getSeverity())
+                .userId(entity.getUserId())
+                .userEmail(entity.getUserEmail())
+                .tenantId(entity.getTenantId())
+                .clientIp(entity.getClientIp())
+                .userAgent(entity.getUserAgent())
+                .message(entity.getMessage())
+                .metricValue(entity.getMetricValue())
+                .threshold(entity.getThreshold())
+                .status(entity.getStatus())
+                .ackedBy(entity.getAckedBy())
+                .ackedAt(entity.getAckedAt())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    private long resolveUsedStorageBytes(Long tenantId) {
+        return safeLong(platformStatsMapper.sumStorageBytesByTenant(tenantId));
+    }
+
+    private Integer calcStoragePercent(long usedBytes, Integer maxStorageMb) {
+        if (maxStorageMb == null || maxStorageMb <= 0) {
+            return null;
+        }
+        long limitBytes = maxStorageMb.longValue() * 1024L * 1024L;
+        return calcPercent(usedBytes, limitBytes);
     }
 
     private AuditLogVO toAuditLogVO(AuditLogEntity entity) {

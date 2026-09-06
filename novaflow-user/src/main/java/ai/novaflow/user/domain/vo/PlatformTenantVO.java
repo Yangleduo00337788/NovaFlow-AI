@@ -26,6 +26,8 @@ public class PlatformTenantVO {
     private Long monthlyTokenQuota;
     private Integer memberCount;
     private Long usedTokensThisMonth;
+    private Long usedStorageBytes;
+    private Integer storageUsedPercent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
