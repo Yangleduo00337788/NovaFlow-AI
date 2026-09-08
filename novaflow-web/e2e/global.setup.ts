@@ -20,6 +20,28 @@ function ensureAuthDir(file: string) {
   mkdirSync(dirname(file), { recursive: true })
 }
 
+async function waitForBackend(request: import('@playwright/test').APIRequestContext) {
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try {
+      const res = await request.get('/api/v1/health')
+      if (res.ok()) {
+        const body = await res.json()
+        if (body.code === 0) {
+          return
+        }
+      }
+    } catch {
+      // retry until dev proxy + backend are ready
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  throw new Error('Backend API is not ready for E2E setup')
+}
+
+setup('wait for backend API', async ({ request }) => {
+  await waitForBackend(request)
+})
+
 setup('cleanup stale E2E resources', async ({ request }) => {
   setup.setTimeout(120_000)
   await cleanupE2ETestResources(request)

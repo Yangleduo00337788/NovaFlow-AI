@@ -97,7 +97,17 @@ jobs:
           cache: maven
 
       - name: Run local integration tests
-        run: mvn -B -pl novaflow-server -am test -Dtest="*LocalIntegrationTest" -Dsurefire.excludedGroups= -Dsurefire.failIfNoSpecifiedTests=false
+        run: mvn -B -pl novaflow-server -am test -Plocal-integration -Dtest="*LocalIntegrationTest" -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Upload integration test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: |
+            novaflow-server/target/surefire-reports/*.xml
+            novaflow-server/target/surefire-reports/*.txt
+          if-no-files-found: ignore
 
   smoke:
     runs-on: ubuntu-latest
@@ -296,6 +306,11 @@ jobs:
         env:
           NOVAFLOW_BASE_URL: http://127.0.0.1:8088
 
+      - name: Prepare gate environment
+        run: pwsh -NoProfile -Command ". test/scripts/NovaFlow-TestCommon.ps1; Prepare-NovaGateEnvironment"
+        env:
+          NOVAFLOW_BASE_URL: http://127.0.0.1:8088
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -305,10 +320,20 @@ jobs:
 
       - name: Install Playwright and run E2E
         working-directory: novaflow-web
+        env:
+          NOVAFLOW_API_URL: http://127.0.0.1:8088
         run: |
           npm ci
           npx playwright install --with-deps chromium
           npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: novaflow-web/playwright-report/
+          if-no-files-found: ignore
 
       - name: Upload server log on failure
         if: failure()

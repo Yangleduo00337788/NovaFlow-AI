@@ -13,6 +13,14 @@
     <properties>
         <surefire.excludedGroups>local,testcontainers</surefire.excludedGroups>
     </properties>
+    <profiles>
+        <profile>
+            <id>local-integration</id>
+            <properties>
+                <surefire.excludedGroups>__no_such_group__</surefire.excludedGroups>
+            </properties>
+        </profile>
+    </profiles>
     <dependencies>
         <dependency>
             <groupId>ai.novaflow</groupId>

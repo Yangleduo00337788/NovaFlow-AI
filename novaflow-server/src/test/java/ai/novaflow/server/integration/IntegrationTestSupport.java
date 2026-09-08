@@ -2,6 +2,7 @@ package ai.novaflow.server.integration;
 
 import ai.novaflow.user.service.PlatformSystemConfigService;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -54,6 +55,9 @@ public abstract class IntegrationTestSupport {
         if (platformSystemConfigService != null) {
             platformSystemConfigService.setRegistrationEnabled(true, null);
             platformSystemConfigService.setBatchRegisterIpLimitPerDay(100_000, null);
+            platformSystemConfigService.setMaintenanceEnabled(false, null);
+            platformSystemConfigService.setMaintenanceMessage("", null);
+            platformSystemConfigService.setPlatformAnnouncement("", null);
         }
         if (stringRedisTemplate != null) {
             Set<String> keys = stringRedisTemplate.keys("novaflow:risk:register:ip:*");
@@ -61,6 +65,11 @@ public abstract class IntegrationTestSupport {
                 stringRedisTemplate.delete(keys);
             }
         }
+    }
+
+    @AfterEach
+    void resetSharedGateState() {
+        prepareSharedGateState();
     }
 
     protected void assertHealthUp(TestRestTemplate restTemplate) {
