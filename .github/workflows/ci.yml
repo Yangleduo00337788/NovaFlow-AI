@@ -67,13 +67,11 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: bitnami/redis:7.4
-        env:
-          REDIS_PASSWORD: redis123
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli -a redis123 ping"
+          --health-cmd="redis-cli ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -84,7 +82,7 @@ jobs:
       SPRING_DATASOURCE_PASSWORD: root
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
-      REDIS_PASSWORD: redis123
+      REDIS_PASSWORD: ''
       NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
       CORS_ALLOWED_ORIGIN: http://localhost:3000
 
@@ -118,13 +116,11 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: bitnami/redis:7.4
-        env:
-          REDIS_PASSWORD: redis123
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli -a redis123 ping"
+          --health-cmd="redis-cli ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -135,7 +131,7 @@ jobs:
       SPRING_DATASOURCE_PASSWORD: root
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
-      REDIS_PASSWORD: redis123
+      REDIS_PASSWORD: ''
       NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
       CORS_ALLOWED_ORIGIN: http://localhost:3000
 
@@ -196,13 +192,11 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: bitnami/redis:7.4
-        env:
-          REDIS_PASSWORD: redis123
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli -a redis123 ping"
+          --health-cmd="redis-cli ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -213,7 +207,7 @@ jobs:
       SPRING_DATASOURCE_PASSWORD: root
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
-      REDIS_PASSWORD: redis123
+      REDIS_PASSWORD: ''
       NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
       CORS_ALLOWED_ORIGIN: http://localhost:3000
       NOVAFLOW_API_URL: http://127.0.0.1:8088

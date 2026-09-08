@@ -20,7 +20,7 @@ final class IntegrationTestEnv {
 
     static String get(String key, String defaultValue) {
         String fromSystem = System.getenv(key);
-        if (fromSystem != null && !fromSystem.isBlank()) {
+        if (fromSystem != null) {
             return fromSystem.trim();
         }
         String fromFile = DOT_ENV.get(key);
