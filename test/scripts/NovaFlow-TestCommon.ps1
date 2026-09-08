@@ -148,12 +148,42 @@ function Wait-NovaMaintenanceOff {
     throw "Platform maintenance still enabled after ${TimeoutSec}s"
 }
 
+function Wait-NovaDemoAccounts {
+    param([int]$TimeoutSec = 120)
+    $accounts = @(
+        @{ email = 'admin@novaflow.ai'; password = 'Admin123!' }
+        @{ email = 'platform@novaflow.ai'; password = 'Platform123!' }
+        @{ email = 'user@novaflow.ai'; password = 'User123!' }
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $ready = $true
+        foreach ($acc in $accounts) {
+            $loginPath = Join-Path $script:NovaFlowTmpDir "wait-$($acc.email).json"
+            Write-NovaJson -Path $loginPath -Data @{ email = $acc.email; password = $acc.password }
+            $resp = Invoke-NovaApi -Method POST -Path '/api/v1/auth/login' -OutFile $loginPath
+            if ($resp.code -ne 0) {
+                $ready = $false
+                break
+            }
+        }
+        if ($ready) { return }
+        Start-Sleep -Seconds 2
+    }
+    throw "Demo accounts not ready after ${TimeoutSec}s"
+}
+
 function Prepare-NovaGateEnvironment {
     param([string]$PlatformToken)
+    Wait-NovaDemoAccounts
     if (-not $PlatformToken) {
         $PlatformToken = Get-NovaLoginToken 'platform@novaflow.ai' 'Platform123!'
     }
-    Wait-NovaMaintenanceOff -PlatformToken $PlatformToken
+    try {
+        Wait-NovaMaintenanceOff -PlatformToken $PlatformToken
+    } catch {
+        Write-Warning "Wait-NovaMaintenanceOff skipped: $($_.Exception.Message)"
+    }
     $resetPath = Join-Path $script:NovaFlowTmpDir 'gate-prep-reset.json'
     Write-NovaJson -Path $resetPath -Data @{
         maintenanceEnabled          = $false
@@ -163,8 +193,14 @@ function Prepare-NovaGateEnvironment {
         abnormalLoginEnabled        = $true
         newUserAgentEnabled         = $true
     }
-    Invoke-NovaApi -Method PUT -Path '/api/v1/platform/settings' -Token $PlatformToken -OutFile $resetPath | Out-Null
-    Invoke-NovaApi -Method POST -Path '/api/v1/platform/security/register-counters/reset' -Token $PlatformToken | Out-Null
+    $settings = Invoke-NovaApi -Method PUT -Path '/api/v1/platform/settings' -Token $PlatformToken -OutFile $resetPath
+    if ($settings.code -ne 0) {
+        Write-Warning "Platform settings reset skipped: http=$($settings.http) code=$($settings.code)"
+    }
+    $reset = Invoke-NovaApi -Method POST -Path '/api/v1/platform/security/register-counters/reset' -Token $PlatformToken
+    if ($reset.code -ne 0) {
+        Write-Warning "Register counter reset skipped: http=$($reset.http) code=$($reset.code)"
+    }
 }
 
 function Get-NovaConfiguredProviderId {
