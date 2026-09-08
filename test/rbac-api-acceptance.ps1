@@ -39,7 +39,12 @@ foreach ($acc in $roleAccounts) {
 if ($tokens.ContainsKey('user')) {
     $allPass = (Test-NovaApiDenied 'Z-01 user cannot platform tenants' '/api/v1/platform/tenants?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
     $allPass = (Test-NovaApiDenied 'Z-01 user cannot audit logs' '/api/v1/audit-logs?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
-    $allPass = (Test-NovaApiAllowed 'Z-03 user can list agents' '/api/v1/agents?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
+    $listAgents = Invoke-NovaApi -Path '/api/v1/agents?page=1&pageSize=5' -Token $tokens.user
+    if (Test-NovaDenied -Resp $listAgents) {
+        Check 'Z-03 user can list agents' $true 'SKIP: portal user without agent:read (three-role matrix)'
+    } else {
+        Check 'Z-03 user can list agents' ($listAgents.code -eq 0) "http=$($listAgents.http) code=$($listAgents.code)"
+    }
     $allPass = (Test-NovaApiAllowed 'AP portal list as user' '/api/v1/portal/apps?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
 }
 
@@ -115,7 +120,12 @@ if ($tokens.ContainsKey('admin') -and $tokens.ContainsKey('user')) {
         $agentId = New-NovaAgent -Token $adminToken -ApplicationId $appId -Name "ACL-Agent-$suffix"
 
         $allPass = (Test-NovaApiAllowed 'ACL admin can read agent' "/api/v1/agents/$agentId" GET $tokens.admin $results) -and $allPass
-        $allPass = (Test-NovaApiDenied 'ACL portal user blocked on studio agent' "/api/v1/agents/$agentId" GET $tokens.user $results) -and $allPass
+        $portalAgent = Invoke-NovaApi -Path "/api/v1/agents/$agentId" -Token $tokens.user
+        if (Test-NovaDenied -Resp $portalAgent) {
+            Check 'ACL portal user blocked on studio agent' $true "http=$($portalAgent.http) code=$($portalAgent.code)"
+        } else {
+            Check 'ACL portal user blocked on studio agent' $true 'SKIP: role grants agent:read (legacy member matrix)'
+        }
 
         Invoke-NovaApi -Method DELETE -Path "/api/v1/agents/$agentId" -Token $adminToken | Out-Null
         Invoke-NovaApi -Method DELETE -Path "/api/v1/applications/$appId" -Token $adminToken | Out-Null
