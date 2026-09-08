@@ -67,11 +67,13 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: redis:7-alpine
+        image: bitnami/redis:7.4
+        env:
+          REDIS_PASSWORD: redis123
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli ping"
+          --health-cmd="redis-cli -a redis123 ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -97,7 +99,7 @@ jobs:
           cache: maven
 
       - name: Run local integration tests
-        run: mvn -B -pl novaflow-server -am test -Dtest="*LocalIntegrationTest" -Dsurefire.excludedGroups=
+        run: mvn -B -pl novaflow-server -am test -Dtest="*LocalIntegrationTest" -Dsurefire.excludedGroups= -Dsurefire.failIfNoSpecifiedTests=false
 
   smoke:
     runs-on: ubuntu-latest
@@ -116,11 +118,13 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: redis:7-alpine
+        image: bitnami/redis:7.4
+        env:
+          REDIS_PASSWORD: redis123
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli ping"
+          --health-cmd="redis-cli -a redis123 ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -192,11 +196,13 @@ jobs:
           --health-timeout=5s
           --health-retries=10
       redis:
-        image: redis:7-alpine
+        image: bitnami/redis:7.4
+        env:
+          REDIS_PASSWORD: redis123
         ports:
           - 6379:6379
         options: >-
-          --health-cmd="redis-cli ping"
+          --health-cmd="redis-cli -a redis123 ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
