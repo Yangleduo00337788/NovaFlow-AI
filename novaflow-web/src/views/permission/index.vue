@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1>权限管理</h1>
-        <p>查看系统角色权限矩阵、管理自定义角色与成员分布</p>
+        <p>企业管理员管理本企业；普通用户使用应用门户。也可按需创建自定义角色。</p>
       </div>
       <a-button
         v-if="canCreateRole"

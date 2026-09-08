@@ -22,7 +22,6 @@ Write-NovaLog '=== portal-studio-isolation-smoke ===' $logFile
 try {
     $admin = Get-NovaLoginToken
     $user = Get-NovaLoginToken -Email 'user@novaflow.ai' -Password 'User123!'
-    $developer = Get-NovaLoginToken -Email 'developer@novaflow.ai' -Password 'Developer123!'
 
     $pubAppId = New-NovaApplication -Token $admin -Name "Portal-App-$suffix"
     $pubAgentId = New-NovaAgent -Token $admin -ApplicationId $pubAppId -Name "Portal-Agent-$suffix"
@@ -55,11 +54,11 @@ try {
     $allPass = (Test-NovaApiDenied 'AP-04 user cannot create agent' '/api/v1/agents' POST $user $results) -and $allPass
     $allPass = (Test-NovaApiDenied 'AP-04 user cannot list debug conversations' "/api/v1/agents/$pubAgentId/debug/conversations?page=1&pageSize=5" GET $user $results) -and $allPass
 
-    $devWelcome = Invoke-NovaApi -Path "/api/v1/agents/$pubAgentId/debug/welcome" -Token $developer
-    Check 'AP-04 developer can studio welcome' ($devWelcome.code -eq 0) "code=$($devWelcome.code)"
+    $adminWelcome = Invoke-NovaApi -Path "/api/v1/agents/$pubAgentId/debug/welcome" -Token $admin
+    Check 'AP-04 tenant admin can studio welcome' ($adminWelcome.code -eq 0) "code=$($adminWelcome.code)"
 
-    $devConvs = Invoke-NovaApi -Path "/api/v1/agents/$pubAgentId/debug/conversations?page=1&pageSize=5" -Token $developer
-    Check 'AP-04 developer can list debug conversations' ($devConvs.code -eq 0) "code=$($devConvs.code)"
+    $adminConvs = Invoke-NovaApi -Path "/api/v1/agents/$pubAgentId/debug/conversations?page=1&pageSize=5" -Token $admin
+    Check 'AP-04 tenant admin can list debug conversations' ($adminConvs.code -eq 0) "code=$($adminConvs.code)"
 
     Invoke-NovaApi -Method DELETE -Path "/api/v1/agents/$pubAgentId" -Token $admin | Out-Null
     Invoke-NovaApi -Method DELETE -Path "/api/v1/agents/$unpubAgentId" -Token $admin | Out-Null

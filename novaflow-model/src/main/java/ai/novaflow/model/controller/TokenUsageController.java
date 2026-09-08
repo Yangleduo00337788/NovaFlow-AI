@@ -6,7 +6,6 @@ import ai.novaflow.common.domain.PageResult;
 import ai.novaflow.model.domain.vo.TokenUsageLogVO;
 import ai.novaflow.model.service.TokenUsageLogService;
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.annotation.SaMode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -23,7 +22,7 @@ public class TokenUsageController {
 
     private final TokenUsageLogService tokenUsageLogService;
 
-    @SaCheckPermission(value = {PermissionCodes.MONITOR_VIEW, PermissionCodes.BILLING_VIEW, PermissionCodes.LOG_READ}, mode = SaMode.OR)
+    @SaCheckPermission(PermissionCodes.LOG_READ)
     @GetMapping("/logs")
     public ApiResult<PageResult<TokenUsageLogVO>> pageLogs(
             @RequestParam(defaultValue = "1") int page,

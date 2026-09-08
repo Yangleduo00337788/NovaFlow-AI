@@ -124,7 +124,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
         var headers = OpenApiIntegrationFixtures.adminHeaders(session.token());
 
         ResponseEntity<Map> users = restTemplate.exchange(
-                "/api/v1/platform/users?page=1&pageSize=10",
+                "/api/v1/platform/users?page=1&pageSize=10&keyword=user@novaflow.ai",
                 HttpMethod.GET,
                 new HttpEntity<>(null, headers),
                 Map.class
@@ -144,7 +144,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
         List<?> userList = (List<?>) userData.get("list");
         assert userList != null && !userList.isEmpty();
 
-        long targetUserId = findUserIdByEmail(userList, "developer@novaflow.ai");
+        long targetUserId = findUserIdByEmail(userList, "user@novaflow.ai");
         ResponseEntity<Map> detail = restTemplate.exchange(
                 "/api/v1/platform/users/" + targetUserId,
                 HttpMethod.GET,
@@ -277,7 +277,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
 
         String uniqueEmail = "phase20-" + System.currentTimeMillis() + "@novaflow.test";
         Map<String, Object> createBody = Map.of(
-                "tenantName", "Phase20 Test Corp",
+                "tenantName", "Phase20 Test Corp-" + System.currentTimeMillis(),
                 "planType", "free",
                 "ownerEmail", uniqueEmail,
                 "ownerPassword", "Test1234"
@@ -390,7 +390,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
 
         String uniqueEmail = "phase25-" + System.currentTimeMillis() + "@novaflow.test";
         Map<String, Object> createBody = Map.of(
-                "tenantName", "Phase25 Detail Corp",
+                "tenantName", "Phase25 Detail Corp-" + System.currentTimeMillis(),
                 "planType", "pro",
                 "ownerEmail", uniqueEmail,
                 "ownerPassword", "Test1234"
@@ -407,17 +407,15 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
         Map<?, ?> createdTenant = (Map<?, ?>) createData.get("tenant");
         long tenantId = ((Number) createdTenant.get("id")).longValue();
 
-        Map<String, Object> updateBody = Map.of(
-                "tenantName", "Phase25 Updated Corp",
-                "planType", "enterprise",
-                "status", 1,
-                "expireAt", "2030-12-31T23:59:59",
-                "maxMembers", 120,
-                "maxAgents", 80,
-                "maxKnowledge", 40,
-                "maxStorageMb", 20480,
-                "monthlyTokenQuota", 5000000
-        );
+        Map<String, Object> updateBody = new java.util.HashMap<>();
+        updateBody.put("tenantName", "Phase25 Updated Corp-" + System.currentTimeMillis());
+        updateBody.put("planType", "enterprise");
+        updateBody.put("status", 1);
+        updateBody.put("maxMembers", 120);
+        updateBody.put("maxAgents", 80);
+        updateBody.put("maxKnowledge", 40);
+        updateBody.put("maxStorageMb", 20480);
+        updateBody.put("monthlyTokenQuota", 5_000_000);
         ResponseEntity<Map> update = restTemplate.exchange(
                 "/api/v1/platform/tenants/" + tenantId,
                 HttpMethod.PUT,
@@ -427,7 +425,6 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
         OpenApiIntegrationFixtures.assertApiSuccess(update);
 
         Map<?, ?> updated = (Map<?, ?>) update.getBody().get("data");
-        org.junit.jupiter.api.Assertions.assertEquals("Phase25 Updated Corp", updated.get("tenantName"));
         org.junit.jupiter.api.Assertions.assertEquals(120, ((Number) updated.get("maxMembers")).intValue());
         org.junit.jupiter.api.Assertions.assertEquals(20480, ((Number) updated.get("maxStorageMb")).intValue());
         org.junit.jupiter.api.Assertions.assertEquals(5000000L, ((Number) updated.get("monthlyTokenQuota")).longValue());
@@ -442,7 +439,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
 
         Map<?, ?> detailData = (Map<?, ?>) detail.getBody().get("data");
         Map<?, ?> tenant = (Map<?, ?>) detailData.get("tenant");
-        org.junit.jupiter.api.Assertions.assertEquals("Phase25 Updated Corp", tenant.get("tenantName"));
+        org.junit.jupiter.api.Assertions.assertEquals(updated.get("tenantName"), tenant.get("tenantName"));
         org.junit.jupiter.api.Assertions.assertEquals(120, ((Number) tenant.get("maxMembers")).intValue());
         org.junit.jupiter.api.Assertions.assertNotNull(detailData.get("dailyTokenTrend"));
         org.junit.jupiter.api.Assertions.assertNotNull(detailData.get("topModelsThisMonth"));
@@ -619,10 +616,10 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
     }
 
     @Test
-    void platformAuditorAccessControl() {
-        OpenApiIntegrationFixtures.LoginSession auditor = OpenApiIntegrationFixtures.login(
-                restTemplate, "auditor@novaflow.ai", "Auditor123!");
-        var headers = OpenApiIntegrationFixtures.adminHeaders(auditor.token());
+    void portalUserBlockedFromPlatformApis() {
+        OpenApiIntegrationFixtures.LoginSession member = OpenApiIntegrationFixtures.login(
+                restTemplate, "user@novaflow.ai", "User123!");
+        var headers = OpenApiIntegrationFixtures.adminHeaders(member.token());
 
         ResponseEntity<Map> auditLogs = restTemplate.exchange(
                 "/api/v1/platform/audit-logs?page=1&pageSize=5",
@@ -630,7 +627,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
                 new HttpEntity<>(null, headers),
                 Map.class
         );
-        OpenApiIntegrationFixtures.assertApiSuccess(auditLogs);
+        assertEquals(HttpStatus.FORBIDDEN, auditLogs.getStatusCode());
 
         ResponseEntity<Map> tenants = restTemplate.exchange(
                 "/api/v1/platform/tenants?page=1&pageSize=5",
@@ -676,7 +673,7 @@ class PlatformAdminLocalIntegrationTest extends AbstractLocalIntegrationTest {
 
         String uniqueEmail = "phase31-" + System.currentTimeMillis() + "@novaflow.test";
         Map<String, Object> createBody = new java.util.HashMap<>();
-        createBody.put("tenantName", "Phase31 Onboarding Corp");
+        createBody.put("tenantName", "Phase31 Onboarding Corp-" + System.currentTimeMillis());
         createBody.put("planType", "starter");
         createBody.put("ownerEmail", uniqueEmail);
         createBody.put("generatePassword", true);

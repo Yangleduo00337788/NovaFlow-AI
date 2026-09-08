@@ -167,8 +167,7 @@ public class NotificationService {
                         return false;
                     }
                     String code = role.getRoleCode();
-                    return RoleCodes.TENANT_OWNER.equals(code)
-                            || RoleCodes.TENANT_ADMIN.equals(code)
+                    return RoleCodes.isTenantAdmin(code)
                             || RoleCodes.PLATFORM_ADMIN.equals(code);
                 })
                 .map(TenantMemberEntity::getUserId)

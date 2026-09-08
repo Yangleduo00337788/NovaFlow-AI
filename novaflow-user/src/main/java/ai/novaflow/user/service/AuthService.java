@@ -22,6 +22,7 @@ import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
+import ai.novaflow.user.support.SystemRoles;
 import ai.novaflow.tenant.mapper.WorkspaceMapper;
 import ai.novaflow.user.service.AuditLogService;
 import cn.dev33.satoken.stp.StpUtil;
@@ -187,12 +188,7 @@ public class AuthService {
             throw new BusinessException("该邮箱已被注册");
         }
 
-        RoleEntity ownerRole = roleMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", 0)
-                        .eq("role_code", RoleCodes.TENANT_OWNER)
-                        .eq("is_deleted", 0)
-        );
+        RoleEntity ownerRole = roleMapper.selectOneByQuery(SystemRoles.byCode(RoleCodes.TENANT_ADMIN));
         if (ownerRole == null) {
             throw new BusinessException("系统角色未初始化，请联系管理员");
         }

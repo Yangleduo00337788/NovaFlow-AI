@@ -1,8 +1,10 @@
 package ai.novaflow.agent.controller;
 
+import ai.novaflow.agent.domain.dto.AgentEmbedConfigRequest;
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.dto.AgentSaveRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
+import ai.novaflow.agent.domain.vo.AgentEmbedConfigVO;
 import ai.novaflow.agent.domain.vo.AgentPublishVO;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.chat.domain.vo.ConversationMessageVO;
@@ -10,6 +12,7 @@ import ai.novaflow.chat.domain.vo.ConversationVO;
 import ai.novaflow.agent.domain.vo.DebugAttachmentVO;
 import ai.novaflow.agent.service.AgentDebugAttachmentService;
 import ai.novaflow.agent.service.AgentDebugService;
+import ai.novaflow.agent.service.AgentEmbedConfigService;
 import ai.novaflow.agent.service.AgentPublishService;
 import ai.novaflow.agent.service.AgentService;
 import ai.novaflow.chat.service.ConversationService;
@@ -46,6 +49,7 @@ public class AgentController {
     private final AgentDebugService agentDebugService;
     private final AgentDebugAttachmentService agentDebugAttachmentService;
     private final AgentPublishService agentPublishService;
+    private final AgentEmbedConfigService agentEmbedConfigService;
     private final ConversationService conversationService;
 
     @SaCheckPermission(value = {PermissionCodes.AGENT_READ, PermissionCodes.AGENT_CREATE, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
@@ -110,6 +114,20 @@ public class AgentController {
     @PostMapping("/{id}/rotate-embed-token")
     public ApiResult<AgentPublishVO> rotateEmbedToken(@PathVariable Long id) {
         return ApiResult.ok(agentPublishService.rotateEmbedToken(id));
+    }
+
+    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.AGENT_EDIT}, mode = SaMode.OR)
+    @GetMapping("/{id}/embed-config")
+    public ApiResult<AgentEmbedConfigVO> embedConfig(@PathVariable Long id) {
+        return ApiResult.ok(agentEmbedConfigService.getEmbedConfig(id));
+    }
+
+    @SaCheckPermission(value = {PermissionCodes.AGENT_PUBLISH, PermissionCodes.API_UPDATE}, mode = SaMode.OR)
+    @PutMapping("/{id}/embed-config")
+    public ApiResult<AgentEmbedConfigVO> updateEmbedConfig(
+            @PathVariable Long id,
+            @RequestBody AgentEmbedConfigRequest request) {
+        return ApiResult.ok(agentEmbedConfigService.updateEmbedConfig(id, request));
     }
 
     @SaCheckPermission(value = {

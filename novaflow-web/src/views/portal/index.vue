@@ -254,7 +254,7 @@ import {
   type PortalConversationItem,
 } from '@/api/portal'
 import { usePortalBranding } from '@/composables/usePortalBranding'
-import { getDefaultHome, isPortalOnlyRole, portalAppPath } from '@/config/access'
+import { canAccessRoute, createRouteAccessContext, getDefaultHome, portalAppPath } from '@/config/access'
 import { APP_LOGIN_PATH } from '@/config/app'
 import { useAuthStore } from '@/stores/auth'
 
@@ -284,8 +284,7 @@ const userName = computed(() => auth.user?.nickname || auth.user?.username || 'ç
 const tenantName = computed(() => auth.tenant?.tenantName || '')
 const userInitial = computed(() => (userName.value[0] || 'U').toUpperCase())
 const canReturnToStudio = computed(() =>
-  !isPortalOnlyRole(auth.roleCode)
-  && auth.hasAnyPermission(['dashboard:view', 'agent:read', 'tenant:manage']),
+  canAccessRoute('/dashboard', createRouteAccessContext(auth)),
 )
 
 const filteredApps = computed(() => {
@@ -416,7 +415,8 @@ function onConversationChanged(conversationKey?: string) {
 }
 
 function goStudio() {
-  router.push(getDefaultHome(auth.user?.accountType, auth.roleCode))
+  const ctx = createRouteAccessContext(auth)
+  router.push(getDefaultHome(auth.user?.accountType, auth.roleCode, (path) => canAccessRoute(path, ctx)))
 }
 
 function onLogout() {

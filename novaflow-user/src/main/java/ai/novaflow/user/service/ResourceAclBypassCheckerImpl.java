@@ -18,7 +18,6 @@ public class ResourceAclBypassCheckerImpl implements ResourceAclBypassChecker {
             return false;
         }
         String roleCode = role.getRoleCode();
-        return RoleCodes.TENANT_OWNER.equals(roleCode)
-                || RoleCodes.TENANT_ADMIN.equals(roleCode);
+        return RoleCodes.isTenantAdmin(roleCode);
     }
 }

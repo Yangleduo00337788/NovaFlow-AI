@@ -1,71 +1,71 @@
 import type { RouteRecordRaw } from 'vue-router'
-import { billingViewPermissions, tenantViewPermissions } from '@/config/platformMenu'
+import { platformManagePermissions } from '@/config/platformMenu'
 
 export const platformChildRoutes: RouteRecordRaw[] = [
   {
     path: 'dashboard',
     name: 'platform-dashboard',
     component: () => import('@/views/platform/dashboard.vue'),
-    meta: { title: '运营概览', permissions: tenantViewPermissions },
+    meta: { title: '运营概览', permissions: platformManagePermissions },
   },
   {
     path: 'tenants',
     name: 'platform-tenants',
     component: () => import('@/views/platform/tenants.vue'),
-    meta: { title: '租户管理', permissions: tenantViewPermissions },
+    meta: { title: '租户管理', permissions: platformManagePermissions },
   },
   {
     path: 'tenants/:id',
     name: 'platform-tenant-detail',
     component: () => import('@/views/platform/tenant-detail.vue'),
-    meta: { title: '租户详情', permissions: tenantViewPermissions },
+    meta: { title: '租户详情', permissions: platformManagePermissions },
   },
   {
     path: 'users',
     name: 'platform-users',
     component: () => import('@/views/platform/users.vue'),
-    meta: { title: '用户管理', permissions: tenantViewPermissions },
+    meta: { title: '用户管理', permissions: platformManagePermissions },
   },
   {
     path: 'settings',
     name: 'platform-settings',
     component: () => import('@/views/platform/settings.vue'),
-    meta: { title: '系统配置', permissions: ['platform:manage'] },
+    meta: { title: '系统配置', permissions: platformManagePermissions },
   },
   {
     path: 'api-monitor',
     name: 'platform-api-monitor',
     component: () => import('@/views/platform/api-monitor.vue'),
-    meta: { title: 'API 监控', permissions: ['platform:manage'] },
+    meta: { title: 'API 监控', permissions: platformManagePermissions },
   },
   {
     path: 'billing',
     name: 'platform-billing',
     component: () => import('@/views/platform/billing.vue'),
-    meta: { title: '计费大盘', permissions: billingViewPermissions },
+    meta: { title: '计费大盘', permissions: platformManagePermissions },
   },
   {
     path: 'models',
     name: 'platform-models',
     component: () => import('@/views/platform/models.vue'),
-    meta: { title: '模型概览', permissions: ['platform:manage'] },
+    meta: { title: '模型概览', permissions: platformManagePermissions },
   },
   {
     path: 'security',
     name: 'platform-security',
     component: () => import('@/views/platform/security.vue'),
-    meta: { title: 'IP 黑名单', permissions: ['platform:manage'] },
+    meta: { title: 'IP 黑名单', permissions: platformManagePermissions },
   },
   {
     path: 'login-logs',
     name: 'platform-login-logs',
     component: () => import('@/views/platform/login-logs.vue'),
-    meta: { title: '登录日志', permissions: tenantViewPermissions },
+    meta: { title: '登录日志', permissions: platformManagePermissions },
   },
   {
     path: 'audit',
     name: 'platform-audit',
     component: () => import('@/views/platform/audit.vue'),
-    meta: { title: '审计日志', permissions: ['audit:view'] },
+    meta: { title: '审计日志', permissions: platformManagePermissions },
   },
 ]

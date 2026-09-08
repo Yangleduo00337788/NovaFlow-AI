@@ -175,20 +175,22 @@
           <div class="page-card log-card">
             <div class="section-title log-section-title">
               <span>最近运行日志</span>
-              <router-link to="/log" class="view-more">查看更多 <RightOutlined /></router-link>
+              <router-link v-if="canViewLogs" to="/monitor?tab=logs" class="view-more">查看更多 <RightOutlined /></router-link>
             </div>
             <div class="log-list">
               <a-empty v-if="!displayLogs.length" description="暂无调用记录">
                 <template #description>
                   <span>暂无调用记录</span>
-                  <p class="dashboard-empty-hint">可在 <router-link to="/log">调用日志</router-link> 查看完整记录</p>
+                  <p v-if="canViewLogs" class="dashboard-empty-hint">可在 <router-link to="/monitor?tab=logs">调用日志</router-link> 查看完整记录</p>
                 </template>
               </a-empty>
-              <router-link
+              <component
+                :is="resolveLogPath(record) ? 'router-link' : 'div'"
                 v-for="record in displayLogs"
                 :key="`${record.logId || record.name}-${record.time}`"
-                :to="resolveLogPath(record)"
-                class="log-row log-link"
+                :to="resolveLogPath(record) || undefined"
+                class="log-row"
+                :class="{ 'log-link': !!resolveLogPath(record) }"
               >
                 <span class="log-name" :title="record.name">{{ record.name }}</span>
                 <span class="log-status" :class="record.success ? 'success' : 'failed'">
@@ -199,7 +201,7 @@
                 <span class="log-time">{{ record.time }}</span>
                 <span class="log-duration">{{ record.duration }}</span>
                 <span class="log-tokens">{{ formatLogTokens(record) }}</span>
-              </router-link>
+              </component>
             </div>
           </div>
         </div>
@@ -290,6 +292,7 @@ import welcomeIllustration from '@/assets/dashboard/welcome-illustration.png'
 use([CanvasRenderer, PieChart, LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, GraphicComponent, MarkPointComponent, VisualMapComponent])
 
 const auth = useAuthStore()
+const canViewLogs = computed(() => auth.hasPermission('log:read'))
 const themeStore = useThemeStore()
 const { mode } = storeToRefs(themeStore)
 const displayName = computed(() => auth.user?.nickname || auth.user?.username || '用户')
@@ -320,13 +323,16 @@ function formatLogTokens(record: RecentLog) {
 }
 
 function resolveLogPath(record: RecentLog) {
-  if (record.traceId) {
-    return `/trace?traceId=${encodeURIComponent(record.traceId)}`
+  if (record.traceId && auth.hasPermission('trace:view')) {
+    return `/monitor?tab=traces&traceId=${encodeURIComponent(record.traceId)}`
   }
-  if (record.logId) {
-    return `/log?logId=${record.logId}`
+  if (auth.hasPermission('log:read')) {
+    if (record.logId) {
+      return `/monitor?tab=logs&logId=${record.logId}`
+    }
+    return '/monitor?tab=logs'
   }
-  return '/log'
+  return ''
 }
 
 const displayRecentItems = computed(() => {

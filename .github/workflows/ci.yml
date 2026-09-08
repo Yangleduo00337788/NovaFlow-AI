@@ -166,6 +166,11 @@ jobs:
           tail -n 200 /tmp/novaflow-server.log || true
           exit 1
 
+      - name: Wait for demo accounts
+        run: pwsh -NoProfile -Command ". test/scripts/NovaFlow-TestCommon.ps1; Wait-NovaDemoAccounts"
+        env:
+          NOVAFLOW_BASE_URL: http://127.0.0.1:8088
+
       - name: Verify smoke test tooling
         run: |
           pwsh -NoProfile -Command "

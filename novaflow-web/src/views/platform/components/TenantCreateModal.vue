@@ -11,7 +11,7 @@
       <a-row :gutter="16">
         <a-col :span="12">
           <a-form-item label="企业名称" required>
-            <a-input v-model:value="form.tenantName" placeholder="请输入企业名称" />
+            <a-input v-model:value="form.tenantName" placeholder="请输入企业名称" data-testid="tenant-name-input" />
           </a-form-item>
         </a-col>
         <a-col :span="12">
@@ -39,7 +39,7 @@
       <a-row :gutter="16">
         <a-col :span="12">
           <a-form-item label="所有者邮箱" required>
-            <a-input v-model:value="form.ownerEmail" placeholder="owner@company.com" />
+            <a-input v-model:value="form.ownerEmail" placeholder="owner@company.com" data-testid="tenant-owner-email-input" />
           </a-form-item>
         </a-col>
         <a-col :span="12">

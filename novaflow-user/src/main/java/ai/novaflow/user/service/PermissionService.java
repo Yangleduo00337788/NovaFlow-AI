@@ -14,11 +14,10 @@ import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.user.mapper.RolePermissionMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
+import ai.novaflow.user.support.SystemRoles;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -54,10 +53,7 @@ public class PermissionService {
     }
 
     public RoleEntity resolvePlatformRole(UserEntity user) {
-        String roleCode = StringUtils.hasText(user.getPlatformRoleCode())
-                ? user.getPlatformRoleCode().trim()
-                : RoleCodes.PLATFORM_ADMIN;
-        return requireSystemRole(roleCode);
+        return requireSystemRole(RoleCodes.PLATFORM_ADMIN);
     }
 
     public RoleEntity resolveRole(long userId, Long tenantId) {
@@ -105,12 +101,7 @@ public class PermissionService {
     }
 
     public RoleEntity requireSystemRole(String roleCode) {
-        RoleEntity role = roleMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", 0)
-                        .eq("role_code", roleCode)
-                        .eq("is_deleted", 0)
-        );
+        RoleEntity role = roleMapper.selectOneByQuery(SystemRoles.byCode(roleCode));
         if (role == null) {
             throw new BusinessException("角色不存在: " + roleCode);
         }

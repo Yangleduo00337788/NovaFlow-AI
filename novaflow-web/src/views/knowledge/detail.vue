@@ -83,6 +83,7 @@
       <div class="retrieval-form">
         <a-textarea
           v-model:value="retrievalQuery"
+          data-testid="kb-retrieve-query"
           :rows="3"
           placeholder="输入测试问题，例如：产品的退货政策是什么？"
           :disabled="retrieving"
@@ -133,7 +134,13 @@
               style="min-width: 160px"
             />
           </div>
-          <a-button type="primary" :loading="retrieving" :disabled="!retrievalQuery.trim()" @click="onRetrieve">
+          <a-button
+            type="primary"
+            data-testid="kb-retrieve-btn"
+            :loading="retrieving"
+            :disabled="!retrievalQuery.trim()"
+            @click="onRetrieve"
+          >
             开始检索
           </a-button>
         </div>
@@ -154,7 +161,7 @@
         />
       </div>
 
-      <div v-if="retrievalResult" class="retrieval-result">
+      <div v-if="retrievalResult" class="retrieval-result" data-testid="kb-retrieve-result">
         <div class="retrieval-meta">
           耗时 {{ retrievalResult.latencyMs }}ms，召回 {{ retrievalResult.chunks.length }} 条
         </div>

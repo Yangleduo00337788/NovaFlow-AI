@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1>Agent Studio</h1>
-        <p>创建和管理 AI Agent</p>
+        <p>创建和管理 AI Agent。Studio 里编排和调试；给最终用户用时挂到「应用」并发布，系统集成走 Open API / Embed。</p>
       </div>
       <a-button v-if="canCreate" type="primary" data-testid="create-agent-btn" @click="openCreate">创建 Agent</a-button>
     </div>
@@ -376,12 +376,19 @@
 
     <a-modal
       v-model:open="publishModalOpen"
-      title="Agent 发布与 API"
-      :width="720"
+      title="发布与对外接入"
+      :width="860"
       :footer="null"
       @cancel="closePublishModal"
     >
       <div v-if="publishInfo" class="publish-modal">
+        <a-alert
+          type="info"
+          show-icon
+          class="key-alert"
+          message="对外口径"
+          description="终端用户走应用门户（见「应用」菜单发布）。网页嵌入和 Open API 用本页凭证，不经过门户登录。"
+        />
         <a-descriptions bordered :column="1" size="small">
           <a-descriptions-item label="发布状态">
             <a-tag :color="statusColor(publishInfo.status)">{{ statusLabel(publishInfo.status) }}</a-tag>
@@ -424,54 +431,134 @@
           <a-button type="primary" size="small" @click="copyText(revealedApiKey)">复制 API Key</a-button>
         </div>
 
-        <div v-if="canViewApiSecrets && publishInfo.status === 1" class="endpoint-section">
-          <div class="section-label">API 端点</div>
-          <p class="endpoint-tip">命令行或第三方系统请使用后端地址 <code>{{ apiBaseUrl }}</code></p>
-          <div class="endpoint-item">
-            <span>对话</span>
-            <code>{{ apiBaseUrl }}{{ publishInfo.chatEndpoint }}</code>
-            <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.chatEndpoint}`)">复制</a-button>
-          </div>
-          <div class="endpoint-item">
-            <span>流式</span>
-            <code>{{ apiBaseUrl }}{{ publishInfo.streamEndpoint }}</code>
-            <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.streamEndpoint}`)">复制</a-button>
-          </div>
-          <div class="endpoint-item">
-            <span>会话列表</span>
-            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations?callerId=</code>
-          </div>
-          <div class="endpoint-item">
-            <span>会话消息</span>
-            <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations/messages?callerId=&amp;conversationKey=</code>
-          </div>
+        <div v-if="canViewApiSecrets && publishInfo.status === 1" class="developer-center">
+          <a-tabs v-model:activeKey="publishTab">
+            <a-tab-pane key="quick-start" tab="Quick Start">
+              <ol class="quick-start-steps">
+                <li>在「应用」中绑定并发布后，终端用户从应用门户进入对话。</li>
+                <li>系统集成复制 <strong>API Key</strong>（服务端）或 <strong>Embed Token</strong>（网页嵌入）。</li>
+                <li>服务端集成：所有 Open API 请求需携带 <code>Authorization: Bearer nf_live_...</code> 与 <code>X-Caller-Id</code>（终端用户唯一标识，≥8 字符）。</li>
+                <li>网页嵌入：将 iframe 代码嵌入业务页面；Embed Token 权限受限，不可列举他人会话。</li>
+                <li>调用对话接口验证连通性，详见下方 Open API / Embed 示例。</li>
+              </ol>
+              <a-alert
+                type="info"
+                show-icon
+                message="凭证权限对比"
+                description="API Key 可访问对话、流式、会话列表与消息；Embed Token 仅可 welcome + chat/stream，且需配置域名白名单（Referer）时仅允许 listed 父页面。"
+              />
+              <div class="quick-links">
+                <a :href="swaggerUrl" target="_blank" rel="noopener">打开 Swagger 文档</a>
+              </div>
+            </a-tab-pane>
 
-          <div class="section-label">网页嵌入</div>
-          <p class="endpoint-tip">嵌入页请使用受限 Embed Token（仅对话，不可列举他人会话）。API Key 仅用于服务端集成。</p>
-          <p v-if="publishInfo.embedTokenPrefix" class="endpoint-tip">
-            Embed Token 前缀：<code>{{ publishInfo.embedTokenPrefix }}...</code>
-          </p>
-          <a-alert
-            v-if="revealedEmbedToken"
-            type="warning"
-            show-icon
-            class="key-alert"
-            message="新 Embed Token 已生成"
-            description="请立即复制并更新 iframe 地址。旧 Token 会立即失效。"
-          />
-          <div v-if="revealedEmbedToken" class="api-key-box">
-            <code>{{ revealedEmbedToken }}</code>
-            <a-button type="primary" size="small" @click="copyText(revealedEmbedToken)">复制 Embed Token</a-button>
-          </div>
-          <pre class="curl-example">{{ embedExample }}</pre>
-          <a-button size="small" @click="copyText(embedExample)">复制嵌入代码</a-button>
+            <a-tab-pane key="open-api" tab="Open API">
+              <div class="endpoint-section">
+                <p class="endpoint-tip">命令行或第三方系统请使用后端地址 <code>{{ apiBaseUrl }}</code></p>
+                <div class="endpoint-item">
+                  <span>对话</span>
+                  <code>{{ apiBaseUrl }}{{ publishInfo.chatEndpoint }}</code>
+                  <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.chatEndpoint}`)">复制</a-button>
+                </div>
+                <div class="endpoint-item">
+                  <span>流式</span>
+                  <code>{{ apiBaseUrl }}{{ publishInfo.streamEndpoint }}</code>
+                  <a-button type="link" size="small" @click="copyText(`${apiBaseUrl}${publishInfo.streamEndpoint}`)">复制</a-button>
+                </div>
+                <div class="endpoint-item">
+                  <span>会话列表</span>
+                  <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations?callerId=</code>
+                </div>
+                <div class="endpoint-item">
+                  <span>会话消息</span>
+                  <code>{{ apiBaseUrl }}/api/v1/open/agents/{{ publishInfo.agentId }}/conversations/messages?callerId=&amp;conversationKey=</code>
+                </div>
 
-          <div class="section-label">调用示例</div>
-          <pre class="curl-example">{{ curlExample }}</pre>
-          <a-space>
-            <a-button size="small" type="primary" @click="copyText(curlExample)">复制 cURL</a-button>
-            <span v-if="!revealedApiKey" class="curl-hint">请将 YOUR_API_KEY 替换为轮换后的最新密钥</span>
-          </a-space>
+                <div class="section-label">同步对话 cURL</div>
+                <pre class="curl-example">{{ curlExample }}</pre>
+                <a-space>
+                  <a-button size="small" type="primary" @click="copyText(curlExample)">复制 cURL</a-button>
+                  <span v-if="!revealedApiKey" class="curl-hint">请将 YOUR_API_KEY 替换为轮换后的最新密钥</span>
+                </a-space>
+
+                <div class="section-label">流式对话 cURL</div>
+                <pre class="curl-example">{{ streamCurlExample }}</pre>
+                <a-button size="small" @click="copyText(streamCurlExample)">复制流式 cURL</a-button>
+
+                <a-alert
+                  class="key-alert"
+                  type="warning"
+                  show-icon
+                  message="X-Caller-Id 说明"
+                  description="同一 callerId 下的会话相互隔离；Embed 与 API Key 均需传递。建议使用业务系统用户 ID 或 UUID，长度 8–128。"
+                />
+              </div>
+            </a-tab-pane>
+
+            <a-tab-pane key="embed" tab="Embed">
+              <div class="endpoint-section">
+                <p class="endpoint-tip">嵌入页请使用受限 Embed Token。API Key 仅用于服务端集成。</p>
+                <p v-if="publishInfo.embedTokenPrefix" class="endpoint-tip">
+                  Embed Token 前缀：<code>{{ publishInfo.embedTokenPrefix }}...</code>
+                </p>
+                <a-alert
+                  v-if="revealedEmbedToken"
+                  type="warning"
+                  show-icon
+                  class="key-alert"
+                  message="新 Embed Token 已生成"
+                  description="请立即复制并更新 iframe 地址。旧 Token 会立即失效。"
+                />
+                <div v-if="revealedEmbedToken" class="api-key-box">
+                  <code>{{ revealedEmbedToken }}</code>
+                  <a-button type="primary" size="small" @click="copyText(revealedEmbedToken)">复制 Embed Token</a-button>
+                </div>
+
+                <a-form layout="vertical" class="embed-config-form">
+                  <a-row :gutter="12">
+                    <a-col :span="8">
+                      <a-form-item label="主题色">
+                        <a-input v-model:value="embedConfigForm.themeColor" placeholder="#6366f1" :maxlength="7" />
+                      </a-form-item>
+                    </a-col>
+                    <a-col :span="8">
+                      <a-form-item label="iframe 宽度">
+                        <a-input-number v-model:value="embedIframeWidth" :min="280" :max="1200" style="width: 100%" />
+                      </a-form-item>
+                    </a-col>
+                    <a-col :span="8">
+                      <a-form-item label="iframe 高度">
+                        <a-input-number v-model:value="embedIframeHeight" :min="400" :max="1200" style="width: 100%" />
+                      </a-form-item>
+                    </a-col>
+                  </a-row>
+                  <a-form-item label="域名白名单（每行一个，如 example.com 或 *.example.com）">
+                    <a-textarea
+                      v-model:value="embedDomainsText"
+                      :auto-size="{ minRows: 2, maxRows: 4 }"
+                      placeholder="留空表示不限制 Referer 来源"
+                    />
+                  </a-form-item>
+                  <a-form-item label="postMessage 目标 Origin">
+                    <a-input v-model:value="embedConfigForm.postMessageTargetOrigin" placeholder="* 或 https://your-site.com" />
+                  </a-form-item>
+                  <a-button type="primary" :loading="embedConfigSaving" @click="onSaveEmbedConfig">保存 Embed 配置</a-button>
+                </a-form>
+
+                <div class="section-label">iframe 嵌入代码</div>
+                <pre class="curl-example">{{ embedExample }}</pre>
+                <a-button size="small" @click="copyText(embedExample)">复制嵌入代码</a-button>
+
+                <a-alert
+                  class="key-alert"
+                  type="info"
+                  show-icon
+                  message="postMessage 事件"
+                  description="宿主页可监听 window message：source=novaflow-embed，type=ready | message | error。"
+                />
+              </div>
+            </a-tab-pane>
+          </a-tabs>
         </div>
 
         <div class="publish-actions">
@@ -535,6 +622,8 @@ import {
   rotateAgentEmbedToken,
   unpublishAgent,
   updateAgent,
+  updateAgentEmbedConfig,
+  type AgentEmbedConfig,
   type AgentItem,
   type AgentPublishInfo,
   type AgentSaveRequest,
@@ -553,7 +642,7 @@ const AGENT_FIELD_TIPS = {
   agentType:
     '决定 Agent 的能力形态。Chat 为纯对话；RAG 会先检索知识库再回答；Tool 可调用 MCP 插件工具；Workflow 绑定已发布工作流并按编排执行。',
   description: '简要说明 Agent 的用途，便于团队成员理解与管理，不影响模型实际行为。',
-  applicationId: 'Agent 所属应用。应用用于聚合多个 Agent 与知识库，并作为统一发布入口。',
+  applicationId: '该 Agent 挂到哪个应用下。应用是门户里用户点开的入口；未挂应用则不会出现在门户。',
   modelConfigId: '对话所使用的大语言模型。留空时将自动使用租户默认的 Chat 模型。',
   knowledgeBaseIds: 'RAG Agent 进行向量检索的知识库，支持多选。每次提问会从中召回与问题最相关的文档分块作为参考。',
   toolIds: '从工具市场选择已同步的 MCP 插件工具，支持多选。Tool Agent 将根据用户问题自动决定调用哪些工具。',
@@ -624,8 +713,18 @@ const publishInfo = ref<AgentPublishInfo | null>(null)
 const publishLoading = ref(false)
 const revealedApiKey = ref('')
 const revealedEmbedToken = ref('')
+const publishTab = ref('quick-start')
+const embedIframeWidth = ref(400)
+const embedIframeHeight = ref(640)
+const embedConfigSaving = ref(false)
+const embedConfigForm = reactive<AgentEmbedConfig>({
+  themeColor: '',
+  postMessageTargetOrigin: '*',
+})
+const embedDomainsText = ref('')
 
 const apiBaseUrl = import.meta.env.DEV ? 'http://localhost:8088' : window.location.origin
+const swaggerUrl = `${apiBaseUrl}/swagger-ui/index.html`
 
 const debugDrawerWidth = computed(() => (debugWideLayout.value ? '100vw' : '50vw'))
 const editDrawerBodyStyle = {
@@ -653,11 +752,25 @@ const curlExample = computed(() => {
   -d "{\\"message\\":\\"你好\\",\\"conversationId\\":\\"conv-001\\"}"`
 })
 
+const streamCurlExample = computed(() => {
+  if (!publishInfo.value) return ''
+  const key = revealedApiKey.value || 'YOUR_API_KEY'
+  return `curl -N -X POST "${apiBaseUrl}${publishInfo.value.streamEndpoint}" ^
+  -H "Authorization: Bearer ${key}" ^
+  -H "X-Caller-Id: your-end-user-id" ^
+  -H "Content-Type: application/json" ^
+  -d "{\\"message\\":\\"你好\\",\\"conversationId\\":\\"conv-001\\"}"`
+})
+
 const embedExample = computed(() => {
   if (!publishInfo.value?.embedPath) return ''
   const token = revealedEmbedToken.value || 'YOUR_EMBED_TOKEN'
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
-  return `<iframe src="${origin}${publishInfo.value.embedPath}?embedToken=${token}" width="400" height="640" style="border:0;border-radius:12px;" allow="clipboard-write"></iframe>`
+  const params = new URLSearchParams({ embedToken: token })
+  if (embedConfigForm.themeColor) {
+    params.set('themeColor', embedConfigForm.themeColor)
+  }
+  return `<iframe src="${origin}${publishInfo.value.embedPath}?${params.toString()}" width="${embedIframeWidth.value}" height="${embedIframeHeight.value}" style="border:0;border-radius:12px;" allow="clipboard-write"></iframe>`
 })
 
 const form = reactive<AgentSaveRequest>({
@@ -996,15 +1109,23 @@ function onDebugDrawerClose() {
   debugWideLayout.value = false
 }
 
+function syncEmbedConfigForm(config?: AgentEmbedConfig) {
+  embedConfigForm.themeColor = config?.themeColor || ''
+  embedConfigForm.postMessageTargetOrigin = config?.postMessageTargetOrigin || '*'
+  embedDomainsText.value = (config?.allowedDomains || []).join('\n')
+}
+
 async function openPublish(id: number) {
   publishAgentId.value = id
   publishModalOpen.value = true
+  publishTab.value = 'quick-start'
   revealedApiKey.value = ''
   revealedEmbedToken.value = ''
   publishLoading.value = true
   try {
     const res = await fetchAgentPublishInfo(id)
     publishInfo.value = res.data.data
+    syncEmbedConfigForm(res.data.data.embedConfig)
     if (res.data.data.embedToken) {
       revealedEmbedToken.value = res.data.data.embedToken
     }
@@ -1021,6 +1142,32 @@ function closePublishModal() {
   publishInfo.value = null
   revealedApiKey.value = ''
   revealedEmbedToken.value = ''
+  embedDomainsText.value = ''
+}
+
+async function onSaveEmbedConfig() {
+  if (!publishAgentId.value) return
+  embedConfigSaving.value = true
+  try {
+    const allowedDomains = embedDomainsText.value
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+    const res = await updateAgentEmbedConfig(publishAgentId.value, {
+      themeColor: embedConfigForm.themeColor || undefined,
+      allowedDomains,
+      postMessageTargetOrigin: embedConfigForm.postMessageTargetOrigin || '*',
+    })
+    syncEmbedConfigForm(res.data.data)
+    if (publishInfo.value) {
+      publishInfo.value = { ...publishInfo.value, embedConfig: res.data.data }
+    }
+    message.success('Embed 配置已保存')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '保存失败')
+  } finally {
+    embedConfigSaving.value = false
+  }
 }
 
 async function onPublish() {
@@ -1343,5 +1490,27 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   margin-top: 8px;
+}
+
+.developer-center {
+  margin-top: 4px;
+}
+
+.quick-start-steps {
+  margin: 0 0 12px 20px;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.quick-links {
+  margin-top: 12px;
+}
+
+.quick-links a {
+  color: var(--primary, #1677ff);
+}
+
+.embed-config-form {
+  margin: 12px 0;
 }
 </style>

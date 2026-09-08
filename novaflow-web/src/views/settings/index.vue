@@ -82,7 +82,7 @@ const allSettingGroups: Array<{ title: string; items: SettingItem[] }> = [
   {
     title: '运维监控',
     items: [
-      { key: 'monitor', title: '运行监控', desc: '服务健康与调用指标', path: '/monitor', icon: SettingOutlined },
+      { key: 'monitor', title: '运行', desc: '健康、日志与链路', path: '/monitor', icon: SettingOutlined },
     ],
   },
 ]

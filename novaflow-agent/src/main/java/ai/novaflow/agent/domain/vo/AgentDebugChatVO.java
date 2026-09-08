@@ -19,4 +19,8 @@ public class AgentDebugChatVO {
     private ModelCapabilitiesVO modelCapabilities;
     private String modelName;
     private String providerName;
+    /** Embed 页主题色（Open API welcome 返回） */
+    private String embedThemeColor;
+    /** postMessage 目标 Origin（Open API welcome 返回） */
+    private String postMessageTargetOrigin;
 }

@@ -3,7 +3,7 @@ package ai.novaflow.server.integration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * 集成测试中临时撤销 viewer 角色的 portal:access，测试结束后恢复。
+ * 集成测试中临时撤销 member 角色的 portal:access，测试结束后恢复。
  */
 public final class PortalAccessTestSupport {
 
@@ -13,7 +13,7 @@ public final class PortalAccessTestSupport {
     public static void revokeViewerPortalAccess(JdbcTemplate jdbcTemplate) {
         jdbcTemplate.update("""
                 DELETE rp FROM role_permission rp
-                INNER JOIN role r ON r.id = rp.role_id AND r.tenant_id = 0 AND r.role_code = 'viewer'
+                INNER JOIN role r ON r.id = rp.role_id AND r.tenant_id = 0 AND r.role_code = 'member'
                 INNER JOIN permission p ON p.id = rp.permission_id AND p.permission_code = 'portal:access'
                 """);
     }
@@ -24,7 +24,7 @@ public final class PortalAccessTestSupport {
                 SELECT r.id, p.id
                 FROM role r
                 JOIN permission p ON p.permission_code = 'portal:access'
-                WHERE r.tenant_id = 0 AND r.role_code = 'viewer'
+                WHERE r.tenant_id = 0 AND r.role_code = 'member'
                 """);
     }
 }

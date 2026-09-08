@@ -1,11 +1,15 @@
 <template>
-  <div class="observability-page page-shell">
-    <div class="page-header">
+  <div class="observability-page" :class="{ 'page-shell': !embedded, 'is-embedded': embedded }">
+    <div v-if="!embedded" class="page-header">
       <div>
         <h1>可观测性</h1>
         <p>错误率、延迟趋势与基础设施健康概览</p>
       </div>
       <a-button :loading="loading" @click="loadData">刷新</a-button>
+    </div>
+    <div v-else class="embed-toolbar">
+      <h2>告警与失败</h2>
+      <a-button size="small" :loading="loading" @click="loadData">刷新</a-button>
     </div>
 
     <a-spin :spinning="loading">
@@ -87,6 +91,8 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { fetchObservabilityOverview } from '@/api/monitor'
 import type { ObservabilityOverview } from '@/types/monitor'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -340,6 +346,24 @@ onMounted(loadData)
 .rank-value {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.is-embedded {
+  min-height: auto;
+  margin-top: 24px;
+}
+
+.embed-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.embed-toolbar h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 @media (max-width: 1200px) {

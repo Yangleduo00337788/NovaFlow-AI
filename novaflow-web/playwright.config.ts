@@ -1,8 +1,18 @@
 import { defineConfig, devices } from '@playwright/test'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const adminAuthFile = 'e2e/.auth/admin.json'
 const platformAuthFile = 'e2e/.auth/platform.json'
 const portalAuthFile = 'e2e/.auth/portal.json'
+
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const apiBase = (process.env.NOVAFLOW_API_URL ?? 'http://localhost:8088').replace(/\/$/, '')
+
+const desktopChrome = {
+  ...devices['Desktop Chrome'],
+  ...(process.env.CI ? {} : { channel: 'chrome' as const }),
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,23 +31,20 @@ export default defineConfig({
       name: 'setup',
       testMatch: /global\.setup\.ts/,
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
       },
     },
     {
       name: 'chromium-auth',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
       },
       testMatch: /auth\.spec\.ts|auth-expiry\.spec\.ts|double-submit\.spec\.ts|error-states\.spec\.ts/,
     },
     {
       name: 'chromium',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
         storageState: adminAuthFile,
       },
       dependencies: ['setup'],
@@ -53,14 +60,15 @@ export default defineConfig({
         /roles\.spec\.ts/,
         /custom-roles\.spec\.ts/,
         /route-guard\.spec\.ts/,
+        /platform-ops\.spec\.ts/,
+        /developer-center\.spec\.ts/,
       ],
       grepInvert: /平台超管页面可加载/,
     },
     {
       name: 'chromium-platform',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
         storageState: platformAuthFile,
       },
       dependencies: ['setup'],
@@ -68,10 +76,18 @@ export default defineConfig({
       grep: /平台超管页面可加载/,
     },
     {
+      name: 'chromium-platform-ops',
+      use: {
+        ...desktopChrome,
+        storageState: platformAuthFile,
+      },
+      dependencies: ['setup'],
+      testMatch: /platform-ops\.spec\.ts/,
+    },
+    {
       name: 'chromium-portal',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
         storageState: portalAuthFile,
       },
       dependencies: ['setup'],
@@ -80,16 +96,23 @@ export default defineConfig({
     {
       name: 'chromium-embed',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
       },
       testMatch: /embed\.spec\.ts|xss\.spec\.ts/,
     },
     {
+      name: 'chromium-developer-center',
+      use: {
+        ...desktopChrome,
+        storageState: adminAuthFile,
+      },
+      dependencies: ['setup'],
+      testMatch: /developer-center\.spec\.ts/,
+    },
+    {
       name: 'chromium-roles',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
         storageState: { cookies: [], origins: [] },
       },
       testMatch: /roles\.spec\.ts|custom-roles\.spec\.ts/,
@@ -97,17 +120,27 @@ export default defineConfig({
     {
       name: 'chromium-route-guard',
       use: {
-        ...devices['Desktop Chrome'],
-        channel: 'chrome',
+        ...desktopChrome,
         storageState: { cookies: [], origins: [] },
       },
       testMatch: /route-guard\.spec\.ts/,
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  webServer: [
+    {
+      command: process.platform === 'win32'
+        ? 'mvn.cmd -q -pl novaflow-server spring-boot:run -DskipTests'
+        : 'mvn -q -pl novaflow-server spring-boot:run -DskipTests',
+      cwd: repoRoot,
+      url: `${apiBase}/api/v1/health`,
+      reuseExistingServer: true,
+      timeout: 240000,
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
+  ],
 })

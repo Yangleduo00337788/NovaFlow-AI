@@ -20,7 +20,7 @@ Write-NovaLog '=== Phase 35 platform alert dispatch ===' $logFile
 
 try {
     $platform = Get-NovaLoginToken 'platform@novaflow.ai' 'Platform123!'
-    $auditor = Get-NovaLoginToken 'auditor@novaflow.ai' 'Auditor123!'
+    $admin = Get-NovaLoginToken
     Wait-NovaMaintenanceOff -PlatformToken $platform
 
     $channels = Invoke-NovaApi -Path '/api/v1/platform/notify-channels' -Token $platform
@@ -50,8 +50,8 @@ try {
     $test = Invoke-NovaApi -Method POST -Path '/api/v1/platform/notify-channels/test' -Token $platform
     Check 'P35-04 test notify dispatch' ($test.code -eq 0) "code=$($test.code)"
 
-    $denied = Invoke-NovaApi -Path '/api/v1/platform/notify-channels' -Token $auditor
-    Check 'P35-05 auditor denied notify channels' ($denied.code -ne 0) "code=$($denied.code)"
+    $denied = Invoke-NovaApi -Path '/api/v1/platform/notify-channels' -Token $admin
+    Check 'P35-05 tenant admin denied notify channels' ($denied.code -ne 0) "code=$($denied.code)"
 } catch {
     Check 'platform-alert-dispatch setup' $false $_.Exception.Message
 }

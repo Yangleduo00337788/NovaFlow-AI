@@ -13,7 +13,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8088',
+        target: process.env.NOVAFLOW_API_URL ?? 'http://localhost:8088',
         changeOrigin: true,
       },
     },

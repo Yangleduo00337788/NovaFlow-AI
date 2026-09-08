@@ -1,6 +1,6 @@
 <template>
-  <div class="trace-page page-shell">
-    <div class="page-header">
+  <div class="trace-page" :class="{ 'page-shell': !embedded, 'is-embedded': embedded }">
+    <div v-if="!embedded" class="page-header">
       <div>
         <h1>链路分析</h1>
         <p>追踪 Agent 与工作流调用链路，定位性能瓶颈与异常节点</p>
@@ -118,6 +118,7 @@ import TraceWaterfall from '@/components/trace/TraceWaterfall.vue'
 import { formatDateTime } from '@/utils/datetime'
 
 const route = useRoute()
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const loading = ref(false)
 const list = ref<TraceSpan[]>([])
 const keyword = ref('')
@@ -270,5 +271,9 @@ onMounted(() => {
   margin-top: 6px;
   font-size: 12px;
   color: #ff4d4f;
+}
+
+.is-embedded {
+  min-height: auto;
 }
 </style>

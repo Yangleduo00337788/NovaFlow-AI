@@ -1,9 +1,11 @@
 package ai.novaflow.server.integration;
 
+import ai.novaflow.user.service.PlatformSystemConfigService;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
@@ -12,6 +14,7 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -21,6 +24,12 @@ public abstract class IntegrationTestSupport {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired(required = false)
+    private PlatformSystemConfigService platformSystemConfigService;
+
+    @Autowired(required = false)
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * JDK HttpURLConnection 会在 GET 请求中静默丢弃 Authorization 头。
@@ -38,6 +47,20 @@ public abstract class IntegrationTestSupport {
                 return false;
             }
         });
+        prepareSharedGateState();
+    }
+
+    private void prepareSharedGateState() {
+        if (platformSystemConfigService != null) {
+            platformSystemConfigService.setRegistrationEnabled(true, null);
+            platformSystemConfigService.setBatchRegisterIpLimitPerDay(100_000, null);
+        }
+        if (stringRedisTemplate != null) {
+            Set<String> keys = stringRedisTemplate.keys("novaflow:risk:register:ip:*");
+            if (keys != null && !keys.isEmpty()) {
+                stringRedisTemplate.delete(keys);
+            }
+        }
     }
 
     protected void assertHealthUp(TestRestTemplate restTemplate) {

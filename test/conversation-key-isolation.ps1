@@ -15,7 +15,7 @@ $suffix = (Get-Date -Format 'HHmmss') + '-' + (Get-Random -Maximum 9999)
 $callerA = "c04-a-$suffix"
 $callerB = "c04-b-$suffix"
 $convAdmin = "c04-admin-$suffix"
-$convDev = "c04-dev-$suffix"
+$convPeer = "c04-peer-$suffix"
 $convShared = "c04-shared-$suffix"
 
 function Check {
@@ -37,9 +37,21 @@ Write-NovaLog '=== conversation-key-isolation ===' $logFile
 
 try {
     $adminToken = Get-NovaLoginToken
-    $devToken = Get-NovaLoginToken -Email 'developer@novaflow.ai' -Password 'Developer123!'
+    $peerEmail = "c04-admin-$suffix@novaflow.test"
+    $peerPassword = 'SmokeTest123!'
+    $invitePath = Join-Path $script:NovaFlowTmpDir 'c04-invite.json'
+    Write-NovaJson -Path $invitePath -Data @{
+        email    = $peerEmail
+        nickname = "C04 Peer $suffix"
+        roleCode = 'tenant_admin'
+        password = $peerPassword
+    }
+    $invite = Invoke-NovaApi -Method POST -Path '/api/v1/org/members/invite' -Token $adminToken -OutFile $invitePath
+    Check 'C-04 invite second studio admin' ($invite.code -eq 0) "code=$($invite.code)"
+    $peerMemberId = [regex]::Match($invite.raw, '"id":(\d+)').Groups[1].Value
+    $peerToken = Get-NovaLoginToken -Email $peerEmail -Password $peerPassword
     $adminUserId = Get-NovaMemberUserId -Token $adminToken -Email 'admin@novaflow.ai'
-    $devUserId = Get-NovaMemberUserId -Token $adminToken -Email 'developer@novaflow.ai'
+    $peerUserId = Get-NovaMemberUserId -Token $adminToken -Email $peerEmail
 
     $appId = New-NovaApplication -Token $adminToken -Name "C04-App-$suffix"
     $agentId = New-NovaAgent -Token $adminToken -ApplicationId $appId -Name "C04-Agent-$suffix"
@@ -50,27 +62,27 @@ try {
 
     # --- C-04 debug: auto key scoped by userId ---
     $autoAdmin = Invoke-DebugChat -Token $adminToken -AgentId $agentId -Message 'auto key admin' -ConversationId $null
-    $autoDev = Invoke-DebugChat -Token $devToken -AgentId $agentId -Message 'auto key dev' -ConversationId $null
-    if ($autoAdmin.code -eq 0 -and $autoDev.code -eq 0) {
+    $autoPeer = Invoke-DebugChat -Token $peerToken -AgentId $agentId -Message 'auto key peer' -ConversationId $null
+    if ($autoAdmin.code -eq 0 -and $autoPeer.code -eq 0) {
         $listAdmin = Invoke-NovaApi -Path "/api/v1/agents/$agentId/debug/conversations?page=1&pageSize=50" -Token $adminToken
-        $listDev = Invoke-NovaApi -Path "/api/v1/agents/$agentId/debug/conversations?page=1&pageSize=50" -Token $devToken
+        $listPeer = Invoke-NovaApi -Path "/api/v1/agents/$agentId/debug/conversations?page=1&pageSize=50" -Token $peerToken
         $keysAdmin = [regex]::Matches($listAdmin.raw, '"conversationKey":"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
-        $keysDev = [regex]::Matches($listDev.raw, '"conversationKey":"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+        $keysPeer = [regex]::Matches($listPeer.raw, '"conversationKey":"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
         $autoKeyAdmin = $keysAdmin | Where-Object { $_ -match "debug-.*-u$adminUserId-$agentId" } | Select-Object -First 1
-        $autoKeyDev = $keysDev | Where-Object { $_ -match "debug-.*-u$devUserId-$agentId" } | Select-Object -First 1
-        $autoOk = ($autoKeyAdmin -and $autoKeyDev -and ($autoKeyAdmin -ne $autoKeyDev))
-        Check 'C-04 debug auto key per user' $autoOk "admin=$autoKeyAdmin dev=$autoKeyDev"
-        Check 'C-04 debug list excludes other user' (($keysAdmin -notcontains $autoKeyDev) -and ($keysDev -notcontains $autoKeyAdmin)) "adminKeys=$($keysAdmin.Count) devKeys=$($keysDev.Count)"
+        $autoKeyPeer = $keysPeer | Where-Object { $_ -match "debug-.*-u$peerUserId-$agentId" } | Select-Object -First 1
+        $autoOk = ($autoKeyAdmin -and $autoKeyPeer -and ($autoKeyAdmin -ne $autoKeyPeer))
+        Check 'C-04 debug auto key per user' $autoOk "admin=$autoKeyAdmin peer=$autoKeyPeer"
+        Check 'C-04 debug list excludes other user' (($keysAdmin -notcontains $autoKeyPeer) -and ($keysPeer -notcontains $autoKeyAdmin)) "adminKeys=$($keysAdmin.Count) peerKeys=$($keysPeer.Count)"
     } else {
-        Check 'C-04 debug auto key per user' $false "SKIP: chat failed admin=$($autoAdmin.code) dev=$($autoDev.code)"
+        Check 'C-04 debug auto key per user' $false "SKIP: chat failed admin=$($autoAdmin.code) peer=$($autoPeer.code)"
         Check 'C-04 debug list excludes other user' $false 'SKIP: chat failed'
     }
 
     # --- C-04 debug: explicit key cannot cross users ---
     $seedAdmin = Invoke-DebugChat -Token $adminToken -AgentId $agentId -Message 'shared conv seed' -ConversationId $convShared
     if ($seedAdmin.code -eq 0) {
-        $crossDev = Invoke-NovaApi -Path "/api/v1/agents/$agentId/debug/conversations/messages?conversationKey=$convShared" -Token $devToken
-        Check 'C-04 debug cross-user messages denied' ($crossDev.code -ne 0) "http=$($crossDev.http) code=$($crossDev.code)"
+        $crossPeer = Invoke-NovaApi -Path "/api/v1/agents/$agentId/debug/conversations/messages?conversationKey=$convShared" -Token $peerToken
+        Check 'C-04 debug cross-user messages denied' ($crossPeer.code -ne 0) "http=$($crossPeer.http) code=$($crossPeer.code)"
         $ownAdmin = Invoke-NovaApi -Path "/api/v1/agents/$agentId/debug/conversations/messages?conversationKey=$convShared" -Token $adminToken
         Check 'C-04 debug owner can read messages' ($ownAdmin.code -eq 0) "http=$($ownAdmin.http) code=$($ownAdmin.code)"
     } else {
@@ -106,6 +118,9 @@ try {
     Invoke-NovaApi -Method DELETE -Path "/api/v1/applications/$appId" -Token $adminToken | Out-Null
     Invoke-NovaApi -Method DELETE -Path "/api/v1/agents/$openAgentId" -Token $adminToken | Out-Null
     Invoke-NovaApi -Method DELETE -Path "/api/v1/applications/$($fixture.appId)" -Token $adminToken | Out-Null
+    if ($peerMemberId) {
+        Invoke-NovaApi -Method DELETE -Path "/api/v1/org/members/$peerMemberId" -Token $adminToken | Out-Null
+    }
 } catch {
     Check 'conversation-key-isolation setup' $false $_.Exception.Message
 }

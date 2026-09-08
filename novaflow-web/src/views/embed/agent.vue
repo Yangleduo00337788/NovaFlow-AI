@@ -116,7 +116,7 @@
       </div>
     </div>
 
-    <a-alert v-if="errorMessage" type="error" :message="errorMessage" show-icon class="embed-error" />
+    <a-alert v-if="errorMessage" type="error" :message="errorMessage" show-icon class="embed-error" data-testid="embed-error" />
   </div>
 </template>
 
@@ -176,8 +176,10 @@ function resolveEmbedToken(): string {
 const embedToken = ref(resolveEmbedToken())
 const callerId = ref(resolveCallerId())
 const subtitle = route.query.subtitle ? String(route.query.subtitle) : ''
+const queryThemeColor = route.query.themeColor ? String(route.query.themeColor) : ''
 
 const agentName = ref('')
+const postMessageTargetOrigin = ref('*')
 const input = ref('')
 const inputFocused = ref(false)
 const messages = ref<ChatMessage[]>([])
@@ -192,6 +194,30 @@ let abortController: AbortController | null = null
 let typewriterTimer: ReturnType<typeof setInterval> | null = null
 let tokenBuffer = ''
 let activeAssistantMessageId: number | null = null
+
+function applyEmbedTheme(color?: string) {
+  const root = document.documentElement
+  const theme = color || queryThemeColor
+  if (!theme) {
+    root.style.removeProperty('--embed-primary')
+    return
+  }
+  root.style.setProperty('--embed-primary', theme)
+}
+
+function emitEmbedEvent(type: 'ready' | 'message' | 'error', payload?: Record<string, unknown>) {
+  if (typeof window === 'undefined' || window.parent === window) return
+  const targetOrigin = postMessageTargetOrigin.value || '*'
+  window.parent.postMessage(
+    {
+      source: 'novaflow-embed',
+      type,
+      agentId,
+      payload,
+    },
+    targetOrigin,
+  )
+}
 
 function scrollToBottom() {
   nextTick(() => {
@@ -269,12 +295,18 @@ async function loadWelcome() {
   try {
     const res = await fetchOpenAgentWelcome(agentId, embedToken.value, callerId.value)
     agentName.value = res.data.data.agentName
+    if (res.data.data.postMessageTargetOrigin) {
+      postMessageTargetOrigin.value = res.data.data.postMessageTargetOrigin
+    }
+    applyEmbedTheme(res.data.data.embedThemeColor)
     if (res.data.data.reply) {
       messages.value.push({ id: seq++, role: 'assistant', content: res.data.data.reply })
     }
     ready.value = true
+    emitEmbedEvent('ready', { agentName: agentName.value })
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : '加载失败'
+    emitEmbedEvent('error', { message: errorMessage.value })
   } finally {
     loadingWelcome.value = false
     scrollToBottom()
@@ -295,6 +327,7 @@ async function onSend() {
   input.value = ''
   errorMessage.value = ''
   messages.value.push({ id: seq++, role: 'user', content: text })
+  emitEmbedEvent('message', { role: 'user', content: text })
   sending.value = true
   scrollToBottom()
 
@@ -325,9 +358,16 @@ async function onSend() {
           if (data.agentName) {
             agentName.value = data.agentName
           }
+          emitEmbedEvent('message', {
+            role: 'assistant',
+            content: target?.content || data.reply || '',
+            tokensUsed: data.tokensUsed,
+            latencyMs: data.latencyMs,
+          })
         },
         onError: (error) => {
           errorMessage.value = error.message
+          emitEmbedEvent('error', { message: error.message })
         },
       },
       abortController.signal,
@@ -336,6 +376,7 @@ async function onSend() {
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') return
     errorMessage.value = e instanceof Error ? e.message : '发送失败'
+    emitEmbedEvent('error', { message: errorMessage.value })
     messages.value = messages.value.filter((item) => item.id !== assistantId)
   } finally {
     const target = messages.value.find((item) => item.id === assistantId)
@@ -348,7 +389,10 @@ async function onSend() {
   }
 }
 
-onMounted(loadWelcome)
+onMounted(() => {
+  applyEmbedTheme()
+  loadWelcome()
+})
 onUnmounted(() => {
   abortController?.abort()
   clearTypewriter()
@@ -415,7 +459,7 @@ onUnmounted(() => {
   max-width: 85%;
   padding: 10px 14px;
   border-radius: 12px;
-  background: #1677ff;
+  background: var(--embed-primary, #1677ff);
   color: #fff;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -560,11 +604,15 @@ onUnmounted(() => {
 }
 
 .send-btn:not(:disabled):hover {
-  background: #a5b4fc;
+  background: color-mix(in srgb, var(--embed-primary, #1677ff) 70%, #fff);
 }
 
 .send-btn:not(:disabled):active {
   transform: scale(0.96);
+}
+
+.send-btn:not(:disabled) {
+  background: var(--embed-primary, #b8c5ff);
 }
 
 .send-btn:disabled {
@@ -657,7 +705,7 @@ onUnmounted(() => {
 
 .cursor {
   display: inline-block;
-  color: #1677ff;
+  color: var(--embed-primary, #1677ff);
   font-weight: 300;
   animation: blink 1s step-end infinite;
   margin-bottom: 2px;

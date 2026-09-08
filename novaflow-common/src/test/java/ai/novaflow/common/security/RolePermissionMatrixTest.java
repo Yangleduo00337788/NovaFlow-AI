@@ -2,73 +2,33 @@ package ai.novaflow.common.security;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RolePermissionMatrixTest {
 
     @Test
-    void developerCanDebugButNotConfigureModels() {
-        assertTrue(RolePermissionMatrix.DEVELOPER.contains(PermissionCodes.AGENT_DEBUG));
-        assertFalse(RolePermissionMatrix.DEVELOPER.contains(PermissionCodes.MODEL_CONFIG));
+    void portalUserCanChatAndOpenPortalOnly() {
+        assertEquals(2, RolePermissionMatrix.USER.size());
+        assertTrue(RolePermissionMatrix.USER.contains(PermissionCodes.PORTAL_ACCESS));
+        assertTrue(RolePermissionMatrix.USER.contains(PermissionCodes.AGENT_CHAT));
+        assertFalse(RolePermissionMatrix.USER.contains(PermissionCodes.AGENT_CREATE));
+        assertFalse(RolePermissionMatrix.USER.contains(PermissionCodes.DASHBOARD_VIEW));
+        assertFalse(RolePermissionMatrix.USER.contains(PermissionCodes.PLATFORM_MANAGE));
     }
 
     @Test
-    void developerHasNoLogOrBillingViewPerPhase5And8() {
-        assertFalse(RolePermissionMatrix.DEVELOPER.contains(PermissionCodes.LOG_READ));
-        assertFalse(RolePermissionMatrix.DEVELOPER.contains(PermissionCodes.BILLING_VIEW));
+    void memberAliasMatchesUserMatrix() {
+        assertEquals(RolePermissionMatrix.USER, RolePermissionMatrix.MEMBER);
     }
 
     @Test
-    void operatorCanExecuteWorkflowsButNotCreateAgents() {
-        assertTrue(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.WORKFLOW_EXECUTE));
-        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.AGENT_CREATE));
-    }
-
-    @Test
-    void operatorCanPublishAppsAndReadModelsButNotManageAppsOrBilling() {
-        assertTrue(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.APPLICATION_PUBLISH));
-        assertTrue(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.MODEL_READ));
-        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.APPLICATION_MANAGE));
-        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.BILLING_VIEW));
-    }
-
-    @Test
-    void viewerIsReadOnlyAcrossCoreResources() {
-        assertTrue(RolePermissionMatrix.VIEWER.contains(PermissionCodes.AGENT_READ));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.AGENT_EDIT));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.WORKFLOW_CREATE));
-    }
-
-    @Test
-    void viewerHasNoStudioOrObservabilityExtrasPerPhase5And6() {
-        assertTrue(RolePermissionMatrix.VIEWER.contains(PermissionCodes.APPLICATION_READ));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.APPLICATION_MANAGE));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.MODEL_READ));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.TRACE_VIEW));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.LOG_READ));
-        assertFalse(RolePermissionMatrix.VIEWER.contains(PermissionCodes.BILLING_VIEW));
-    }
-
-    @Test
-    void memberCanChatButNotPublish() {
-        assertTrue(RolePermissionMatrix.MEMBER.contains(PermissionCodes.AGENT_CHAT));
-        assertFalse(RolePermissionMatrix.MEMBER.contains(PermissionCodes.AGENT_PUBLISH));
-    }
-
-    @Test
-    void memberCanReadApplicationsForPortalAcl() {
-        assertTrue(RolePermissionMatrix.MEMBER.contains(PermissionCodes.APPLICATION_READ));
-    }
-
-    @Test
-    void developerCanPublishApplicationsPerV33() {
-        assertTrue(RolePermissionMatrix.DEVELOPER.contains(PermissionCodes.APPLICATION_PUBLISH));
-    }
-
-    @Test
-    void operatorCannotManageApiKeys() {
-        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.API_READ));
-        assertFalse(RolePermissionMatrix.OPERATOR.contains(PermissionCodes.API_CREATE));
+    void systemRolesArePlatformTenantAdminAndUser() {
+        assertTrue(RoleCodes.ALL_SYSTEM_ROLES.contains(RoleCodes.PLATFORM_ADMIN));
+        assertTrue(RoleCodes.ALL_SYSTEM_ROLES.contains(RoleCodes.TENANT_ADMIN));
+        assertTrue(RoleCodes.ALL_SYSTEM_ROLES.contains(RoleCodes.USER));
+        assertEquals(3, RoleCodes.ALL_SYSTEM_ROLES.size());
+        assertFalse(RoleCodes.ASSIGNABLE_TENANT_ROLES.contains(RoleCodes.PLATFORM_ADMIN));
     }
 }

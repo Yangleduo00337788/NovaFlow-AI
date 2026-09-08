@@ -19,6 +19,7 @@ import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.user.mapper.RolePermissionMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
 import ai.novaflow.user.mapper.UserMapper;
+import ai.novaflow.user.support.SystemRoles;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -42,12 +43,8 @@ import java.util.stream.Collectors;
 public class RoleManagementService {
 
     private static final List<String> ROLE_DISPLAY_ORDER = List.of(
-            RoleCodes.TENANT_OWNER,
             RoleCodes.TENANT_ADMIN,
-            RoleCodes.DEVELOPER,
-            RoleCodes.OPERATOR,
-            RoleCodes.MEMBER,
-            RoleCodes.VIEWER
+            RoleCodes.USER
     );
 
     private final RoleMapper roleMapper;
@@ -63,9 +60,7 @@ public class RoleManagementService {
         Map<Long, Long> memberCountMap = countMembersByRole(tenantId);
 
         List<RoleEntity> systemRoles = roleMapper.selectListByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", 0)
-                        .eq("is_deleted", 0)
+                SystemRoles.tenantSystem()
                         .in("role_code", RoleCodes.TENANT_SYSTEM_ROLES)
                         .orderBy("id", true)
         );
@@ -98,9 +93,7 @@ public class RoleManagementService {
         Map<Long, Long> memberCountMap = countMembersByRole(tenantId);
 
         List<RoleEntity> systemRoles = roleMapper.selectListByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", 0)
-                        .eq("is_deleted", 0)
+                SystemRoles.tenantSystem()
                         .in("role_code", RoleCodes.ASSIGNABLE_TENANT_ROLES)
                         .orderBy("id", true)
         );
@@ -327,12 +320,8 @@ public class RoleManagementService {
 
     private String resolveRoleDescription(String roleCode) {
         return switch (roleCode) {
-            case RoleCodes.TENANT_OWNER -> "企业最高管理员，可删除企业与转移所有权";
-            case RoleCodes.TENANT_ADMIN -> "管理本企业资源、成员与权限，不含跨租户总控";
-            case RoleCodes.DEVELOPER -> "创建和编辑 Agent、工作流、知识库等 AI 资源";
-            case RoleCodes.OPERATOR -> "发布、运行与监控 AI 应用，不改核心配置";
-            case RoleCodes.MEMBER -> "使用已发布的 AI 应用与工作台";
-            case RoleCodes.VIEWER -> "只读查看企业 AI 资源与运行数据";
+            case RoleCodes.TENANT_ADMIN -> "管理本企业 Studio、组织与已发布应用";
+            case RoleCodes.USER -> "使用已发布的应用门户对话";
             default -> "";
         };
     }

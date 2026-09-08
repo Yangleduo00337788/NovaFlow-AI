@@ -4,7 +4,8 @@
 
 $script:NovaFlowBaseUrl = if ($env:NOVAFLOW_BASE_URL) { $env:NOVAFLOW_BASE_URL.TrimEnd('/') } else { 'http://localhost:8088' }
 $script:NovaFlowWebUrl = if ($env:NOVAFLOW_WEB_URL) { $env:NOVAFLOW_WEB_URL.TrimEnd('/') } else { 'http://localhost:3000' }
-$script:NovaFlowTmpDir = Join-Path $env:TEMP "novaflow-test-$(Get-Random)"
+$tempRoot = if ($env:TEMP) { $env:TEMP } elseif ($env:TMP) { $env:TMP } else { '/tmp' }
+$script:NovaFlowTmpDir = Join-Path $tempRoot "novaflow-test-$(Get-Random)"
 New-Item -ItemType Directory -Force -Path $script:NovaFlowTmpDir | Out-Null
 
 function Write-NovaLog {

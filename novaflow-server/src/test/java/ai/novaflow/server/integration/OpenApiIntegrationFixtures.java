@@ -71,10 +71,10 @@ public final class OpenApiIntegrationFixtures {
         request.put("planType", "enterprise");
 
         ResponseEntity<Map> response = restTemplate.postForEntity("/api/v1/auth/register", request, Map.class);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
         Map<?, ?> body = response.getBody();
-        assertNotNull(body);
-        assertEquals(0, intCode(body));
+        assertNotNull(body, "register response body");
+        assertEquals(0, intCode(body), () -> "register failed http=" + response.getStatusCode() + " body=" + body);
+        assertEquals(HttpStatus.OK, response.getStatusCode(), () -> "register http body=" + body);
 
         Map<?, ?> data = (Map<?, ?>) body.get("data");
         assertNotNull(data);

@@ -40,5 +40,7 @@ public abstract class AbstractLocalIntegrationTest extends IntegrationTestSuppor
         registry.add("novaflow.qdrant.host", () -> IntegrationTestEnv.get("QDRANT_HOST", "localhost"));
         registry.add("novaflow.qdrant.port", () -> IntegrationTestEnv.get("QDRANT_PORT", "6334"));
         registry.add("novaflow.qdrant.api-key", () -> IntegrationTestEnv.get("QDRANT_API_KEY", ""));
+        registry.add("novaflow.auth.registration-enabled", () -> "true");
+        registry.add("novaflow.platform.risk.batch-register-ip-limit-per-day", () -> "100000");
     }
 }

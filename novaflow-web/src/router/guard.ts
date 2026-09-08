@@ -2,7 +2,13 @@ import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePlatformStatusStore } from '@/stores/platformStatus'
 import { getRoutePermissions } from '@/config/menu'
-import { getDefaultHome, isAllowedForPortalOnlyRole, isPortalOnlyRole } from '@/config/access'
+import {
+  canAccessRoute,
+  createRouteAccessContext,
+  getDefaultHome,
+  isAllowedForPortalOnlyUser,
+  isPortalOnlyUser,
+} from '@/config/access'
 import { IS_PLATFORM_DEPLOY } from '@/config/deploy'
 import { getPlatformRoutePermissions, isPlatformScopePath } from '@/config/platformMenu'
 import { isPlatformAccount } from '@/config/account'
@@ -38,6 +44,8 @@ export function installRouterGuard(router: Router) {
     const auth = useAuthStore()
     const accountType = auth.user?.accountType
     const platformStatus = usePlatformStatusStore()
+    const accessCtx = createRouteAccessContext(auth)
+    const defaultHome = getDefaultHome(accountType, auth.roleCode, (path) => canAccessRoute(path, accessCtx))
 
     if (to.path !== '/maintenance') {
       await platformStatus.refresh()
@@ -48,7 +56,7 @@ export function installRouterGuard(router: Router) {
 
     if (to.meta.public) {
       if (isPublicLoginPath(to.path) && auth.isLoggedIn()) {
-        return getDefaultHome(accountType, auth.roleCode)
+        return defaultHome
       }
       return true
     }
@@ -66,17 +74,16 @@ export function installRouterGuard(router: Router) {
         return IS_PLATFORM_DEPLOY ? '/audit' : '/platform/audit'
       }
       if (!isPlatformScopePath(to.path)) {
-        return getDefaultHome(accountType, auth.roleCode)
+        return defaultHome
       }
     } else if (isPlatformScopePath(to.path)) {
-      return getDefaultHome(accountType, auth.roleCode)
+      return defaultHome
     }
 
-    if (!isPlatformAccount(accountType) && isPortalOnlyRole(auth.roleCode)) {
-      if (!isAllowedForPortalOnlyRole(to.path)) {
-        const portalHome = getDefaultHome(accountType, auth.roleCode)
-        if (to.path !== portalHome && !to.path.startsWith(`${portalHome}/`)) {
-          return portalHome
+    if (!isPlatformAccount(accountType) && isPortalOnlyUser(accessCtx)) {
+      if (!isAllowedForPortalOnlyUser(to.path)) {
+        if (to.path !== defaultHome && !to.path.startsWith(`${defaultHome}/`)) {
+          return defaultHome
         }
       }
     }
@@ -84,9 +91,8 @@ export function installRouterGuard(router: Router) {
     const requiredPermissions =
       (to.meta.permissions as string[] | undefined) ?? resolveRequiredPermissions(to.path)
     if (requiredPermissions && requiredPermissions.length > 0 && !auth.hasAnyPermission(requiredPermissions)) {
-      const fallback = getDefaultHome(accountType, auth.roleCode)
-      if (to.path !== fallback) {
-        return fallback
+      if (to.path !== defaultHome) {
+        return defaultHome
       }
     }
 

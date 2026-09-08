@@ -3,53 +3,27 @@ package ai.novaflow.common.security;
 import java.util.Set;
 
 /**
- * 系统内置角色码（平台 1 + 租户 6）。
+ * 系统内置角色：平台管理员、企业管理员、普通用户。
  */
 public final class RoleCodes {
 
     public static final String PLATFORM_ADMIN = "super_admin";
-    public static final String PLATFORM_AUDITOR = "platform_auditor";
-    public static final String PLATFORM_SUPPORT = "platform_support";
-    public static final String PLATFORM_BILLING = "platform_billing";
-
-    public static final String TENANT_OWNER = "tenant_owner";
     public static final String TENANT_ADMIN = "tenant_admin";
-    public static final String DEVELOPER = "developer";
-    public static final String OPERATOR = "operator";
-    public static final String MEMBER = "member";
-    public static final String VIEWER = "viewer";
+    /** 普通用户（门户）；角色码沿用历史 {@code member} */
+    public static final String USER = "member";
 
-    /** 租户侧可见的系统角色（不含平台超管） */
-    public static final Set<String> TENANT_SYSTEM_ROLES = Set.of(
-            TENANT_OWNER,
-            TENANT_ADMIN,
-            DEVELOPER,
-            OPERATOR,
-            MEMBER,
-            VIEWER
-    );
+    /** @deprecated 使用 {@link #USER} */
+    public static final String MEMBER = USER;
+
+    public static final Set<String> TENANT_SYSTEM_ROLES = Set.of(TENANT_ADMIN, USER);
 
     public static final String CUSTOM_ROLE_PREFIX = "custom_";
-    public static final Set<String> ASSIGNABLE_TENANT_ROLES = Set.of(
-            TENANT_ADMIN, DEVELOPER, OPERATOR, MEMBER, VIEWER
-    );
-
-    /** 不可在组织内被降级/禁用/移除的保护角色 */
-    public static final Set<String> PROTECTED_MEMBER_ROLES = Set.of(
-            PLATFORM_ADMIN, TENANT_OWNER
-    );
+    public static final Set<String> ASSIGNABLE_TENANT_ROLES = Set.of(TENANT_ADMIN, USER);
 
     public static final Set<String> ALL_SYSTEM_ROLES = Set.of(
             PLATFORM_ADMIN,
-            PLATFORM_AUDITOR,
-            PLATFORM_SUPPORT,
-            PLATFORM_BILLING,
-            TENANT_OWNER,
             TENANT_ADMIN,
-            DEVELOPER,
-            OPERATOR,
-            MEMBER,
-            VIEWER
+            USER
     );
 
     private RoleCodes() {
@@ -60,10 +34,18 @@ public final class RoleCodes {
     }
 
     public static boolean isProtectedMemberRole(String roleCode) {
-        return roleCode != null && PROTECTED_MEMBER_ROLES.contains(roleCode);
+        return false;
     }
 
     public static boolean isCustomRole(String roleCode) {
         return roleCode != null && roleCode.startsWith(CUSTOM_ROLE_PREFIX);
+    }
+
+    public static boolean isTenantAdmin(String roleCode) {
+        return TENANT_ADMIN.equals(roleCode);
+    }
+
+    public static boolean isPortalUser(String roleCode) {
+        return USER.equals(roleCode);
     }
 }

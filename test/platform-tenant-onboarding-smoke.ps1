@@ -65,9 +65,9 @@ Write-NovaJson -Path $reloginPath -Data @{ email = $ownerEmail; password = $newP
 $relogin = Invoke-NovaApi -Method POST -Path '/api/v1/auth/login' -OutFile $reloginPath
 Check 'P31-06 owner relogin after reset' ($relogin.code -eq 0) $relogin.raw
 
-$auditorToken = Get-NovaLoginToken 'auditor@novaflow.ai' 'Auditor123!'
-$denied = Invoke-NovaApi -Method POST -Path '/api/v1/platform/tenants' -Token $auditorToken -OutFile $createPath
-Check 'P31-07 auditor denied create' ($denied.code -ne 0) "code=$($denied.code)"
+$adminToken = Get-NovaLoginToken
+$denied = Invoke-NovaApi -Method POST -Path '/api/v1/platform/tenants' -Token $adminToken -OutFile $createPath
+Check 'P31-07 tenant admin denied create' ($denied.code -ne 0) "code=$($denied.code)"
 
 if ($ownerId) {
     Invoke-NovaApi -Method DELETE -Path "/api/v1/platform/users/$ownerId" -Token $platformToken | Out-Null

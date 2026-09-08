@@ -127,58 +127,12 @@ public class OrganizationService {
         tenant.setUpdatedAt(LocalDateTime.now());
         tenantMapper.update(tenant);
         kickTenantSessions(tenantId);
-        auditLogService.record("tenant.delete", "tenant", tenantId, "企业所有者删除企业: " + tenant.getTenantName());
+        auditLogService.record("tenant.delete", "tenant", tenantId, "企业管理员删除企业: " + tenant.getTenantName());
     }
 
     @Transactional
     public void transferOwnership(Long targetMemberId) {
-        Long tenantId = TenantContexts.requireTenantId();
-        long currentUserId = StpUtil.getLoginIdAsLong();
-        RoleEntity currentRole = permissionService.resolveRole(currentUserId, tenantId);
-        if (currentRole == null || !RoleCodes.TENANT_OWNER.equals(currentRole.getRoleCode())) {
-            throw new BusinessException("仅企业所有者可转移所有权");
-        }
-
-        TenantMemberEntity targetMember = getMemberOrThrow(targetMemberId, tenantId);
-        if (Objects.equals(targetMember.getUserId(), currentUserId)) {
-            throw new BusinessException("不能转移给自己");
-        }
-        if (targetMember.getStatus() == null || targetMember.getStatus() != 1) {
-            throw new BusinessException("目标成员不可用");
-        }
-        RoleEntity targetRole = permissionService.resolveRole(targetMember.getUserId(), tenantId);
-        if (targetRole != null && RoleCodes.isProtectedMemberRole(targetRole.getRoleCode())) {
-            throw new BusinessException("不能将所有权转移给该成员");
-        }
-
-        TenantMemberEntity currentMember = tenantMemberMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", tenantId)
-                        .eq("user_id", currentUserId)
-                        .eq("is_deleted", 0)
-        );
-        if (currentMember == null) {
-            throw new BusinessException("当前成员记录不存在");
-        }
-
-        RoleEntity ownerRole = permissionService.requireSystemRole(RoleCodes.TENANT_OWNER);
-        RoleEntity adminRole = permissionService.requireSystemRole(RoleCodes.TENANT_ADMIN);
-        LocalDateTime now = LocalDateTime.now();
-        currentMember.setRoleId(adminRole.getId());
-        currentMember.setUpdatedAt(now);
-        targetMember.setRoleId(ownerRole.getId());
-        targetMember.setUpdatedAt(now);
-        tenantMemberMapper.update(currentMember);
-        tenantMemberMapper.update(targetMember);
-
-        UserEntity targetUser = userMapper.selectOneById(targetMember.getUserId());
-        auditLogService.record(
-                "tenant.transfer_owner",
-                "tenant",
-                tenantId,
-                "转移所有权至: " + (targetUser != null ? targetUser.getEmail() : targetMember.getUserId()));
-        StpUtil.logout(currentUserId);
-        StpUtil.logout(targetMember.getUserId());
+        throw new BusinessException("当前版本不再区分企业所有者，无需转移所有权");
     }
 
     public List<WorkspaceVO> listWorkspaces() {
@@ -455,22 +409,21 @@ public class OrganizationService {
     }
 
     private boolean isTenantGovernanceRole(String roleCode) {
-        return RoleCodes.TENANT_OWNER.equals(roleCode) || RoleCodes.TENANT_ADMIN.equals(roleCode);
+        return RoleCodes.isTenantAdmin(roleCode);
     }
 
     private void ensureAnotherTenantGovernorExists(Long tenantId, Long excludeUserId) {
-        RoleEntity ownerRole = permissionService.requireSystemRole(RoleCodes.TENANT_OWNER);
         RoleEntity adminRole = permissionService.requireSystemRole(RoleCodes.TENANT_ADMIN);
         long count = tenantMemberMapper.selectCountByQuery(
                 QueryWrapper.create()
                         .eq("tenant_id", tenantId)
-                        .in("role_id", List.of(ownerRole.getId(), adminRole.getId()))
+                        .eq("role_id", adminRole.getId())
                         .eq("status", 1)
                         .eq("is_deleted", 0)
                         .ne("user_id", excludeUserId)
         );
         if (count == 0) {
-            throw new BusinessException("企业至少保留一名 Owner 或管理员");
+            throw new BusinessException("企业至少保留一名管理员");
         }
     }
 

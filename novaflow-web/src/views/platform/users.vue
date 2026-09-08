@@ -63,17 +63,18 @@
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-popconfirm
-                v-if="record.status === 1"
+                v-if="canManageUser && record.status === 1"
                 title="确认封禁该用户？将强制下线并禁止登录。"
                 @confirm="banUser(record.id)"
               >
                 <a-button type="link" size="small" danger>封禁</a-button>
               </a-popconfirm>
-              <a-button v-else type="link" size="small" @click="unbanUser(record.id)">解封</a-button>
-              <a-popconfirm title="确认强制下线该用户？" @confirm="forceLogout(record.id)">
+              <a-button v-else-if="canManageUser" type="link" size="small" @click="unbanUser(record.id)">解封</a-button>
+              <a-popconfirm v-if="canManageUser" title="确认强制下线该用户？" @confirm="forceLogout(record.id)">
                 <a-button type="link" size="small">强制下线</a-button>
               </a-popconfirm>
               <a-popconfirm
+                v-if="canDeleteUser"
                 title="确认注销该用户？将软删除账号并强制下线，此操作不可恢复。"
                 @confirm="deregisterUser(record.id)"
               >
@@ -99,7 +100,13 @@ import {
 } from '@/api/platform'
 import { formatDateTime } from '@/utils/datetime'
 import { formatMemberships } from '@/views/platform/shared/utils'
+import { platformManagePermissions } from '@/config/platformMenu'
+import { useAuthStore } from '@/stores/auth'
 import '@/views/platform/shared/styles.css'
+
+const auth = useAuthStore()
+const canManageUser = computed(() => auth.hasAnyPermission(platformManagePermissions))
+const canDeleteUser = computed(() => auth.hasPermission('platform:manage'))
 
 const loading = ref(false)
 const keyword = ref('')

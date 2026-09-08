@@ -22,6 +22,8 @@ public class AgentEntity {
     private Integer status;
     private LocalDateTime publishedAt;
     private Integer version;
+    /** JSON: themeColor / allowedDomains / postMessageTargetOrigin */
+    private String embedConfig;
     private Long createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

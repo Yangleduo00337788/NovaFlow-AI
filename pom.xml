@@ -50,9 +50,16 @@
         <liteflow.version>2.12.4</liteflow.version>
         <hutool.version>5.8.32</hutool.version>
         <springdoc.version>2.6.0</springdoc.version>
-        <testcontainers.version>1.20.6</testcontainers.version>
         <commons-compress.version>1.26.2</commons-compress.version>
     </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <dependencyManagement>
         <dependencies>
@@ -196,13 +203,6 @@
                 <groupId>com.yomahub</groupId>
                 <artifactId>liteflow-spring-boot-starter</artifactId>
                 <version>${liteflow.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers-bom</artifactId>
-                <version>${testcontainers.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>

@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import PlatformLayout from '@/layouts/PlatformLayout.vue'
 import PortalLayout from '@/layouts/PortalLayout.vue'
 import { useAuthStore } from '@/stores/auth'
-import { getDefaultHome } from '@/config/access'
+import { canAccessRoute, createRouteAccessContext, getDefaultHome } from '@/config/access'
 import { IS_PLATFORM_DEPLOY } from '@/config/deploy'
 import { installRouterGuard } from '@/router/guard'
 import { platformChildRoutes } from '@/router/platformRoutes'
@@ -87,7 +87,8 @@ const fullAppRoutes: RouteRecordRaw[] = [
     meta: { scope: 'tenant' },
     redirect: () => {
       const auth = useAuthStore()
-      return getDefaultHome(auth.user?.accountType, auth.roleCode)
+      const ctx = createRouteAccessContext(auth)
+      return getDefaultHome(auth.user?.accountType, auth.roleCode, (path) => canAccessRoute(path, ctx))
     },
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/dashboard/index.vue'), meta: { title: '工作台' } },
@@ -99,11 +100,8 @@ const fullAppRoutes: RouteRecordRaw[] = [
       { path: 'model', name: 'model', component: () => import('@/views/model/index.vue'), meta: { title: '模型中心' } },
       { path: 'tool', name: 'tool', component: () => import('@/views/tool/index.vue'), meta: { title: '工具市场' } },
       { path: 'prompt', name: 'prompt', component: () => import('@/views/prompt/index.vue'), meta: { title: 'Prompt 管理' } },
-      { path: 'application', name: 'application', component: () => import('@/views/application/index.vue'), meta: { title: '应用管理' } },
-      { path: 'monitor', name: 'monitor', component: () => import('@/views/monitor/index.vue'), meta: { title: '运行监控' } },
-      { path: 'log', name: 'log', component: () => import('@/views/log/index.vue'), meta: { title: '调用日志' } },
-      { path: 'trace', name: 'trace', component: () => import('@/views/trace/index.vue'), meta: { title: '链路分析' } },
-      { path: 'observability', name: 'observability', component: () => import('@/views/observability/index.vue'), meta: { title: '可观测性' } },
+      { path: 'application', name: 'application', component: () => import('@/views/application/index.vue'), meta: { title: '应用' } },
+      { path: 'monitor', name: 'monitor', component: () => import('@/views/runtime/index.vue'), meta: { title: '运行' } },
       { path: 'org', name: 'org', component: () => import('@/views/org/index.vue'), meta: { title: '组织管理' } },
       { path: 'permission', name: 'permission', component: () => import('@/views/permission/index.vue'), meta: { title: '权限管理' } },
       { path: 'settings', name: 'settings', component: () => import('@/views/settings/index.vue'), meta: { title: '系统设置' } },

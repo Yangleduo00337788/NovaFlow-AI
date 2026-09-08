@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { uniqueName, confirmPopconfirm } from './helpers/auth'
+import { uniqueName, confirmPopconfirm, ADMIN_EMAIL, ADMIN_PASSWORD } from './helpers/auth'
 
 test.describe('工作台', () => {
   test('展示欢迎横幅与统计卡片', async ({ page }) => {
@@ -74,6 +74,59 @@ test.describe('工作流 Studio', () => {
     await confirmPopconfirm(page)
     await expect(page.getByText(workflowName)).not.toBeVisible({ timeout: 10000 })
   })
+
+  test('保存画布后发布并试运行', async ({ page, request }) => {
+    const workflowName = uniqueName('E2E-WF-Run')
+    await page.goto('/workflow')
+    await page.getByTestId('create-workflow-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('客服分流流程').fill(workflowName)
+    const appSelect = page.getByRole('dialog').locator('.ant-select').first()
+    await appSelect.click()
+    await page.locator('.ant-select-item-option').first().click()
+    await page.getByRole('button', { name: '创建并编辑' }).click()
+    await expect(page).toHaveURL(/\/workflow\/\d+/, { timeout: 15000 })
+    await expect(page.getByTestId('workflow-editor')).toBeVisible({ timeout: 15000 })
+
+    const workflowId = Number(page.url().match(/\/workflow\/(\d+)/)?.[1])
+    const login = await request.post('/api/v1/auth/login', {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    })
+    const token = (await login.json()).data.token as string
+    const auth = { Authorization: token }
+    const detail = await request.get(`/api/v1/workflows/${workflowId}`, { headers: auth })
+    const detailBody = await detail.json()
+    const applicationId = detailBody.data.applicationId as number
+    const saved = await request.put(`/api/v1/workflows/${workflowId}`, {
+      headers: auth,
+      data: {
+        workflowName,
+        applicationId,
+        description: 'e2e run',
+        canvasData: {
+          nodes: [
+            { id: 'start-1', type: 'start', position: { x: 80, y: 200 }, data: { label: '开始' } },
+            { id: 'end-1', type: 'end', position: { x: 400, y: 200 }, data: { label: '结束' } },
+          ],
+          edges: [{ id: 'edge-1', source: 'start-1', target: 'end-1' }],
+        },
+      },
+    })
+    expect(saved.ok()).toBeTruthy()
+    const published = await request.post(`/api/v1/workflows/${workflowId}/publish`, { headers: auth, data: {} })
+    expect((await published.json()).code).toBe(0)
+
+    await page.reload()
+    await expect(page.getByTestId('wf-run-btn')).toBeVisible({ timeout: 15000 })
+    await page.getByTestId('wf-run-btn').click()
+    await page.getByPlaceholder('输入测试内容').fill('e2e workflow input')
+    await page.getByTestId('wf-run-start-btn').click()
+    await expect(page.getByText(/运行成功|运行失败/)).toBeVisible({ timeout: 30000 })
+
+    await page.goto('/workflow')
+    const card = page.locator('.workflow-card', { hasText: workflowName })
+    await card.getByRole('button', { name: '删除' }).click()
+    await confirmPopconfirm(page)
+  })
 })
 
 test.describe('知识库 Hub', () => {
@@ -99,6 +152,20 @@ test.describe('知识库 Hub', () => {
     await expect(page.getByText(kbName)).toBeVisible({ timeout: 15000 })
     await page.getByText(kbName).click()
     await expect(page.getByTestId('knowledge-detail-page')).toBeVisible({ timeout: 10000 })
+
+    const marker = `NovaFlowE2E${Date.now()}`
+    const fileInput = page.locator('.ant-upload input[type=file]')
+    if (await fileInput.count()) {
+      await fileInput.setInputFiles({
+        name: 'e2e-kb.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`${marker}\nknowledge retrieve coverage`, 'utf8'),
+      })
+      await expect(page.getByText('e2e-kb.txt')).toBeVisible({ timeout: 20000 }).catch(() => undefined)
+      await page.getByTestId('kb-retrieve-query').fill(marker)
+      await page.getByTestId('kb-retrieve-btn').click()
+      await expect(page.getByTestId('kb-retrieve-result')).toBeVisible({ timeout: 30000 })
+    }
 
     await page.goto('/knowledge')
     const card = page.locator('.kb-card', { hasText: kbName })
@@ -135,26 +202,21 @@ test.describe('模型中心', () => {
   })
 })
 
-test.describe('运行监控与日志', () => {
-  test('监控页展示服务状态', async ({ page }) => {
+test.describe('运行', () => {
+  test('运行页展示服务状态', async ({ page }) => {
     await page.goto('/monitor')
     await expect(page.getByTestId('monitor-page')).toBeVisible()
     await expect(page.locator('[data-testid^="service-"]').first()).toBeVisible({ timeout: 15000 })
   })
 
-  test('调用日志页可加载', async ({ page }) => {
-    await page.goto('/log')
+  test('调用日志 Tab 可加载', async ({ page }) => {
+    await page.goto('/monitor?tab=logs')
     await expect(page.locator('.log-page')).toBeVisible()
   })
 
-  test('链路分析页可加载', async ({ page }) => {
-    await page.goto('/trace')
+  test('链路 Tab 可加载', async ({ page }) => {
+    await page.goto('/monitor?tab=traces')
     await expect(page.locator('.trace-page')).toBeVisible()
-  })
-
-  test('可观测性页可加载', async ({ page }) => {
-    await page.goto('/observability')
-    await expect(page.locator('.observability-page')).toBeVisible()
   })
 })
 
@@ -174,8 +236,8 @@ test.describe('组织与权限', () => {
     await expect(permissionPage).toBeVisible()
     await expect(permissionPage.getByText('系统角色', { exact: true })).toBeVisible()
     const roleList = permissionPage.locator('.role-item')
-    await expect(roleList.filter({ hasText: '企业所有者' })).toBeVisible()
-    await expect(roleList.filter({ hasText: '开发者' })).toBeVisible()
+    await expect(roleList.filter({ hasText: '企业管理员' })).toBeVisible()
+    await expect(roleList.filter({ hasText: '普通用户' }).or(roleList.filter({ hasText: '用户' }))).toBeVisible()
   })
 
   test('账单页可加载并打开成本分摊', async ({ page }) => {

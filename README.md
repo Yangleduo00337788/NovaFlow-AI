@@ -45,9 +45,9 @@ NovaFlow 是 **单一 Web 应用**（`http://localhost:3000`），**一套登录
 
 | 功能区 | 路由 | 主要角色 | 说明 |
 |--------|------|----------|------|
-| **总控** | `/platform` | 平台超管 `super_admin` | 跨租户租户管理（独有 `platform:manage`） |
-| **工作台 / Studio** | `/dashboard`、Agent / 工作流 / 知识库、组织、审计等 | 企管 `tenant_admin`、开发者 `developer`；超管同样可见有权限的菜单 | AI 开发与企业治理；开发者无组织/权限/设置/审计 |
-| **应用门户** | `/portal`、`/portal/apps/:id` | 普通用户 `user` | 仅已发布应用；管理员/开发者/超管可预览 |
+| **总控** | `/platform` | 平台管理员 `super_admin` | 跨租户运营：租户、用户、计费、风控（`platform:manage`） |
+| **工作台 / Studio** | `/dashboard`、Agent / 工作流 / 知识库、组织、审计等 | 企业管理员 `tenant_admin` | 本企业 AI 开发与治理 |
+| **应用门户** | `/portal`、`/portal/apps/:id` | 普通用户 `member` | 使用已发布应用；企业管理员可预览 |
 
 **对外接入（不经过控制台登录）：**
 
@@ -383,15 +383,9 @@ npm run dev     # http://localhost:3000 （需后端 8088 已运行）
 
 | 邮箱 | 密码 | 角色 |
 |------|------|------|
-| `platform@novaflow.ai` | `Platform123!` | 平台超管 |
-| `auditor@novaflow.ai` | `Auditor123!` | 平台审计员（仅审计日志） |
-| `support@novaflow.ai` | `Support123!` | 平台客服（租户/用户运营） |
-| `billing@novaflow.ai` | `Billing123!` | 平台计费（计费大盘 + 租户只读） |
-| `admin@novaflow.ai` | `Admin123!` | 企业所有者 |
-| `developer@novaflow.ai` | `Developer123!` | 开发者 |
-| `operator@novaflow.ai` | `Operator123!` | 运维人员 |
-| `user@novaflow.ai` | `User123!` | 企业成员 |
-| `viewer@novaflow.ai` | `Viewer123!` | 只读用户 |
+| `platform@novaflow.ai` | `Platform123!` | 平台管理员（`/platform/login`） |
+| `admin@novaflow.ai` | `Admin123!` | 企业管理员（Studio） |
+| `user@novaflow.ai` | `User123!` | 普通用户（应用门户） |
 
 ---
 

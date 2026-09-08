@@ -1,6 +1,6 @@
 <template>
-  <div class="monitor-page page-shell" data-testid="monitor-page">
-    <div class="page-header">
+  <div class="monitor-page" :class="{ 'page-shell': !embedded, 'is-embedded': embedded }" data-testid="monitor-overview">
+    <div v-if="!embedded" class="page-header">
       <div>
         <h1>运行监控</h1>
         <p>服务健康状态、调用指标与近 24 小时趋势</p>
@@ -9,6 +9,10 @@
         <ReloadOutlined />
         刷新
       </a-button>
+    </div>
+    <div v-else class="embed-toolbar">
+      <h2>调用与健康</h2>
+      <a-button size="small" :loading="loading" @click="loadData">刷新</a-button>
     </div>
 
     <a-spin :spinning="loading">
@@ -98,6 +102,8 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { fetchMonitorOverview } from '@/api/monitor'
 import type { MonitorOverview } from '@/types/monitor'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent])
 
@@ -365,6 +371,23 @@ onMounted(() => {
   color: var(--text-secondary);
   font-size: 13px;
   white-space: nowrap;
+}
+
+.is-embedded {
+  min-height: auto;
+}
+
+.embed-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.embed-toolbar h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 @media (max-width: 1280px) {

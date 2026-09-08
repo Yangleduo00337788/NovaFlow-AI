@@ -16,7 +16,7 @@
 | Docker | MySQL 8、Redis 7、MinIO、Qdrant |
 | 后端 | `http://localhost:8088`，profile `dev` 或独立测试 profile |
 | 前端 | `http://localhost:3000` |
-| 测试账号 | 需准备 super_admin、tenant_admin、developer、user 四类角色 |
+| 测试账号 | 需准备 **平台管理员**（`platform@novaflow.ai`）、**企业管理员**（`admin@novaflow.ai`）、**普通用户**（`user@novaflow.ai`）三类角色 |
 | Open API | 已发布 Agent 的 `nf_live_` Key 与 `nf_embed_` Token |
 
 ---
@@ -45,14 +45,14 @@
 | # | 用例 | 优先级 | 状态 |
 |---|------|--------|------|
 | Z-01 | `user` 无法访问 `/platform`、`/audit` | P0 | ✅ |
-| Z-02 | `developer` 无法 `tenant:manage` / `member:manage` | P1 | ✅ `rbac-api-acceptance.ps1` |
-| Z-03 | `user` 仅 `portal` + `agent:chat` | P0 | ✅ |
+| Z-02 | 企业管理员可 `tenant:manage` / `member:manage`；普通用户不可 | P1 | ✅ `rbac-api-acceptance.ps1` |
+| Z-03 | 普通用户仅 `portal` + `agent:chat`（无 Studio 写权限） | P0 | ✅ |
 | Z-04 | 租户 A 用户无法读/改租户 B 的 Agent | P0 | ✅ `rbac-api-acceptance.ps1` / `cross-tenant-idor.ps1` |
 | Z-05 | 租户 A 用户无法读/改租户 B 的知识库/工作流 | P0 | ✅ `rbac-api-acceptance.ps1` / `cross-tenant-idor.ps1` |
 | Z-06 | 租户 A 用户无法读/改租户 B 的应用 | P0 | ✅ `rbac-api-acceptance.ps1` / `cross-tenant-idor.ps1` |
 | Z-07 | 无 `@SaCheckPermission` 的 API 清点与加固 | P1 | ✅ `scan-api-permissions.ps1` |
 | Z-08 | 前端路由守卫 vs 后端权限一致性 | P1 | ✅ `route-guard.spec.ts` |
-| Z-09 | `super_admin` 平台租户 CRUD | P1 | ✅ `rbac-api-acceptance.ps1` |
+| Z-09 | 平台管理员可管理租户（`platform:*`） | P1 | ✅ `rbac-api-acceptance.ps1` + `platform-sub-roles-smoke.ps1` |
 | Z-10 | Portal `portal:access` 无权限用户被拒 | P1 | ✅ `rbac-api-acceptance.ps1` + `PortalAccessLocalIntegrationTest` |
 
 ---
@@ -100,7 +100,8 @@
 | O-07 | 错误 / 过期 Token | P0 | ✅ `open-api-acceptance.ps1` |
 | O-08 | 其他 Agent 的 Key 访问本 Agent | P0 | ✅ `open-api-acceptance.ps1` |
 | O-09 | Open API 限流 60/min、IP 30/min | P2 | ✅ `open-api-rate-limit-smoke.ps1` |
-| O-10 | `/embed/agents/:id` 前端 + Token 流程 | P1 | ✅ `embed.spec.ts` |
+| O-10 | `/embed/agents/:id` 前端 + Token + 域名白名单 + 主题色 + postMessage | P1 | ✅ `embed.spec.ts` + `embed-domain-smoke.ps1` |
+| O-11 | 开发者中心发布弹窗（Quick Start / Open API / Embed） | P2 | ✅ `developer-center.spec.ts` |
 
 ---
 
@@ -317,7 +318,8 @@
 | FE-03 | Agent 创建与调试 UI | P1 | ✅ |
 | FE-04 | 工作流编辑器保存与运行 | P1 | ✅ |
 | FE-05 | Portal 用户流程 | P1 | ✅ `portal.spec.ts` |
-| FE-06 | Embed 页面 | P1 | ✅ `embed.spec.ts` |
+| FE-06 | Embed 页面（含 postMessage / 主题色） | P1 | ✅ `embed.spec.ts` |
+| FE-06b | 开发者中心发布弹窗 | P2 | ✅ `developer-center.spec.ts` |
 | FE-07 | Token 过期跳转登录 | P1 | ✅ `auth-expiry.spec.ts` |
 | FE-08 | API 失败 Toast / Empty / Loading | P2 | ✅ `error-states.spec.ts` |
 | FE-09 | 重复点击提交 | P1 | ✅ `double-submit.spec.ts` |

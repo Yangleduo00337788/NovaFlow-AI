@@ -18,7 +18,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Z-10：撤销 viewer 角色的 portal:access 后，门户 API 应返回 403。
+ * Z-10：撤销 member 角色的 portal:access 后，门户 API 应返回 403。
  */
 @Tag("local")
 @Execution(ExecutionMode.SAME_THREAD)
@@ -42,27 +42,27 @@ class PortalAccessLocalIntegrationTest extends AbstractLocalIntegrationTest {
 
     @Test
     void portalRequiresPortalAccessPermission() {
-        OpenApiIntegrationFixtures.LoginSession viewer = OpenApiIntegrationFixtures.login(
-                restTemplate, "viewer@novaflow.ai", "Viewer123!");
+        OpenApiIntegrationFixtures.LoginSession member = OpenApiIntegrationFixtures.login(
+                restTemplate, "user@novaflow.ai", "User123!");
 
         ResponseEntity<Map> portal = restTemplate.exchange(
                 "/api/v1/portal/apps",
                 HttpMethod.GET,
-                new HttpEntity<>(null, OpenApiIntegrationFixtures.adminHeaders(viewer.token())),
+                new HttpEntity<>(null, OpenApiIntegrationFixtures.adminHeaders(member.token())),
                 Map.class
         );
         OpenApiIntegrationFixtures.assertApiCode(portal, 40301);
     }
 
     @Test
-    void ownerExclusiveTenantApisDeniedForDeveloper() {
-        OpenApiIntegrationFixtures.LoginSession developer = OpenApiIntegrationFixtures.login(
-                restTemplate, "developer@novaflow.ai", "Developer123!");
+    void ownerExclusiveTenantApisDeniedForPortalUser() {
+        OpenApiIntegrationFixtures.LoginSession member = OpenApiIntegrationFixtures.login(
+                restTemplate, "user@novaflow.ai", "User123!");
 
         ResponseEntity<Map> deleteTenant = restTemplate.exchange(
                 "/api/v1/org/tenant",
                 HttpMethod.DELETE,
-                new HttpEntity<>(null, OpenApiIntegrationFixtures.adminHeaders(developer.token())),
+                new HttpEntity<>(null, OpenApiIntegrationFixtures.adminHeaders(member.token())),
                 Map.class
         );
         OpenApiIntegrationFixtures.assertApiCode(deleteTenant, 40301);
@@ -70,7 +70,7 @@ class PortalAccessLocalIntegrationTest extends AbstractLocalIntegrationTest {
         ResponseEntity<Map> transfer = restTemplate.exchange(
                 "/api/v1/org/tenant/transfer-owner",
                 HttpMethod.POST,
-                new HttpEntity<>(Map.of("memberId", 1L), OpenApiIntegrationFixtures.adminHeaders(developer.token())),
+                new HttpEntity<>(Map.of("memberId", 1L), OpenApiIntegrationFixtures.adminHeaders(member.token())),
                 Map.class
         );
         OpenApiIntegrationFixtures.assertApiCode(transfer, 40301);

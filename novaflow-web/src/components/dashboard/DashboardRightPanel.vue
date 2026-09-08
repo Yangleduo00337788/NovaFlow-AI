@@ -20,7 +20,7 @@
     <div class="page-card trend-card">
       <div class="section-title">
         <span class="section-title-left"><LineChartOutlined class="section-icon" /> 今日调用趋势</span>
-        <router-link to="/log" class="view-more">查看更多</router-link>
+        <router-link v-if="canViewLogs" to="/monitor?tab=logs" class="view-more">查看更多</router-link>
       </div>
       <a-empty
         v-if="!hasTrendData"
@@ -38,7 +38,7 @@
     <div class="page-card top-apps-card">
       <div class="section-title">
         <span class="section-title-left"><BarChartOutlined class="section-icon" /> Top 5 应用（调用次数）</span>
-        <router-link to="/log" class="view-more">查看更多</router-link>
+        <router-link v-if="canViewLogs" to="/monitor?tab=logs" class="view-more">查看更多</router-link>
       </div>
       <a-empty
         v-if="!panelData.topApps.length"
@@ -114,12 +114,15 @@ import {
 import { message } from 'ant-design-vue'
 import { getMenuIcon } from '@/config/menuIcons'
 import { useDashboardOverview } from '@/composables/useDashboardOverview'
+import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { getChartTheme } from '@/utils/chartTheme'
 import { storeToRefs } from 'pinia'
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, VisualMapComponent, MarkPointComponent])
 
+const auth = useAuthStore()
+const canViewLogs = computed(() => auth.hasPermission('log:read'))
 const themeStore = useThemeStore()
 const { mode } = storeToRefs(themeStore)
 

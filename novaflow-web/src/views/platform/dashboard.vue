@@ -110,17 +110,20 @@ import {
   type PlatformGlobalStats,
 } from '@/api/platform'
 import { platformPath } from '@/config/deploy'
+import { canAccessRoute, createRouteAccessContext } from '@/config/access'
+import { useAuthStore } from '@/stores/auth'
 import { formatPlatformNumber } from '@/views/platform/shared/utils'
 import '@/views/platform/shared/styles.css'
 
 use([CanvasRenderer, BarChart, LineChart, GridComponent, TooltipComponent])
 
+const auth = useAuthStore()
 const loading = ref(false)
 const overview = ref<PlatformDashboardOverview | null>(null)
 
 const stats = computed<PlatformGlobalStats | null>(() => overview.value?.stats ?? null)
 
-const quickLinks = [
+const allQuickLinks = [
   { path: platformPath('/platform/tenants'), label: '租户管理', desc: '配额、状态与企业信息' },
   { path: platformPath('/platform/users'), label: '用户管理', desc: '封禁、解封与强制下线' },
   { path: platformPath('/platform/billing'), label: '计费大盘', desc: '全平台 Token 与费用' },
@@ -128,6 +131,11 @@ const quickLinks = [
   { path: platformPath('/platform/security'), label: 'IP 黑名单', desc: '登录与 API 拦截' },
   { path: platformPath('/platform/audit'), label: '审计日志', desc: '跨租户操作留痕' },
 ]
+
+const quickLinks = computed(() => {
+  const ctx = createRouteAccessContext(auth)
+  return allQuickLinks.filter((item) => canAccessRoute(item.path, ctx))
+})
 
 const healthColumns = [
   { title: '租户', key: 'tenantName' },

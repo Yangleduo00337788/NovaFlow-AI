@@ -29,7 +29,7 @@ export const menuGroups: MenuGroup[] = [
       { key: 'workflow', label: '工作流 Studio', path: '/workflow', icon: 'workflow', permissions: ['workflow:read', 'workflow:create', 'workflow:edit'] },
       { key: 'knowledge', label: '知识库 Hub', path: '/knowledge', icon: 'knowledge', permissions: ['knowledge:read', 'knowledge:create', 'knowledge:upload'] },
       { key: 'model', label: '模型中心', path: '/model', icon: 'model', permissions: ['model:read', 'model:config'] },
-      { key: 'tool', label: '工具市场', path: '/tool', icon: 'tool', permissions: ['tool:read', 'agent:edit'] },
+      { key: 'tool', label: '工具市场', path: '/tool', icon: 'tool', permissions: ['tool:read', 'mcp:read'] },
       { key: 'prompt', label: 'Prompt 管理', path: '/prompt', icon: 'prompt', permissions: ['prompt:read', 'prompt:create', 'prompt:edit'] },
     ],
   },
@@ -37,11 +37,8 @@ export const menuGroups: MenuGroup[] = [
     title: '运行与监控',
     items: [
       { key: 'portal', label: '应用门户', path: '/portal', icon: 'application', permissions: ['portal:access'] },
-      { key: 'application', label: '应用管理', path: '/application', icon: 'application', permissions: ['application:read', 'application:publish', 'application:manage'] },
-      { key: 'monitor', label: '运行监控', path: '/monitor', icon: 'monitor', permissions: ['monitor:view'] },
-      { key: 'log', label: '调用日志', path: '/log', icon: 'log', permissions: ['log:read', 'monitor:view', 'billing:view'] },
-      { key: 'trace', label: '链路分析', path: '/trace', icon: 'trace', beta: true, permissions: ['trace:view'] },
-      { key: 'observability', label: '可观测性', path: '/observability', icon: 'observability', permissions: ['monitor:view'] },
+      { key: 'application', label: '应用', path: '/application', icon: 'application', permissions: ['application:read', 'application:publish', 'application:manage'] },
+      { key: 'monitor', label: '运行', path: '/monitor', icon: 'monitor', permissions: ['monitor:view', 'log:read', 'trace:view'] },
     ],
   },
   {
@@ -57,18 +54,15 @@ export const menuGroups: MenuGroup[] = [
 ]
 
 const routePermissionMap: Record<string, string[]> = {
-  '/dashboard': ['dashboard:view', 'agent:read', 'monitor:view', 'application:read', 'application:manage', 'tenant:manage'],
+  '/dashboard': ['dashboard:view'],
   '/agent': ['agent:read', 'agent:create', 'agent:edit'],
   '/workflow': ['workflow:read', 'workflow:create', 'workflow:edit'],
   '/knowledge': ['knowledge:read', 'knowledge:create', 'knowledge:upload'],
   '/model': ['model:read', 'model:config'],
-  '/tool': ['tool:read', 'agent:edit'],
+  '/tool': ['tool:read', 'mcp:read'],
   '/prompt': ['prompt:read', 'prompt:create', 'prompt:edit'],
   '/application': ['application:read', 'application:publish', 'application:manage'],
-  '/monitor': ['monitor:view'],
-  '/log': ['log:read', 'monitor:view', 'billing:view'],
-  '/trace': ['trace:view'],
-  '/observability': ['monitor:view'],
+  '/monitor': ['monitor:view', 'log:read', 'trace:view'],
   '/org': ['tenant:manage', 'member:manage', 'user:read'],
   '/permission': ['member:manage', 'role:read'],
   '/settings': ['tenant:manage'],
@@ -100,6 +94,10 @@ export type RoutePermissionResolver = (path: string) => string[] | undefined
 export function getBreadcrumbByPath(path: string): BreadcrumbInfo {
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {
     return { title: '工作台', path: '/dashboard', icon: 'dashboard' }
+  }
+
+  if (path === '/monitor' || path.startsWith('/monitor/')) {
+    return { title: '运行', path: '/monitor', icon: 'monitor' }
   }
 
   if (path === '/about' || path.startsWith('/about/')) {

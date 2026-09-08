@@ -68,7 +68,7 @@ try {
     Write-NovaJson -Path $invitePath -Data @{
         email    = $inviteEmail
         nickname = "QA $suffix"
-        roleCode = 'viewer'
+        roleCode = 'member'
         password = 'SmokeTest123!'
     }
     $invite = Invoke-NovaApi -Method POST -Path '/api/v1/org/members/invite' -Token $token -OutFile $invitePath
@@ -80,9 +80,9 @@ try {
     Check 'U-03 member listed' $found "code=$($list.code)"
 
     $updatePath = Join-Path $script:NovaFlowTmpDir 'member-update.json'
-    Write-NovaJson -Path $updatePath -Data @{ roleCode = 'operator' }
+    Write-NovaJson -Path $updatePath -Data @{ roleCode = 'tenant_admin' }
     $updated = Invoke-NovaApi -Method PUT -Path "/api/v1/org/members/$memberId" -Token $token -OutFile $updatePath
-    $roleOk = ($updated.code -eq 0) -and ($updated.raw -match '"roleCode":"operator"')
+    $roleOk = ($updated.code -eq 0) -and ($updated.raw -match '"roleCode":"tenant_admin"')
     Check 'U-03 update member role' $roleOk "code=$($updated.code)"
 
     $removed = Invoke-NovaApi -Method DELETE -Path "/api/v1/org/members/$memberId" -Token $token
@@ -101,7 +101,7 @@ try {
         Write-NovaJson -Path $quotaPath -Data @{
             email    = "qa-quota-$suffix@novaflow.test"
             nickname = 'Quota QA'
-            roleCode = 'viewer'
+            roleCode = 'member'
             password = 'SmokeTest123!'
         }
         $quotaInvite = Invoke-NovaApi -Method POST -Path '/api/v1/org/members/invite' -Token $token -OutFile $quotaPath

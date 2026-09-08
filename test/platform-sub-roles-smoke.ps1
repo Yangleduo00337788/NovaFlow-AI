@@ -1,5 +1,5 @@
 #requires -Version 7.0
-# NovaFlow AI — Phase 37 平台子角色冒烟
+# NovaFlow AI — 三角色平台隔离冒烟（取代平台子角色）
 # 用法: pwsh test/platform-sub-roles-smoke.ps1
 
 $ErrorActionPreference = 'Stop'
@@ -16,58 +16,29 @@ function Check {
     $script:allPass = $script:allPass -and $pass
 }
 
-Write-NovaLog '=== Phase 37 platform sub-roles ===' $logFile
+Write-NovaLog '=== three-role platform isolation ===' $logFile
 
 try {
     $platform = Get-NovaLoginToken 'platform@novaflow.ai' 'Platform123!'
-    $support = Get-NovaLoginToken 'support@novaflow.ai' 'Support123!'
-    $billing = Get-NovaLoginToken 'billing@novaflow.ai' 'Billing123!'
-    $auditor = Get-NovaLoginToken 'auditor@novaflow.ai' 'Auditor123!'
+    $admin = Get-NovaLoginToken
+    $user = Get-NovaLoginToken -Email 'user@novaflow.ai' -Password 'User123!'
     Wait-NovaMaintenanceOff -PlatformToken $platform
 
-    $supportTenants = Invoke-NovaApi -Path '/api/v1/platform/tenants?page=1&pageSize=5' -Token $support
-    Check 'P37-01 support can list tenants' ($supportTenants.code -eq 0) "code=$($supportTenants.code)"
+    $tenants = Invoke-NovaApi -Path '/api/v1/platform/tenants?page=1&pageSize=5' -Token $platform
+    Check 'platform can list tenants' ($tenants.code -eq 0) "code=$($tenants.code)"
 
-    $supportBilling = Invoke-NovaApi -Path '/api/v1/platform/billing/overview' -Token $support
-    Check 'P37-02 support denied billing' ($supportBilling.code -ne 0) "code=$($supportBilling.code)"
+    $billing = Invoke-NovaApi -Path '/api/v1/platform/billing/overview' -Token $platform
+    Check 'platform can view billing' ($billing.code -eq 0) "code=$($billing.code)"
 
-    $supportSettings = Invoke-NovaApi -Path '/api/v1/platform/settings' -Token $support
-    Check 'P37-03 support denied settings' ($supportSettings.code -ne 0) "code=$($supportSettings.code)"
+    $settings = Invoke-NovaApi -Path '/api/v1/platform/settings' -Token $platform
+    Check 'platform can view settings' ($settings.code -eq 0) "code=$($settings.code)"
 
-    $billingOverview = Invoke-NovaApi -Path '/api/v1/platform/billing/overview' -Token $billing
-    Check 'P37-04 billing can view overview' ($billingOverview.code -eq 0) "code=$($billingOverview.code)"
-
-    $billingTenants = Invoke-NovaApi -Path '/api/v1/platform/tenants?page=1&pageSize=5' -Token $billing
-    Check 'P37-05 billing can list tenants' ($billingTenants.code -eq 0) "code=$($billingTenants.code)"
-
-    $suffix = (Get-Date -Format 'HHmmss') + '_' + (Get-Random -Maximum 9999)
-    $ownerEmail = "p37-support-$suffix@novaflow.test"
-    $createPath = Join-Path $script:NovaFlowTmpDir 'platform-sub-role-tenant.json'
-    Write-NovaJson -Path $createPath -Data @{
-        tenantName       = "P37 Smoke $suffix"
-        planType         = 'starter'
-        ownerEmail       = $ownerEmail
-        generatePassword = $true
-        sendInviteEmail  = $false
-    }
-    $billingCreate = Invoke-NovaApi -Method POST -Path '/api/v1/platform/tenants' -Token $billing -OutFile $createPath
-    Check 'P37-06 billing denied create tenant' ($billingCreate.code -ne 0) "code=$($billingCreate.code)"
-
-    $billingSettings = Invoke-NovaApi -Path '/api/v1/platform/settings' -Token $billing
-    Check 'P37-07 billing denied settings' ($billingSettings.code -ne 0) "code=$($billingSettings.code)"
-
-    $auditorTenants = Invoke-NovaApi -Path '/api/v1/platform/tenants?page=1&pageSize=5' -Token $auditor
-    Check 'P37-08 auditor denied tenants' ($auditorTenants.code -ne 0) "code=$($auditorTenants.code)"
-
-    $supportCreate = Invoke-NovaApi -Method POST -Path '/api/v1/platform/tenants' -Token $support -OutFile $createPath
-    Check 'P37-09 support can create tenant' ($supportCreate.code -eq 0 -and $supportCreate.raw -match 'generatedPassword') "code=$($supportCreate.code) $($supportCreate.raw)"
-
-    if ($supportCreate.code -eq 0 -and $supportCreate.raw -match '"tenant"\s*:\s*\{[^\}]*"id"\s*:\s*(\d+)') {
-        $tenantId = [int]$Matches[1]
-        Invoke-NovaApi -Method DELETE -Path "/api/v1/platform/tenants/$tenantId" -Token $platform | Out-Null
-    }
+    $allPass = (Test-NovaApiDenied 'tenant admin cannot platform tenants' '/api/v1/platform/tenants?page=1&pageSize=5' GET $admin $results) -and $allPass
+    $allPass = (Test-NovaApiDenied 'tenant admin cannot platform settings' '/api/v1/platform/settings' GET $admin $results) -and $allPass
+    $allPass = (Test-NovaApiDenied 'portal user cannot platform tenants' '/api/v1/platform/tenants?page=1&pageSize=5' GET $user $results) -and $allPass
+    $allPass = (Test-NovaApiDenied 'platform cannot studio agents' '/api/v1/agents?page=1&pageSize=5' GET $platform $results) -and $allPass
 } catch {
-    Check 'platform-sub-roles setup' $false $_.Exception.Message
+    Check 'platform isolation setup' $false $_.Exception.Message
 }
 
 Write-NovaGateResult -ScriptName 'platform-sub-roles-smoke' -Passed $allPass -Details @{

@@ -17,11 +17,11 @@
           <SaveOutlined />
           保存
         </a-button>
-        <a-button v-if="canPublish" :loading="publishing" @click="publishWorkflowAction">
+        <a-button v-if="canPublish" data-testid="wf-publish-btn" :loading="publishing" @click="publishWorkflowAction">
           <CloudUploadOutlined />
           发布
         </a-button>
-        <a-button v-if="canRun" type="primary" :loading="running" @click="openRun">
+        <a-button v-if="canRun" type="primary" data-testid="wf-run-btn" :loading="running" @click="openRun">
           <PlayCircleOutlined />
           试运行
         </a-button>
@@ -181,7 +181,7 @@
         <a-form-item label="输入内容">
           <a-textarea v-model:value="runInput" :rows="4" placeholder="输入测试内容" />
         </a-form-item>
-        <a-button v-if="canRun" type="primary" :loading="running" block @click="runWorkflowAction">开始运行</a-button>
+        <a-button v-if="canRun" type="primary" data-testid="wf-run-start-btn" :loading="running" block @click="runWorkflowAction">开始运行</a-button>
       </a-form>
       <div v-if="runResult" class="run-result">
         <a-alert

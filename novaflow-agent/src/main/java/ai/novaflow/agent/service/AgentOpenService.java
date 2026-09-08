@@ -2,10 +2,12 @@ package ai.novaflow.agent.service;
 
 import ai.novaflow.agent.domain.OpenApiAuthContext;
 import ai.novaflow.agent.domain.OpenApiCredentialType;
+import ai.novaflow.agent.domain.AgentEmbedConfig;
 import ai.novaflow.agent.domain.dto.AgentDebugChatRequest;
 import ai.novaflow.agent.domain.vo.AgentDebugChatVO;
 import ai.novaflow.agent.domain.vo.AgentDebugStreamEvent;
 import ai.novaflow.agent.domain.vo.AgentVO;
+import ai.novaflow.agent.util.EmbedDomainValidator;
 import ai.novaflow.agent.util.OpenApiCallerIdValidator;
 import ai.novaflow.chat.domain.vo.ConversationMessageVO;
 import ai.novaflow.chat.domain.vo.ConversationVO;
@@ -34,16 +36,24 @@ public class AgentOpenService {
 
     private final OpenApiAuthService openApiAuthService;
     private final AgentPublishService agentPublishService;
+    private final AgentEmbedConfigService agentEmbedConfigService;
     private final AgentService agentService;
     private final AgentChatService agentChatService;
     private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
 
-    public AgentDebugChatVO chat(Long agentId, String rawToken, String callerId, AgentDebugChatRequest request) {
+    public AgentDebugChatVO chat(
+            Long agentId,
+            String rawToken,
+            String callerId,
+            AgentDebugChatRequest request,
+            String referer,
+            String origin) {
         OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
         String scopedCallerId = requireCallerId(auth, callerId);
         try {
             TenantContext.setTenantId(auth.tenantId());
+            validateEmbedDomain(auth, agentId, referer, origin);
             agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
             AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
             ensureApiSupported(agent);
@@ -53,9 +63,21 @@ public class AgentOpenService {
         }
     }
 
-    public SseEmitter streamChat(Long agentId, String rawToken, String callerId, AgentDebugChatRequest request) {
+    public SseEmitter streamChat(
+            Long agentId,
+            String rawToken,
+            String callerId,
+            AgentDebugChatRequest request,
+            String referer,
+            String origin) {
         OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
         String scopedCallerId = requireCallerId(auth, callerId);
+        try {
+            TenantContext.setTenantId(auth.tenantId());
+            validateEmbedDomain(auth, agentId, referer, origin);
+        } finally {
+            TenantContext.clear();
+        }
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         CompletableFuture.runAsync(() -> {
@@ -82,12 +104,14 @@ public class AgentOpenService {
         return emitter;
     }
 
-    public AgentDebugChatVO welcome(Long agentId, String rawToken) {
+    public AgentDebugChatVO welcome(Long agentId, String rawToken, String referer, String origin) {
         OpenApiAuthContext auth = openApiAuthService.authenticate(agentId, rawToken);
         try {
             TenantContext.setTenantId(auth.tenantId());
+            validateEmbedDomain(auth, agentId, referer, origin);
             agentPublishService.requirePublishedAgent(agentId, auth.tenantId());
             AgentVO agent = agentService.detailWithoutAccessRecord(agentId);
+            AgentEmbedConfig embedConfig = agentEmbedConfigService.loadConfig(agentId);
             String welcome = StringUtils.hasText(agent.getWelcomeMessage())
                     ? agent.getWelcomeMessage()
                     : "您好，我是 " + agent.getAgentName() + "，有什么可以帮您？";
@@ -97,6 +121,8 @@ public class AgentOpenService {
                     .tokensUsed(0)
                     .latencyMs(0L)
                     .debugMode(false)
+                    .embedThemeColor(embedConfig.getThemeColor())
+                    .postMessageTargetOrigin(embedConfig.getPostMessageTargetOrigin())
                     .build();
         } finally {
             TenantContext.clear();
@@ -141,6 +167,14 @@ public class AgentOpenService {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    private void validateEmbedDomain(OpenApiAuthContext auth, Long agentId, String referer, String origin) {
+        if (auth.credentialType() != OpenApiCredentialType.EMBED_TOKEN) {
+            return;
+        }
+        AgentEmbedConfig config = agentEmbedConfigService.loadConfig(agentId);
+        EmbedDomainValidator.requireAllowed(config, referer, origin);
     }
 
     private String requireCallerId(OpenApiAuthContext auth, String callerId) {

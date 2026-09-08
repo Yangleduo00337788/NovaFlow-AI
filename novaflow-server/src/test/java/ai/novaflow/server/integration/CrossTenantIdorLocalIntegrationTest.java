@@ -1,7 +1,6 @@
 package ai.novaflow.server.integration;
 
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -76,9 +75,10 @@ class CrossTenantIdorLocalIntegrationTest extends AbstractLocalIntegrationTest {
         assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/workflows/" + workflowId, HttpMethod.DELETE);
 
         Long kbId = tryCreateKnowledgeBase(restTemplate, tenantA.token(), "IDOR-KB-" + suffix);
-        Assumptions.assumeTrue(kbId != null, "skip knowledge IDOR when embedding model is unavailable");
-        assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/knowledge-bases/" + kbId, HttpMethod.GET);
-        assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/knowledge-bases/" + kbId, HttpMethod.DELETE);
+        if (kbId != null) {
+            assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/knowledge-bases/" + kbId, HttpMethod.GET);
+            assertCrossTenantDenied(attacker, tenantB.token(), "/api/v1/knowledge-bases/" + kbId, HttpMethod.DELETE);
+        }
 
         ResponseEntity<Map> ownAgent = restTemplate.exchange(
                 "/api/v1/agents/" + agentId,

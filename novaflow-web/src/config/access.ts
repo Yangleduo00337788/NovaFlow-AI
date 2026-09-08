@@ -1,7 +1,7 @@
 import { getRoutePermissions, type RoutePermissionResolver } from '@/config/menu'
 import { getPlatformRoutePermissions, isPlatformScopePath } from '@/config/platformMenu'
 import { isPlatformAccount } from '@/config/account'
-import { defaultPlatformHome, IS_PLATFORM_DEPLOY, platformPath } from '@/config/deploy'
+import { defaultPlatformHome, IS_PLATFORM_DEPLOY } from '@/config/deploy'
 import { RoleCodes } from '@/config/roles'
 
 export interface RouteAccessContext {
@@ -20,12 +20,7 @@ export function portalAppPath(applicationId: number): string {
   return `${PORTAL_HOME}/apps/${applicationId}`
 }
 
-/** 仅门户入口角色（企业成员：默认且主要使用应用门户） */
-export function isPortalOnlyRole(roleCode: string): boolean {
-  return roleCode === RoleCodes.MEMBER
-}
-
-export function isAllowedForPortalOnlyRole(path: string): boolean {
+export function isAllowedForPortalOnlyUser(path: string): boolean {
   return isPortalPath(path) || path === '/about' || path.startsWith('/about/')
 }
 
@@ -56,30 +51,40 @@ export function canAccessRoute(
   return true
 }
 
+/** 有门户权限且不能进 Studio 工作台（含仅门户的自定义角色） */
+export function isPortalOnlyUser(ctx: RouteAccessContext): boolean {
+  if (isPlatformAccount(ctx.accountType)) {
+    return false
+  }
+  return canAccessRoute(PORTAL_HOME, ctx) && !canAccessRoute('/dashboard', ctx)
+}
+
 /** 登录后默认首页 */
-export function getDefaultHome(accountType?: string | null, roleCode = ''): string {
+export function getDefaultHome(
+  accountType?: string | null,
+  roleCode = '',
+  canAccess?: (path: string) => boolean,
+): string {
   if (isPlatformAccount(accountType)) {
-    if (roleCode === RoleCodes.PLATFORM_AUDITOR) {
-      return platformPath('/platform/audit')
-    }
-    if (roleCode === RoleCodes.PLATFORM_BILLING) {
-      return platformPath('/platform/billing')
-    }
-    if (roleCode === RoleCodes.PLATFORM_SUPPORT) {
-      return platformPath('/platform/tenants')
-    }
     return defaultPlatformHome()
   }
   if (roleCode === RoleCodes.PLATFORM_ADMIN) {
     return defaultPlatformHome()
   }
-  if (isPortalOnlyRole(roleCode)) {
+  if (canAccess) {
+    if (canAccess('/dashboard')) {
+      return '/dashboard'
+    }
+    if (canAccess(PORTAL_HOME)) {
+      return PORTAL_HOME
+    }
+  } else if (roleCode === RoleCodes.MEMBER) {
     return PORTAL_HOME
   }
   return '/dashboard'
 }
 
-/** @deprecated 使用 getDefaultHome(accountType, roleCode) */
+/** @deprecated 使用 getDefaultHome(accountType, roleCode, canAccess) */
 export function getDefaultHomeByRole(roleCode: string): string {
   return getDefaultHome(null, roleCode)
 }
@@ -90,7 +95,7 @@ export function resolvePostLoginPath(
   redirect: string | undefined,
   canAccess: (path: string) => boolean,
 ): string {
-  const defaultHome = getDefaultHome(accountType, roleCode)
+  const defaultHome = getDefaultHome(accountType, roleCode, canAccess)
   if (!redirect || !redirect.startsWith('/')) {
     return defaultHome
   }
@@ -98,7 +103,7 @@ export function resolvePostLoginPath(
     const auditPath = IS_PLATFORM_DEPLOY ? '/audit' : '/platform/audit'
     return canAccess(auditPath) ? auditPath : defaultHome
   }
-  if (isPortalOnlyRole(roleCode) && !isAllowedForPortalOnlyRole(redirect)) {
+  if (canAccess(PORTAL_HOME) && !canAccess('/dashboard') && !isAllowedForPortalOnlyUser(redirect)) {
     return defaultHome
   }
   if (!canAccess(redirect)) {

@@ -1,11 +1,15 @@
 <template>
-  <div class="log-page page-shell">
-    <div class="page-header">
+  <div class="log-page" :class="{ 'page-shell': !embedded, 'is-embedded': embedded }">
+    <div v-if="!embedded" class="page-header">
       <div>
         <h1>调用日志</h1>
         <p>查看 Agent 与模型的 Token 消耗、耗时与成本明细</p>
       </div>
       <a-button v-if="canExport" :loading="exporting" @click="onExport">导出 CSV</a-button>
+    </div>
+    <div v-else class="embed-toolbar">
+      <span />
+      <a-button v-if="canExport" size="small" :loading="exporting" @click="onExport">导出 CSV</a-button>
     </div>
 
     <div class="list-panel page-card">
@@ -89,7 +93,7 @@
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a @click="openDetail(record)">详情</a>
-              <router-link v-if="record.traceId" :to="`/trace?traceId=${encodeURIComponent(record.traceId)}`">
+              <router-link v-if="record.traceId" :to="`/monitor?tab=traces&traceId=${encodeURIComponent(record.traceId)}`">
                 链路
               </router-link>
             </a-space>
@@ -111,7 +115,7 @@
         <a-descriptions-item label="成本">{{ detailRecord.costLabel || '-' }}</a-descriptions-item>
         <a-descriptions-item label="时间">{{ formatDateTime(detailRecord.createdAt) }}</a-descriptions-item>
         <a-descriptions-item v-if="detailRecord.traceId" label="Trace ID">
-          <router-link :to="`/trace?traceId=${encodeURIComponent(detailRecord.traceId)}`">
+          <router-link :to="`/monitor?tab=traces&traceId=${encodeURIComponent(detailRecord.traceId)}`">
             {{ detailRecord.traceId }}
           </router-link>
         </a-descriptions-item>
@@ -135,6 +139,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const auth = useAuthStore()
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const canExport = computed(() => auth.hasPermission('log:read'))
 const loading = ref(false)
 const exporting = ref(false)
@@ -320,5 +325,15 @@ onMounted(async () => {
 .error-text {
   color: #ff4d4f;
   font-size: 12px;
+}
+
+.is-embedded {
+  min-height: auto;
+}
+
+.embed-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 </style>

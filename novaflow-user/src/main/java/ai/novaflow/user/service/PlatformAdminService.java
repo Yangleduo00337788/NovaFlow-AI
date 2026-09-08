@@ -20,9 +20,9 @@ import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.tenant.mapper.TenantMapper;
 import ai.novaflow.tenant.mapper.TenantMemberMapper;
-import ai.novaflow.common.security.PermissionCodes;
 import ai.novaflow.common.security.AccountTypes;
 import ai.novaflow.common.security.RoleCodes;
+import ai.novaflow.user.support.SystemRoles;
 import ai.novaflow.user.domain.dto.PlatformNotifyChannelSaveRequest;
 import ai.novaflow.user.domain.dto.PlatformModelCatalogSaveRequest;
 import ai.novaflow.user.domain.dto.PlatformModelProviderUpdateRequest;
@@ -134,7 +134,7 @@ public class PlatformAdminService {
     public PageResult<PlatformTenantVO> pageTenants(int page, int pageSize, String keyword) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        requireTenantView();
+        requirePlatformManage();
         QueryWrapper query = QueryWrapper.create().eq("is_deleted", 0);
         if (StringUtils.hasText(keyword)) {
             query.and("(tenant_name LIKE ? OR tenant_code LIKE ? OR contact_email LIKE ?)",
@@ -149,13 +149,13 @@ public class PlatformAdminService {
     }
 
     public PlatformTenantVO getTenant(Long tenantId) {
-        requireTenantView();
+        requirePlatformManage();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         return toPlatformTenantVO(tenant);
     }
 
     public PlatformTenantDetailVO getTenantDetail(Long tenantId) {
-        requireTenantView();
+        requirePlatformManage();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         PlatformTenantVO base = toPlatformTenantVO(tenant);
 
@@ -216,7 +216,7 @@ public class PlatformAdminService {
 
     @Transactional
     public PlatformTenantCreateResultVO createTenant(PlatformTenantCreateRequest request) {
-        requireTenantManage();
+        requirePlatformManage();
         boolean generatePassword = Boolean.TRUE.equals(request.getGeneratePassword());
         String ownerPassword = request.getOwnerPassword();
         if (generatePassword) {
@@ -262,7 +262,7 @@ public class PlatformAdminService {
     }
 
     public List<PlatformOnboardingTemplateVO> listOnboardingTemplates() {
-        requireTenantManage();
+        requirePlatformManage();
         List<PlatformOnboardingTemplateVO> templates = new ArrayList<>();
         for (String planType : ONBOARDING_PLAN_TYPES) {
             TenantEntity sample = new TenantEntity();
@@ -285,7 +285,7 @@ public class PlatformAdminService {
     public PlatformOwnerPasswordResetResultVO resetTenantOwnerPassword(
             Long tenantId,
             PlatformOwnerPasswordResetRequest request) {
-        requireTenantManage();
+        requirePlatformManage();
         getTenantOrThrow(tenantId);
         UserEntity owner = findTenantOwnerOrThrow(tenantId);
 
@@ -330,11 +330,7 @@ public class PlatformAdminService {
     }
 
     private UserEntity findTenantOwnerOrThrow(Long tenantId) {
-        RoleEntity ownerRole = roleMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", 0)
-                        .eq("role_code", RoleCodes.TENANT_OWNER)
-                        .eq("is_deleted", 0));
+        RoleEntity ownerRole = roleMapper.selectOneByQuery(SystemRoles.byCode(RoleCodes.TENANT_ADMIN));
         if (ownerRole == null) {
             throw new BusinessException("系统角色未初始化");
         }
@@ -345,19 +341,19 @@ public class PlatformAdminService {
                         .eq("is_deleted", 0)
                         .limit(1));
         if (member == null) {
-            throw new BusinessException("未找到企业 Owner");
+            throw new BusinessException("未找到企业管理员");
         }
         UserEntity owner = userMapper.selectOneByQuery(
                 QueryWrapper.create().eq("id", member.getUserId()).eq("is_deleted", 0));
         if (owner == null) {
-            throw new BusinessException("Owner 用户不存在");
+            throw new BusinessException("企业管理员账号不存在");
         }
         return owner;
     }
 
     @Transactional
     public PlatformTenantVO updateTenant(Long tenantId, PlatformTenantUpdateRequest request) {
-        requireTenantManage();
+        requirePlatformManage();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         tenant.setTenantName(request.getTenantName().trim());
         tenant.setContactName(trimToNull(request.getContactName()));
@@ -406,7 +402,7 @@ public class PlatformAdminService {
 
     @Transactional
     public void deleteTenant(Long tenantId) {
-        requireTenantManage();
+        requirePlatformManage();
         TenantEntity tenant = getTenantOrThrow(tenantId);
         tenant.setIsDeleted(1);
         tenant.setStatus(0);
@@ -424,7 +420,7 @@ public class PlatformAdminService {
     }
 
     public PlatformGlobalStatsVO globalStats() {
-        requireTenantView();
+        requirePlatformManage();
         long tenantCount = tenantMapper.selectCountByQuery(QueryWrapper.create().eq("is_deleted", 0));
         long activeTenantCount = tenantMapper.selectCountByQuery(
                 QueryWrapper.create().eq("is_deleted", 0).eq("status", 1));
@@ -449,7 +445,7 @@ public class PlatformAdminService {
     }
 
     public PlatformDashboardOverviewVO dashboardOverview() {
-        requireTenantView();
+        requirePlatformManage();
         platformStorageQuotaAlertService.scanAndNotify();
         PlatformGlobalStatsVO stats = globalStats();
 
@@ -598,7 +594,7 @@ public class PlatformAdminService {
     }
 
     public PlatformBillingOverviewVO billingOverview(String month) {
-        requireBillingView();
+        requirePlatformManage();
         YearMonth current = resolveMonth(month);
         YearMonth previous = current.minusMonths(1);
         LocalDate currentStart = current.atDay(1);
@@ -927,7 +923,7 @@ public class PlatformAdminService {
     public PageResult<PlatformUserVO> pageUsers(int page, int pageSize, String keyword, Integer status, String accountType) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        requireTenantView();
+        requirePlatformManage();
 
         QueryWrapper query = QueryWrapper.create().eq("is_deleted", 0);
         if (StringUtils.hasText(keyword)) {
@@ -948,14 +944,14 @@ public class PlatformAdminService {
     }
 
     public PlatformUserVO getUser(Long userId) {
-        requireTenantView();
+        requirePlatformManage();
         UserEntity user = getUserOrThrow(userId);
         return toPlatformUserVO(user);
     }
 
     @Transactional
     public PlatformUserVO updateUser(Long userId, PlatformUserUpdateRequest request) {
-        requireTenantManage();
+        requirePlatformManage();
         long currentUserId = StpUtil.getLoginIdAsLong();
         if (userId == currentUserId && request.getStatus() != 1) {
             throw new BusinessException("不能封禁自己");
@@ -1001,7 +997,7 @@ public class PlatformAdminService {
     }
 
     public void forceLogoutUser(Long userId) {
-        requireTenantManage();
+        requirePlatformManage();
         UserEntity user = getUserOrThrow(userId);
         StpUtil.logout(userId);
         auditLogService.record(
@@ -1184,7 +1180,7 @@ public class PlatformAdminService {
             int page, int pageSize, String keyword, LocalDate startDate, LocalDate endDate) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        requireTenantView();
+        requirePlatformManage();
 
         QueryWrapper query = QueryWrapper.create()
                 .and("(action LIKE 'auth.login%' OR action LIKE 'auth.logout%')");
@@ -1375,21 +1371,6 @@ public class PlatformAdminService {
         permissionService.requireSuperAdmin(StpUtil.getLoginIdAsLong(), TenantContext.getTenantId());
     }
 
-    private void requireTenantView() {
-        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), TenantContext.getTenantId(),
-                PermissionCodes.PLATFORM_MANAGE, PermissionCodes.PLATFORM_TENANT_VIEW);
-    }
-
-    private void requireTenantManage() {
-        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), TenantContext.getTenantId(),
-                PermissionCodes.PLATFORM_MANAGE, PermissionCodes.PLATFORM_TENANT_MANAGE);
-    }
-
-    private void requireBillingView() {
-        permissionService.requireAnyPermission(StpUtil.getLoginIdAsLong(), TenantContext.getTenantId(),
-                PermissionCodes.PLATFORM_MANAGE, PermissionCodes.PLATFORM_BILLING_VIEW);
-    }
-
     private void kickTenantSessions(Long tenantId) {
         List<TenantMemberEntity> members = tenantMemberMapper.selectListByQuery(
                 QueryWrapper.create().eq("tenant_id", tenantId).eq("is_deleted", 0));
@@ -1485,14 +1466,14 @@ public class PlatformAdminService {
     }
 
     public PlatformSecurityOverviewVO securityOverview() {
-        requireTenantView();
+        requirePlatformManage();
         return platformRiskControlService.securityOverview();
     }
 
     public PageResult<PlatformSecurityAlertEventVO> pageSecurityAlerts(int page, int pageSize, String status) {
         page = PageQueryUtils.normalizePage(page);
         pageSize = PageQueryUtils.normalizePageSize(pageSize);
-        requireTenantView();
+        requirePlatformManage();
         QueryWrapper query = QueryWrapper.create().orderBy("created_at", false);
         if (StringUtils.hasText(status)) {
             query.eq("status", status.trim().toUpperCase(Locale.ROOT));
@@ -1506,7 +1487,7 @@ public class PlatformAdminService {
 
     @Transactional
     public PlatformSecurityAlertEventVO acknowledgeSecurityAlert(Long alertId) {
-        requireTenantManage();
+        requirePlatformManage();
         PlatformSecurityAlertEventEntity entity = platformSecurityAlertEventMapper.selectOneById(alertId);
         if (entity == null) {
             throw new BusinessException("告警不存在");

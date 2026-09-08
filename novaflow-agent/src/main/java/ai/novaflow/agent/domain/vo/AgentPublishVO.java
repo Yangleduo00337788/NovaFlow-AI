@@ -23,4 +23,5 @@ public class AgentPublishVO {
     private String streamEndpoint;
     private String welcomeEndpoint;
     private String embedPath;
+    private AgentEmbedConfigVO embedConfig;
 }

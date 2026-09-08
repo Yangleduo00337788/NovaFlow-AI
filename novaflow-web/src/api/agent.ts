@@ -122,6 +122,13 @@ export interface AgentPublishInfo {
   streamEndpoint: string
   welcomeEndpoint?: string
   embedPath?: string
+  embedConfig?: AgentEmbedConfig
+}
+
+export interface AgentEmbedConfig {
+  themeColor?: string
+  allowedDomains?: string[]
+  postMessageTargetOrigin?: string
 }
 
 export function fetchAgentPublishInfo(id: number) {
@@ -144,6 +151,14 @@ export function rotateAgentEmbedToken(id: number) {
   return request.post<ApiResult<AgentPublishInfo>>(`/v1/agents/${id}/rotate-embed-token`)
 }
 
+export function fetchAgentEmbedConfig(id: number) {
+  return request.get<ApiResult<AgentEmbedConfig>>(`/v1/agents/${id}/embed-config`)
+}
+
+export function updateAgentEmbedConfig(id: number, data: AgentEmbedConfig) {
+  return request.put<ApiResult<AgentEmbedConfig>>(`/v1/agents/${id}/embed-config`, data)
+}
+
 export interface ModelCapabilities {
   supportsDeepThinking?: boolean
   supportsWebSearch?: boolean
@@ -161,6 +176,8 @@ export interface AgentDebugChatResponse {
   modelCapabilities?: ModelCapabilities
   modelName?: string
   providerName?: string
+  embedThemeColor?: string
+  postMessageTargetOrigin?: string
 }
 
 export interface RetrievalSourceItem {

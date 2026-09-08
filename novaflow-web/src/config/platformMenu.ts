@@ -14,55 +14,53 @@ export interface PlatformMenuGroup {
   items: PlatformMenuItem[]
 }
 
-const tenantViewPermissions = ['platform:manage', 'platform:tenant:view']
-const tenantManagePermissions = ['platform:manage', 'platform:tenant:manage']
-const billingViewPermissions = ['platform:manage', 'platform:billing:view']
+const platformManagePermissions = ['platform:manage']
 
 /** 平台运营后台菜单（仅 platform 账号可见） */
 export const platformMenuGroups: PlatformMenuGroup[] = [
   {
     title: '运营概览',
     items: [
-      { key: 'platform-dashboard', label: '运营概览', path: platformPath('/platform/dashboard'), icon: 'dashboard', permissions: tenantViewPermissions },
+      { key: 'platform-dashboard', label: '运营概览', path: platformPath('/platform/dashboard'), icon: 'dashboard', permissions: platformManagePermissions },
     ],
   },
   {
     title: '租户与用户',
     items: [
-      { key: 'platform-tenants', label: '租户管理', path: platformPath('/platform/tenants'), icon: 'org', permissions: tenantViewPermissions },
-      { key: 'platform-users', label: '用户管理', path: platformPath('/platform/users'), icon: 'org', permissions: tenantViewPermissions },
-      { key: 'platform-settings', label: '系统配置', path: platformPath('/platform/settings'), icon: 'settings', permissions: ['platform:manage'] },
+      { key: 'platform-tenants', label: '租户管理', path: platformPath('/platform/tenants'), icon: 'org', permissions: platformManagePermissions },
+      { key: 'platform-users', label: '用户管理', path: platformPath('/platform/users'), icon: 'org', permissions: platformManagePermissions },
+      { key: 'platform-settings', label: '系统配置', path: platformPath('/platform/settings'), icon: 'settings', permissions: platformManagePermissions },
     ],
   },
   {
     title: '运营大盘',
     items: [
-      { key: 'platform-api-monitor', label: 'API 监控', path: platformPath('/platform/api-monitor'), icon: 'monitor', permissions: ['platform:manage'] },
-      { key: 'platform-billing', label: '计费大盘', path: platformPath('/platform/billing'), icon: 'billing', permissions: billingViewPermissions },
-      { key: 'platform-models', label: '模型概览', path: platformPath('/platform/models'), icon: 'model', permissions: ['platform:manage'] },
+      { key: 'platform-api-monitor', label: 'API 监控', path: platformPath('/platform/api-monitor'), icon: 'monitor', permissions: platformManagePermissions },
+      { key: 'platform-billing', label: '计费大盘', path: platformPath('/platform/billing'), icon: 'billing', permissions: platformManagePermissions },
+      { key: 'platform-models', label: '模型概览', path: platformPath('/platform/models'), icon: 'model', permissions: platformManagePermissions },
     ],
   },
   {
     title: '安全与审计',
     items: [
-      { key: 'platform-security', label: 'IP 黑名单', path: platformPath('/platform/security'), icon: 'settings', permissions: ['platform:manage'] },
-      { key: 'platform-login-logs', label: '登录日志', path: platformPath('/platform/login-logs'), icon: 'log', permissions: tenantViewPermissions },
-      { key: 'platform-audit', label: '审计日志', path: platformPath('/platform/audit'), icon: 'log', permissions: ['audit:view'] },
+      { key: 'platform-security', label: 'IP 黑名单', path: platformPath('/platform/security'), icon: 'settings', permissions: platformManagePermissions },
+      { key: 'platform-login-logs', label: '登录日志', path: platformPath('/platform/login-logs'), icon: 'log', permissions: platformManagePermissions },
+      { key: 'platform-audit', label: '审计日志', path: platformPath('/platform/audit'), icon: 'log', permissions: platformManagePermissions },
     ],
   },
 ]
 
 const platformRoutePermissionMap: Record<string, string[]> = {
-  '/platform/dashboard': tenantViewPermissions,
-  '/platform/tenants': tenantViewPermissions,
-  '/platform/users': tenantViewPermissions,
-  '/platform/settings': ['platform:manage'],
-  '/platform/api-monitor': ['platform:manage'],
-  '/platform/billing': billingViewPermissions,
-  '/platform/models': ['platform:manage'],
-  '/platform/security': ['platform:manage'],
-  '/platform/login-logs': tenantViewPermissions,
-  '/platform/audit': ['audit:view'],
+  '/platform/dashboard': platformManagePermissions,
+  '/platform/tenants': platformManagePermissions,
+  '/platform/users': platformManagePermissions,
+  '/platform/settings': platformManagePermissions,
+  '/platform/api-monitor': platformManagePermissions,
+  '/platform/billing': platformManagePermissions,
+  '/platform/models': platformManagePermissions,
+  '/platform/security': platformManagePermissions,
+  '/platform/login-logs': platformManagePermissions,
+  '/platform/audit': platformManagePermissions,
 }
 
 const platformRouteLabels: Record<string, { title: string; icon: string }> = {
@@ -127,4 +125,4 @@ export function isPlatformScopePath(path: string): boolean {
   return isDeployPlatformScopePath(path)
 }
 
-export { tenantViewPermissions, tenantManagePermissions, billingViewPermissions }
+export { platformManagePermissions }

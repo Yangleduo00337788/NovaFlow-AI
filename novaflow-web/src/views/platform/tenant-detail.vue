@@ -18,8 +18,8 @@
         </p>
       </div>
       <a-space>
-        <a-button type="primary" :disabled="!detail" @click="openEdit">编辑租户</a-button>
-        <a-button :disabled="!detail" @click="openResetOwner">重置 Owner 密码</a-button>
+        <a-button v-if="canManageTenant" type="primary" :disabled="!detail" @click="openEdit">编辑租户</a-button>
+        <a-button v-if="canManageTenant" :disabled="!detail" @click="openResetOwner">重置 Owner 密码</a-button>
       </a-space>
     </div>
 
@@ -191,6 +191,8 @@ import {
   type PlatformTenantDetail,
 } from '@/api/platform'
 import { platformPath } from '@/config/deploy'
+import { platformManagePermissions } from '@/config/platformMenu'
+import { useAuthStore } from '@/stores/auth'
 import TenantEditModal from '@/views/platform/components/TenantEditModal.vue'
 import {
   formatPlatformCost,
@@ -203,6 +205,8 @@ import '@/views/platform/shared/styles.css'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
+const canManageTenant = computed(() => auth.hasAnyPermission(platformManagePermissions))
 
 const loading = ref(false)
 const saving = ref(false)

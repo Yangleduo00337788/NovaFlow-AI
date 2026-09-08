@@ -37,7 +37,7 @@ public class AgentOpenController {
     @GetMapping("/{id}/welcome")
     public ApiResult<AgentDebugChatVO> welcome(@PathVariable Long id, HttpServletRequest request) {
         OpenApiRequestContext ctx = resolveRequestContext(request);
-        return ApiResult.ok(agentOpenService.welcome(id, ctx.token()));
+        return ApiResult.ok(agentOpenService.welcome(id, ctx.token(), ctx.referer(), ctx.origin()));
     }
 
     @PostMapping("/{id}/chat")
@@ -46,7 +46,7 @@ public class AgentOpenController {
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
         OpenApiRequestContext ctx = resolveRequestContext(httpRequest);
-        return ApiResult.ok(agentOpenService.chat(id, ctx.token(), ctx.callerId(), request));
+        return ApiResult.ok(agentOpenService.chat(id, ctx.token(), ctx.callerId(), request, ctx.referer(), ctx.origin()));
     }
 
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -55,7 +55,7 @@ public class AgentOpenController {
             @Valid @RequestBody AgentDebugChatRequest request,
             HttpServletRequest httpRequest) {
         OpenApiRequestContext ctx = resolveRequestContext(httpRequest);
-        return agentOpenService.streamChat(id, ctx.token(), ctx.callerId(), request);
+        return agentOpenService.streamChat(id, ctx.token(), ctx.callerId(), request, ctx.referer(), ctx.origin());
     }
 
     @GetMapping("/{id}/conversations")
@@ -83,7 +83,7 @@ public class AgentOpenController {
         String token = resolveToken(request);
         openApiRateLimiter.check(token, request.getRemoteAddr());
         String callerId = request.getHeader(HEADER_CALLER_ID);
-        return new OpenApiRequestContext(token, callerId);
+        return new OpenApiRequestContext(token, callerId, request.getHeader("Referer"), request.getHeader("Origin"));
     }
 
     private String resolveToken(HttpServletRequest request) {
@@ -107,6 +107,6 @@ public class AgentOpenController {
         return token;
     }
 
-    private record OpenApiRequestContext(String token, String callerId) {
+    private record OpenApiRequestContext(String token, String callerId, String referer, String origin) {
     }
 }

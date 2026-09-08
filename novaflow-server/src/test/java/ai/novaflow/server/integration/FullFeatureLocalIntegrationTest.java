@@ -406,7 +406,7 @@ class FullFeatureLocalIntegrationTest extends AbstractLocalIntegrationTest {
         OpenApiIntegrationFixtures.LoginSession session = OpenApiIntegrationFixtures.login(restTemplate);
         var headers = OpenApiIntegrationFixtures.adminHeaders(session.token());
         long appId = firstApplicationId(session.token());
-        long developerUserId = userIdByEmail(session.token(), "developer@novaflow.ai");
+        long memberUserId = userIdByEmail(session.token(), "user@novaflow.ai");
 
         Map<String, Object> createAgent = new HashMap<>();
         createAgent.put("agentName", "Smoke-ACL-" + UUID.randomUUID().toString().substring(0, 8));
@@ -426,7 +426,7 @@ class FullFeatureLocalIntegrationTest extends AbstractLocalIntegrationTest {
         assertApiGet("/api/v1/resources/AGENT/" + agentId + "/permissions", headers);
 
         Map<String, Object> grant = Map.of(
-                "userId", developerUserId,
+                "userId", memberUserId,
                 "permissionCode", "agent:read"
         );
         Map<String, Object> saveRequest = Map.of("grants", List.of(grant));
@@ -510,30 +510,18 @@ class FullFeatureLocalIntegrationTest extends AbstractLocalIntegrationTest {
     }
 
     @Test
-    void transferOwnerRoundTrip() {
+    void transferOwnerIsDisabled() {
         OpenApiIntegrationFixtures.LoginSession admin = OpenApiIntegrationFixtures.login(restTemplate);
         var headers = OpenApiIntegrationFixtures.adminHeaders(admin.token());
+        long memberId = memberIdByEmail(admin.token(), "user@novaflow.ai");
 
-        long developerMemberId = memberIdByEmail(admin.token(), "developer@novaflow.ai");
-        long adminMemberId = memberIdByEmail(admin.token(), "admin@novaflow.ai");
-
-        ResponseEntity<Map> transferToDeveloper = restTemplate.exchange(
+        ResponseEntity<Map> transfer = restTemplate.exchange(
                 "/api/v1/org/tenant/transfer-owner",
                 HttpMethod.POST,
-                new HttpEntity<>(Map.of("memberId", developerMemberId), headers),
+                new HttpEntity<>(Map.of("memberId", memberId), headers),
                 Map.class
         );
-        OpenApiIntegrationFixtures.assertApiSuccess(transferToDeveloper);
-
-        OpenApiIntegrationFixtures.LoginSession developer =
-                OpenApiIntegrationFixtures.login(restTemplate, "developer@novaflow.ai", "Developer123!");
-        ResponseEntity<Map> transferBack = restTemplate.exchange(
-                "/api/v1/org/tenant/transfer-owner",
-                HttpMethod.POST,
-                new HttpEntity<>(Map.of("memberId", adminMemberId), OpenApiIntegrationFixtures.adminHeaders(developer.token())),
-                Map.class
-        );
-        OpenApiIntegrationFixtures.assertApiSuccess(transferBack);
+        OpenApiIntegrationFixtures.assertApiCode(transfer, 40301);
     }
 
     @Test

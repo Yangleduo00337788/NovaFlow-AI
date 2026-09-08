@@ -2,6 +2,7 @@ package ai.novaflow.agent.service;
 import ai.novaflow.common.context.TenantContexts;
 
 import ai.novaflow.agent.domain.AgentStatus;
+import ai.novaflow.agent.domain.vo.AgentEmbedConfigVO;
 import ai.novaflow.agent.domain.vo.AgentPublishVO;
 import ai.novaflow.agent.domain.vo.AgentVO;
 import ai.novaflow.agent.entity.AgentApiKeyEntity;
@@ -28,6 +29,7 @@ public class AgentPublishService {
     private final AgentService agentService;
     private final AgentApiKeyService agentApiKeyService;
     private final AgentEmbedTokenService agentEmbedTokenService;
+    private final AgentEmbedConfigService agentEmbedConfigService;
     private final WorkflowService workflowService;
     private final AuditLogService auditLogService;
 
@@ -171,6 +173,7 @@ public class AgentPublishService {
                 .streamEndpoint("/api/v1/open/agents/" + agent.getId() + "/chat/stream")
                 .welcomeEndpoint("/api/v1/open/agents/" + agent.getId() + "/welcome")
                 .embedPath("/embed/agents/" + agent.getId())
+                .embedConfig(agentEmbedConfigService.getEmbedConfig(agent.getId()))
                 .build();
     }
 
@@ -183,6 +186,7 @@ public class AgentPublishService {
                 .status(vo.getStatus())
                 .version(vo.getVersion())
                 .publishedAt(vo.getPublishedAt())
+                .embedConfig(vo.getEmbedConfig())
                 .build();
     }
 

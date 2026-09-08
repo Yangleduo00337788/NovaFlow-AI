@@ -337,7 +337,12 @@
           <a-input v-model:value="inviteForm.nickname" placeholder="显示名称" />
         </a-form-item>
         <a-form-item label="角色" required>
-          <a-select v-model:value="inviteForm.roleCode" :options="roleOptions" />
+          <a-select
+            v-model:value="inviteForm.roleCode"
+            show-search
+            option-filter-prop="label"
+            :options="roleOptions"
+          />
         </a-form-item>
         <a-form-item label="部门">
           <a-tree-select
@@ -367,7 +372,12 @@
           <a-input :value="editingMember?.email" disabled />
         </a-form-item>
         <a-form-item label="角色">
-          <a-select v-model:value="memberForm.roleCode" :options="roleOptions" />
+          <a-select
+            v-model:value="memberForm.roleCode"
+            show-search
+            option-filter-prop="label"
+            :options="roleOptions"
+          />
         </a-form-item>
         <a-form-item label="部门">
           <a-tree-select
@@ -419,7 +429,7 @@ import {
   type WorkspaceItem,
 } from '@/api/org'
 import { fetchCurrentUser } from '@/api/auth'
-import { isProtectedMemberRole } from '@/config/roles'
+import { isProtectedMemberRole, RoleCodes } from '@/config/roles'
 import { formatDateTime } from '@/utils/datetime'
 import { useAuthStore } from '@/stores/auth'
 
@@ -486,7 +496,7 @@ const inviting = ref(false)
 const inviteForm = reactive({
   email: '',
   nickname: '',
-  roleCode: 'developer',
+  roleCode: RoleCodes.USER as string,
   password: '',
   departmentId: undefined as number | undefined,
 })
@@ -495,7 +505,7 @@ const memberModalOpen = ref(false)
 const updatingMember = ref(false)
 const editingMember = ref<MemberItem | null>(null)
 const memberForm = reactive({
-  roleCode: 'developer',
+  roleCode: RoleCodes.USER as string,
   status: 1,
   departmentId: undefined as number | undefined,
 })
@@ -795,20 +805,21 @@ function onMemberTableChange(pagination: { current?: number }) {
   loadMembers()
 }
 
-function openInvite() {
+async function openInvite() {
   if (!canInviteUser.value) return
   inviteForm.email = ''
   inviteForm.nickname = ''
-  inviteForm.roleCode = 'developer'
+  inviteForm.roleCode = RoleCodes.USER
   inviteForm.password = ''
   inviteForm.departmentId = undefined
+  await loadAssignableRoles()
   inviteModalOpen.value = true
 }
 
 function resetInviteForm() {
   inviteForm.email = ''
   inviteForm.nickname = ''
-  inviteForm.roleCode = 'developer'
+  inviteForm.roleCode = RoleCodes.USER
   inviteForm.password = ''
   inviteForm.departmentId = undefined
 }
@@ -838,16 +849,17 @@ function isProtectedMember(record: MemberItem) {
   return isProtectedMemberRole(record.roleCode || '')
 }
 
-function openMemberEdit(record: MemberItem) {
+async function openMemberEdit(record: MemberItem) {
   if (!canUpdateUser.value) return
   if (isProtectedMember(record)) {
     message.warning('不能对企业内的受保护角色进行该操作')
     return
   }
   editingMember.value = record
-  memberForm.roleCode = record.roleCode || 'developer'
+  memberForm.roleCode = record.roleCode || RoleCodes.USER
   memberForm.status = record.status ?? 1
   memberForm.departmentId = record.departmentId || undefined
+  await loadAssignableRoles()
   memberModalOpen.value = true
 }
 

@@ -40,6 +40,11 @@ try {
         $reprocess = Invoke-NovaApi -Method POST -Path "/api/v1/knowledge-bases/$kbId/documents/$docId/reprocess" -Token $token -MaxTimeSec 90
         Check 'K-05 reprocess document' ($reprocess.code -eq 0) "code=$($reprocess.code)"
 
+        $retPath = Join-Path $script:NovaFlowTmpDir 'doc-life-retrieve.json'
+        Write-NovaJson -Path $retPath -Data @{ query = "NovaFlow doc lifecycle $suffix"; topK = 5 }
+        $retrieve = Invoke-NovaApi -Method POST -Path "/api/v1/knowledge-bases/$kbId/retrieve" -Token $token -OutFile $retPath -MaxTimeSec 90
+        Check 'K-05 retrieve after upload' ($retrieve.code -eq 0 -and $retrieve.raw -match '"chunks"') "code=$($retrieve.code)"
+
         $deleted = Invoke-NovaApi -Method DELETE -Path "/api/v1/knowledge-bases/$kbId/documents/$docId" -Token $token
         Check 'K-05 delete document' ($deleted.code -eq 0) "code=$($deleted.code)"
 
@@ -48,6 +53,7 @@ try {
         Check 'K-05 document removed from list' $gone "code=$($docs.code)"
     } else {
         Check 'K-05 reprocess document' $false 'SKIP: upload failed'
+        Check 'K-05 retrieve after upload' $false 'SKIP: upload failed'
         Check 'K-05 delete document' $false 'SKIP: upload failed'
         Check 'K-05 document removed from list' $false 'SKIP: upload failed'
     }

@@ -4,7 +4,7 @@
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 RUN addgroup -S novaflow && adduser -S novaflow -G novaflow
-COPY novaflow-server/target/novaflow-server-1.0.1.jar app.jar
+COPY novaflow-server/target/novaflow-server-1.1.1.jar app.jar
 USER novaflow
 EXPOSE 8088
 ENTRYPOINT ["java", "-jar", "app.jar"]

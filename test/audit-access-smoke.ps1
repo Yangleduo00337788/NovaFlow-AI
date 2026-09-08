@@ -20,14 +20,10 @@ Write-NovaLog '=== audit-access-smoke ===' $logFile
 
 try {
     $adminToken = Get-NovaLoginToken
-    $devToken = Get-NovaLoginToken -Email 'developer@novaflow.ai' -Password 'Developer123!'
     $userToken = Get-NovaLoginToken -Email 'user@novaflow.ai' -Password 'User123!'
 
     $adminLogs = Invoke-NovaApi -Path '/api/v1/audit-logs?page=1&pageSize=10' -Token $adminToken
     Check 'U-06 admin can list audit logs' ($adminLogs.code -eq 0) "code=$($adminLogs.code)"
-
-    $devLogs = Invoke-NovaApi -Path '/api/v1/audit-logs?page=1&pageSize=10' -Token $devToken
-    Check 'U-06 developer denied audit logs' (($devLogs.code -ne 0) -or ($devLogs.http -ge 400)) "http=$($devLogs.http) code=$($devLogs.code)"
 
     $userLogs = Invoke-NovaApi -Path '/api/v1/audit-logs?page=1&pageSize=10' -Token $userToken
     Check 'U-06 user denied audit logs' (($userLogs.code -ne 0) -or ($userLogs.http -ge 400)) "http=$($userLogs.http) code=$($userLogs.code)"

@@ -2,8 +2,8 @@
   <div class="application-page page-shell" data-testid="application-page">
     <div class="page-header">
       <div>
-        <h1>应用管理</h1>
-        <p>聚合 Agent 与知识库，作为统一发布与访问入口</p>
+        <h1>应用</h1>
+        <p>门户里用户看到的入口。每个应用绑定默认 Agent；发布后出现在应用门户。Agent 本身在 Agent Studio 编排。</p>
       </div>
       <a-button v-if="canManage" type="primary" data-testid="create-app-btn" @click="openCreate">
         <PlusOutlined />
@@ -119,13 +119,13 @@
             v-model:value="form.agentIds"
             mode="multiple"
             allow-clear
-            placeholder="选择要纳入本应用的 Agent"
+            placeholder="选择纳入本应用的 Agent（门户只对话默认入口）"
             :loading="agentsLoading"
             :options="agentOptions"
             @change="onAgentIdsChange"
           />
         </a-form-item>
-        <a-form-item label="默认入口 Agent">
+        <a-form-item label="默认入口 Agent" extra="用户在门户打开该应用时，对话走这个 Agent。">
           <a-select
             v-model:value="form.defaultAgentId"
             allow-clear
@@ -202,7 +202,7 @@
             下线应用
           </a-button>
         </div>
-        <p class="publish-hint">发布前请确保默认入口 Agent 已在 Agent Studio 中发布。</p>
+        <p class="publish-hint">发布后终端用户可在应用门户打开本应用。Open API / Embed 在 Agent Studio 的「发布」里配置。</p>
       </div>
     </a-modal>
   </div>

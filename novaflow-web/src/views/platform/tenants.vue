@@ -5,7 +5,7 @@
         <h1>租户管理</h1>
         <p>管理所有企业租户、套餐与资源配额</p>
       </div>
-      <a-button type="primary" @click="openCreate">新建租户</a-button>
+      <a-button v-if="canManageTenant" type="primary" data-testid="create-tenant-btn" @click="openCreate">新建租户</a-button>
     </div>
 
     <div class="page-card list-panel">
@@ -75,8 +75,8 @@
               <router-link :to="tenantDetailPath(record.id)">
                 <a-button type="link" size="small">详情</a-button>
               </router-link>
-              <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
-              <a-popconfirm title="确认删除该租户？" @confirm="removeTenant(record.id)">
+              <a-button v-if="canManageTenant" type="link" size="small" @click="openEdit(record)">编辑</a-button>
+              <a-popconfirm v-if="canManageTenant" title="确认删除该租户？" @confirm="removeTenant(record.id)">
                 <a-button type="link" size="small" danger>删除</a-button>
               </a-popconfirm>
             </a-space>
@@ -102,10 +102,15 @@ import {
   type PlatformTenant,
 } from '@/api/platform'
 import { platformPath } from '@/config/deploy'
+import { platformManagePermissions } from '@/config/platformMenu'
+import { useAuthStore } from '@/stores/auth'
 import TenantCreateModal from '@/views/platform/components/TenantCreateModal.vue'
 import TenantEditModal from '@/views/platform/components/TenantEditModal.vue'
 import { formatPlatformDate, formatPlatformNumber, formatStorageMb, quotaPercent } from '@/views/platform/shared/utils'
 import '@/views/platform/shared/styles.css'
+
+const auth = useAuthStore()
+const canManageTenant = computed(() => auth.hasAnyPermission(platformManagePermissions))
 
 const loading = ref(false)
 const saving = ref(false)
