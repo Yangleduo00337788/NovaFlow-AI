@@ -22,6 +22,13 @@ function Invoke-CoreSmoke {
 
 Write-NovaLog '=== ci-core-smoke ===' $logFile
 
+try {
+    Prepare-NovaGateEnvironment
+    Write-NovaLog 'Gate environment prepared.' $logFile
+} catch {
+    Write-NovaLog "Prepare-NovaGateEnvironment warning: $($_.Exception.Message)" $logFile
+}
+
 $coreScripts = @(
     @{ Name = 'Pre-deploy gate'; Script = Join-Path $PSScriptRoot 'pre-deploy-gate.ps1' }
     @{ Name = 'RBAC API acceptance'; Script = Join-Path $PSScriptRoot 'rbac-api-acceptance.ps1' }

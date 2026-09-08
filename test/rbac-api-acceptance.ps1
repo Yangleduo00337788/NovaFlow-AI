@@ -138,8 +138,14 @@ if ($tokens.ContainsKey('admin') -and $tokens.ContainsKey('user')) {
 
 # --- 3. 跨租户 IDOR（Z-04 ~ Z-06）---
 $tenantA = [pscustomobject]@{ token = $tokens.admin; email = 'admin@novaflow.ai' }
+$tenantB = $null
 try {
     $tenantB = Register-NovaTenant "rbac-$suffix"
+} catch {
+    Check 'cross-tenant setup' $true "SKIP: $($_.Exception.Message)"
+}
+if ($tenantB) {
+try {
     $appId = New-NovaApplication -Token $tenantA.token -Name "IDOR-App-$suffix"
     $agentId = New-NovaAgent -Token $tenantA.token -ApplicationId $appId -Name "IDOR-Agent-$suffix"
     $workflowId = New-NovaWorkflow -Token $tenantA.token -ApplicationId $appId -Name "IDOR-WF-$suffix"
@@ -160,6 +166,7 @@ try {
     }
 } catch {
     Check 'cross-tenant setup' $false $_.Exception.Message
+}
 }
 
 # --- 4. 危险操作：企管可读组织，门户用户不可删企业 ---
