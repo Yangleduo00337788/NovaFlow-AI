@@ -68,13 +68,14 @@ Invoke-GateStep 'Platform maintenance smoke' (Join-Path $PSScriptRoot 'platform-
 Invoke-GateStep 'Platform risk smoke' (Join-Path $PSScriptRoot 'platform-risk-smoke.ps1')
 Invoke-GateStep 'Platform storage quota smoke' (Join-Path $PSScriptRoot 'platform-storage-quota-smoke.ps1')
 Invoke-GateStep 'Platform alert dispatch smoke' (Join-Path $PSScriptRoot 'platform-alert-dispatch-smoke.ps1')
-Invoke-GateStep 'Platform sub-roles smoke' (Join-Path $PSScriptRoot 'platform-sub-roles-smoke.ps1')
+Invoke-GateStep 'Three-role platform isolation' (Join-Path $PSScriptRoot 'platform-sub-roles-smoke.ps1')
 Invoke-GateStep 'Portal enhancements smoke' (Join-Path $PSScriptRoot 'portal-enhancements-smoke.ps1')
 Invoke-GateStep 'Coverage gap smoke' (Join-Path $PSScriptRoot 'coverage-gap-smoke.ps1')
 Invoke-GateStep 'Auth lifecycle smoke' (Join-Path $PSScriptRoot 'auth-lifecycle-smoke.ps1')
 Invoke-GateStep 'Auth lock smoke' (Join-Path $PSScriptRoot 'auth-lock-smoke.ps1')
 Invoke-GateStep 'API boundary smoke' (Join-Path $PSScriptRoot 'api-boundary-smoke.ps1')
 Invoke-GateStep 'Open API acceptance' (Join-Path $PSScriptRoot 'open-api-acceptance.ps1')
+Invoke-GateStep 'Embed domain whitelist' (Join-Path $PSScriptRoot 'embed-domain-smoke.ps1')
 Invoke-GateStep 'Agent debug smoke' (Join-Path $PSScriptRoot 'agent-debug-smoke.ps1')
 Invoke-GateStep 'Conversation key isolation' (Join-Path $PSScriptRoot 'conversation-key-isolation.ps1')
 Invoke-GateStep 'HTTP tool SSRF' (Join-Path $PSScriptRoot 'http-tool-ssrf.ps1')
@@ -138,7 +139,19 @@ if (-not $SkipFaultInjection) {
 }
 
 if ($IncludeProdCompose) {
-    Invoke-GateStep 'Prod compose smoke' (Join-Path $PSScriptRoot 'prod-compose-smoke.ps1')
+    $prevBase = $env:NOVAFLOW_BASE_URL
+    $prevWeb = $env:NOVAFLOW_WEB_URL
+    $env:NOVAFLOW_BASE_URL = 'http://127.0.0.1:18080'
+    $env:NOVAFLOW_WEB_URL = 'http://localhost:13000'
+    try {
+        Invoke-GateStep 'Prod compose smoke' (Join-Path $PSScriptRoot 'prod-compose-smoke.ps1')
+    }
+    finally {
+        if ($null -ne $prevBase) { $env:NOVAFLOW_BASE_URL = $prevBase }
+        else { Remove-Item Env:NOVAFLOW_BASE_URL -ErrorAction SilentlyContinue }
+        if ($null -ne $prevWeb) { $env:NOVAFLOW_WEB_URL = $prevWeb }
+        else { Remove-Item Env:NOVAFLOW_WEB_URL -ErrorAction SilentlyContinue }
+    }
 }
 
 $allPass = ($failed -eq 0)

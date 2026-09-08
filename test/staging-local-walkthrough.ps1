@@ -3,10 +3,9 @@
 # 用法: pwsh test/staging-local-walkthrough.ps1
 
 $ErrorActionPreference = 'Stop'
+$env:NOVAFLOW_BASE_URL = 'http://127.0.0.1:18080'
+$env:NOVAFLOW_WEB_URL = 'http://localhost:13000'
 . (Join-Path $PSScriptRoot 'scripts/NovaFlow-TestCommon.ps1')
-
-$script:NovaFlowBaseUrl = 'http://127.0.0.1:18080'
-$script:NovaFlowWebUrl = 'http://localhost:13000'
 $logFile = Join-Path $PSScriptRoot 'staging-local-walkthrough.log'
 $results = [System.Collections.Generic.List[object]]::new()
 $allPass = $true

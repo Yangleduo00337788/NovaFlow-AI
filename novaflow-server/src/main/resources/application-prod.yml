@@ -3,8 +3,22 @@ spring:
     activate:
       on-profile: prod
 
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 3000ms
+
   flyway:
     validate-on-migrate: true
+
+# 与 dev 共用：Token 放请求头 Authorization（勿仅放在 dev profile 文档内）
+sa-token:
+  token-name: Authorization
+  timeout: 86400
+  is-read-header: true
+  is-read-cookie: false
 
 logging:
   level:
