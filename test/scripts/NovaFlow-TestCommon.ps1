@@ -14,9 +14,19 @@ function Write-NovaLog {
     Write-Host $line
 }
 
+function Get-NovaCurlCommand {
+    # Windows PowerShell aliases `curl` to Invoke-WebRequest; use curl.exe there.
+    if ($IsWindows -or ($env:OS -match 'Windows')) {
+        return 'curl.exe'
+    }
+    return 'curl'
+}
+
+$script:NovaCurlCommand = Get-NovaCurlCommand
+
 function Invoke-CurlExe {
     param([string[]]$CurlArgs)
-    $out = & curl.exe @CurlArgs 2>&1
+    $out = & $script:NovaCurlCommand @CurlArgs 2>&1
     if ($out -is [array]) { return ($out -join "`n") }
     return [string]$out
 }
@@ -98,6 +108,17 @@ function Get-NovaLoginToken {
         Start-Sleep -Seconds 2
     }
     throw "Login failed ($Email) after 3 attempts: $lastError"
+}
+
+function Test-NovaWebReachable {
+    param([string]$Path = '/')
+    try {
+        $uri = "$script:NovaFlowWebUrl$Path"
+        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5
+        return $resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400
+    } catch {
+        return $false
+    }
 }
 
 function Wait-NovaMaintenanceOff {

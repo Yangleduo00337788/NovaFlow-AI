@@ -14,9 +14,15 @@ $allPass = $true
 function Invoke-CoreSmoke {
     param([string]$Name, [string]$Script)
     Write-NovaLog "=== CI core: $Name ===" $logFile
-    & pwsh -NoProfile -File $Script
+    $output = & pwsh -NoProfile -File $Script 2>&1
+    if ($output) {
+        foreach ($line in @($output)) {
+            Write-NovaLog "  $line" $logFile
+        }
+    }
     $ok = ($LASTEXITCODE -eq 0)
-    $null = Assert-NovaGate $Name $ok "exit=$LASTEXITCODE" $results
+    $detail = if ($ok) { "exit=0" } else { "exit=$LASTEXITCODE" }
+    $null = Assert-NovaGate $Name $ok $detail $results
     if (-not $ok) { $script:allPass = $false }
 }
 
