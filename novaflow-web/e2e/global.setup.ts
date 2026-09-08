@@ -10,6 +10,7 @@ import {
   PORTAL_PASSWORD,
   loginAs,
 } from './helpers/auth'
+import { cleanupE2ETestResources } from './helpers/api'
 
 const adminAuthFile = 'e2e/.auth/admin.json'
 const platformAuthFile = 'e2e/.auth/platform.json'
@@ -18,6 +19,11 @@ const portalAuthFile = 'e2e/.auth/portal.json'
 function ensureAuthDir(file: string) {
   mkdirSync(dirname(file), { recursive: true })
 }
+
+setup('cleanup stale E2E resources', async ({ request }) => {
+  setup.setTimeout(120_000)
+  await cleanupE2ETestResources(request)
+})
 
 setup('authenticate as tenant admin', async ({ page }) => {
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD, /\/dashboard/)
