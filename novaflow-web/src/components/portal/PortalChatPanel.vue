@@ -1,5 +1,5 @@
 <template>
-  <div class="portal-chat-panel">
+  <div class="portal-chat-panel" data-testid="portal-chat-panel" :data-ready="ready ? 'true' : 'false'">
     <div ref="messageListRef" class="portal-chat-panel__messages">
       <a-spin v-if="loading" class="welcome-spin" />
       <div v-else-if="!messages.length" class="portal-chat-panel__empty">
@@ -13,7 +13,7 @@
         class="message-row"
         :class="msg.role"
       >
-        <div v-if="msg.role === 'user'" class="bubble user-bubble">{{ msg.content }}</div>
+        <div v-if="msg.role === 'user'" class="bubble user-bubble" data-testid="portal-chat-user-message">{{ msg.content }}</div>
         <template v-else>
           <div v-if="msg.streaming && !msg.content" class="assistant-loading">
             <span class="dot-pulse" />
@@ -32,6 +32,7 @@
       >
         <a-textarea
           v-model:value="input"
+          data-testid="portal-chat-input"
           :auto-size="{ minRows: 1, maxRows: 6 }"
           :bordered="false"
           placeholder="输入消息，Enter 发送，Shift+Enter 换行"
@@ -45,6 +46,7 @@
           <button
             type="button"
             class="send-btn"
+            data-testid="portal-chat-send"
             :disabled="sending || !ready || !input.trim()"
             aria-label="发送"
             @click="onSend"
