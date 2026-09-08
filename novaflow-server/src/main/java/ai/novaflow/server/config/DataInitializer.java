@@ -66,7 +66,7 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
         RoleEntity tenantAdminRole = requireSystemRole(RoleCodes.TENANT_ADMIN);
-        RoleEntity memberRole = requireSystemRole(RoleCodes.USER);
+        RoleEntity memberRole = requireSystemRole(RoleCodes.MEMBER);
         if (tenantAdminRole == null || memberRole == null) {
             log.warn("System roles not ready, skip demo account bootstrap");
             return;
