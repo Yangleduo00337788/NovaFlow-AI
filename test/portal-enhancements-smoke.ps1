@@ -47,7 +47,7 @@ try {
             $export = Invoke-CurlExe @(
                 '-s', '-o', 'NUL', '-w', '%{http_code}',
                 "$script:NovaFlowBaseUrl/api/v1/portal/apps/$appId/conversations/export?conversationKey=$encodedKey&format=markdown",
-                '-H', "Authorization: Bearer $user"
+                '-H', "Authorization: $user"
             )
             $exportCode = [int]$export
             Check 'P39 conversation export' ($exportCode -eq 200) "http=$exportCode"
