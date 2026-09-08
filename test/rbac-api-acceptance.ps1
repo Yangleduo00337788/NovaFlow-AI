@@ -20,12 +20,9 @@ function Check {
 
 Write-NovaLog '=== rbac-api-acceptance ===' $logFile
 
-# --- 1. 六角色 RBAC（Z-01 ~ Z-03, Z-09）---
+# --- 1. 三角色 RBAC ---
 $roleAccounts = @(
     @{ label = 'admin'; email = 'admin@novaflow.ai'; password = 'Admin123!' }
-    @{ label = 'developer'; email = 'developer@novaflow.ai'; password = 'Developer123!' }
-    @{ label = 'operator'; email = 'operator@novaflow.ai'; password = 'Operator123!' }
-    @{ label = 'viewer'; email = 'viewer@novaflow.ai'; password = 'Viewer123!' }
     @{ label = 'user'; email = 'user@novaflow.ai'; password = 'User123!' }
     @{ label = 'platform'; email = 'platform@novaflow.ai'; password = 'Platform123!' }
 )
@@ -44,40 +41,6 @@ if ($tokens.ContainsKey('user')) {
     $allPass = (Test-NovaApiDenied 'Z-01 user cannot audit logs' '/api/v1/audit-logs?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
     $allPass = (Test-NovaApiAllowed 'Z-03 user can list agents' '/api/v1/agents?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
     $allPass = (Test-NovaApiAllowed 'AP portal list as user' '/api/v1/portal/apps?page=1&pageSize=5' GET $tokens.user $results) -and $allPass
-}
-
-if ($tokens.ContainsKey('developer')) {
-    $allPass = (Test-NovaApiDenied 'Z-02 developer cannot org members' '/api/v1/org/members?page=1&pageSize=5' GET $tokens.developer $results) -and $allPass
-    $allPass = (Test-NovaApiDenied 'Z-02 developer cannot tenant manage' '/api/v1/org/tenant' PUT $tokens.developer $results) -and $allPass
-    $allPass = (Test-NovaApiAllowed 'developer can list agents' '/api/v1/agents?page=1&pageSize=5' GET $tokens.developer $results) -and $allPass
-    $createPath = Join-Path $script:NovaFlowTmpDir 'dev-agent.json'
-    $appOpts = Invoke-NovaApi -Path '/api/v1/applications/options' -Token $tokens.developer
-    if ($appOpts.code -eq 0 -and $appOpts.raw -match '"id":(\d+)') {
-        $appId = [int]$Matches[1]
-        Write-NovaJson -Path $createPath -Data @{
-            agentName = "RBAC-Dev-$suffix"; agentType = 'chat'; applicationId = $appId; welcomeMessage = 'qa'
-        }
-        $created = Invoke-NovaApi -Method POST -Path '/api/v1/agents' -Token $tokens.developer -OutFile $createPath
-        Check 'developer can create agent' ($created.code -eq 0) "code=$($created.code)"
-        if ($created.code -eq 0 -and $created.raw -match '"id":(\d+)') {
-            $devAgentId = [int]$Matches[1]
-            Invoke-NovaApi -Method DELETE -Path "/api/v1/agents/$devAgentId" -Token $tokens.developer | Out-Null
-        }
-    } else {
-        Check 'developer can create agent' $false 'no application options'
-    }
-}
-
-if ($tokens.ContainsKey('operator')) {
-    $allPass = (Test-NovaApiDenied 'operator cannot create agent' '/api/v1/agents' POST $tokens.operator $results) -and $allPass
-    $allPass = (Test-NovaApiAllowed 'operator can list workflows' '/api/v1/workflows?page=1&pageSize=5' GET $tokens.operator $results) -and $allPass
-    $allPass = (Test-NovaApiDenied 'operator cannot org members' '/api/v1/org/members?page=1&pageSize=5' GET $tokens.operator $results) -and $allPass
-}
-
-if ($tokens.ContainsKey('viewer')) {
-    $allPass = (Test-NovaApiDenied 'viewer cannot create agent' '/api/v1/agents' POST $tokens.viewer $results) -and $allPass
-    $allPass = (Test-NovaApiAllowed 'viewer can list agents' '/api/v1/agents?page=1&pageSize=5' GET $tokens.viewer $results) -and $allPass
-    $allPass = (Test-NovaApiDenied 'viewer cannot model config' '/api/v1/models/providers' POST $tokens.viewer $results) -and $allPass
 }
 
 if ($tokens.ContainsKey('admin')) {
@@ -144,31 +107,23 @@ if ($tokens.ContainsKey('admin')) {
     $allPass = $false
 }
 
-# --- 2. 资源 ACL（§十）---
-if ($tokens.ContainsKey('admin') -and $tokens.ContainsKey('developer') -and $tokens.ContainsKey('viewer')) {
+# --- 2. 资源 ACL：企管可访问，门户用户不可进 Studio Agent ---
+if ($tokens.ContainsKey('admin') -and $tokens.ContainsKey('user')) {
     try {
         $adminToken = $tokens.admin
         $appId = New-NovaApplication -Token $adminToken -Name "ACL-App-$suffix"
         $agentId = New-NovaAgent -Token $adminToken -ApplicationId $appId -Name "ACL-Agent-$suffix"
-        $developerUserId = Get-NovaMemberUserId -Token $adminToken -Email 'developer@novaflow.ai'
 
-        Set-NovaResourcePermissions -Token $adminToken -ResourceType 'AGENT' -ResourceId $agentId -Grants @(
-            @{ userId = $developerUserId; permissionCode = 'agent:read' }
-        ) | Out-Null
+        $allPass = (Test-NovaApiAllowed 'ACL admin can read agent' "/api/v1/agents/$agentId" GET $tokens.admin $results) -and $allPass
+        $allPass = (Test-NovaApiDenied 'ACL portal user blocked on studio agent' "/api/v1/agents/$agentId" GET $tokens.user $results) -and $allPass
 
-        $allPass = (Test-NovaApiAllowed 'ACL developer read granted agent' "/api/v1/agents/$agentId" GET $tokens.developer $results) -and $allPass
-        $allPass = (Test-NovaApiDenied 'ACL developer cannot delete agent' "/api/v1/agents/$agentId" DELETE $tokens.developer $results) -and $allPass
-        $allPass = (Test-NovaApiDenied 'ACL viewer blocked on protected agent' "/api/v1/agents/$agentId" GET $tokens.viewer $results) -and $allPass
-        $allPass = (Test-NovaApiAllowed 'ACL admin bypasses resource acl' "/api/v1/agents/$agentId" GET $tokens.admin $results) -and $allPass
-
-        Set-NovaResourcePermissions -Token $adminToken -ResourceType 'AGENT' -ResourceId $agentId -Grants @() | Out-Null
         Invoke-NovaApi -Method DELETE -Path "/api/v1/agents/$agentId" -Token $adminToken | Out-Null
         Invoke-NovaApi -Method DELETE -Path "/api/v1/applications/$appId" -Token $adminToken | Out-Null
     } catch {
         Check 'resource ACL block' $false $_.Exception.Message
     }
 } else {
-    Check 'resource ACL block' $false 'missing admin/developer/viewer token'
+    Check 'resource ACL block' $false 'missing admin/user token'
 }
 
 # --- 3. 跨租户 IDOR（Z-04 ~ Z-06）---
@@ -197,19 +152,19 @@ try {
     Check 'cross-tenant setup' $false $_.Exception.Message
 }
 
-# --- 4. Owner 专属 API（tenant:delete / transfer-owner）---
-if ($tokens.ContainsKey('admin') -and $tokens.ContainsKey('developer')) {
-    $allPass = (Test-NovaApiAllowed 'owner can read tenant' '/api/v1/org/tenant' GET $tokens.admin $results) -and $allPass
-    $allPass = (Test-NovaApiDenied 'developer cannot delete tenant' '/api/v1/org/tenant' DELETE $tokens.developer $results) -and $allPass
+# --- 4. 危险操作：企管可读组织，门户用户不可删企业 ---
+if ($tokens.ContainsKey('admin') -and $tokens.ContainsKey('user')) {
+    $allPass = (Test-NovaApiAllowed 'admin can read tenant' '/api/v1/org/tenant' GET $tokens.admin $results) -and $allPass
+    $allPass = (Test-NovaApiDenied 'user cannot delete tenant' '/api/v1/org/tenant' DELETE $tokens.user $results) -and $allPass
 
     $transferPath = Join-Path $script:NovaFlowTmpDir 'transfer-owner.json'
     Write-NovaJson -Path $transferPath -Data @{ memberId = 99999999 }
-    $transferResp = Invoke-NovaApi -Method POST -Path '/api/v1/org/tenant/transfer-owner' -Token $tokens.developer -OutFile $transferPath
+    $transferResp = Invoke-NovaApi -Method POST -Path '/api/v1/org/tenant/transfer-owner' -Token $tokens.user -OutFile $transferPath
     $transferDenied = Test-NovaDenied -Resp $transferResp
-    Check 'developer cannot transfer owner' $transferDenied "http=$($transferResp.http) code=$($transferResp.code)"
+    Check 'user cannot transfer owner' $transferDenied "http=$($transferResp.http) code=$($transferResp.code)"
     $allPass = $allPass -and $transferDenied
 } else {
-    Check 'owner exclusive APIs' $false 'missing admin/developer token'
+    Check 'tenant exclusive APIs' $false 'missing admin/user token'
 }
 
 # --- 5. Portal portal:access（Z-10）---
