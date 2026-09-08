@@ -1,0 +1,88 @@
+name: Nightly Gates
+
+on:
+  schedule:
+    - cron: '0 16 * * *' # 00:00 CST
+  workflow_dispatch:
+
+jobs:
+  pre-release-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: novaflow
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/novaflow?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
+      CORS_ALLOWED_ORIGIN: http://localhost:3000
+      NOVAFLOW_BASE_URL: http://127.0.0.1:8088
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build server jar
+        run: mvn -B -q -pl novaflow-server -am package -DskipTests
+
+      - name: Start NovaFlow server
+        run: |
+          nohup java -jar novaflow-server/target/novaflow-server-*.jar > /tmp/novaflow-server.log 2>&1 &
+          echo $! > /tmp/novaflow-server.pid
+
+      - name: Wait for server health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then
+              echo "Server is up"
+              exit 0
+            fi
+            sleep 5
+          done
+          tail -n 200 /tmp/novaflow-server.log || true
+          exit 1
+
+      - name: Run pre-release gates
+        run: pwsh -NoProfile -File test/run-pre-release-gates.ps1 -SkipFaultInjection
+
+      - name: Upload gate summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-release-gates-summary
+          path: test/pre-release-gates-summary.json
+
+      - name: Upload server log on failure
+        if: failure()
+        run: tail -n 300 /tmp/novaflow-server.log || true

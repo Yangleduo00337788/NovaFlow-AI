@@ -1,0 +1,14 @@
+# 本地 prod compose 冒烟（复制为 test/.env.prod.smoke）
+MYSQL_ROOT_PASSWORD=smoke-root-pass
+MYSQL_DATABASE=novaflow
+REDIS_PASSWORD=change-me-redis
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=change-me-minio
+MINIO_BUCKET=novaflow
+NOVAFLOW_CRYPTO_KEY=NovaFlowAI-SmokeKey-32bytes-min!!!!
+CORS_ALLOWED_ORIGIN=http://localhost:13000
+NOVAFLOW_CORS_ALLOW_LOCALHOST=true
+NOVAFLOW_REGISTRATION_ENABLED=false
+NOVAFLOW_DEMO_ENABLED=true
+SERVER_PORT=18080
+WEB_PORT=13000

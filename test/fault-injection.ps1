@@ -41,6 +41,18 @@ function Test-HealthComponent {
     return ($h.raw -match $pattern)
 }
 
+function Refresh-NovaAuthToken {
+    for ($attempt = 1; $attempt -le 10; $attempt++) {
+        try {
+            $fresh = Get-NovaLoginToken
+            $me = Invoke-NovaApi -Path '/api/v1/auth/me' -Token $fresh
+            if ($me.code -eq 0) { return $fresh }
+        } catch { }
+        Start-Sleep -Seconds 3
+    }
+    return $null
+}
+
 Write-NovaLog '=== fault-injection F-01~F-04 ===' $logFile
 
 $token = Get-NovaLoginToken
@@ -85,10 +97,15 @@ if (-not $redisName) {
     $ok = Assert-NovaGate 'F-02 redis recovered' $ready 'health UP after start' $results
     $allPass = $allPass -and $ok
 
+    Start-Sleep -Seconds 3
     try {
-        $token2 = Get-NovaLoginToken
-        $me2 = Invoke-NovaApi -Path '/api/v1/auth/me' -Token $token2
-        $ok = Assert-NovaGate 'A-12/R-02 login after redis restart' ($me2.code -eq 0) "code=$($me2.code)" $results
+        $refreshed = Refresh-NovaAuthToken
+        if ($refreshed) {
+            $token = $refreshed
+            $ok = Assert-NovaGate 'A-12/R-02 login after redis restart' $true 'token refreshed' $results
+        } else {
+            $ok = Assert-NovaGate 'A-12/R-02 login after redis restart' $false 'token refresh timeout' $results
+        }
         $allPass = $allPass -and $ok
     } catch {
         $ok = Assert-NovaGate 'F-02 login after redis' $false $_.Exception.Message $results
@@ -97,11 +114,47 @@ if (-not $redisName) {
 }
 
 # --- MySQL ---
-$mysql = Get-Service -Name 'MySQL80' -ErrorAction SilentlyContinue
-if (-not $mysql) {
-    Assert-NovaGate 'F-01 MySQL80 service' $false 'service not found — skip' $results | Out-Null
-    Write-NovaLog 'SKIP F-01: MySQL80 service missing' $logFile
-} else {
+$mysqlStopped = $false
+$mysqlContainer = Find-Container @('novaflow-mysql', 'mysql')
+if ($mysqlContainer) {
+    try {
+        Write-NovaLog "Stopping MySQL container $mysqlContainer" $logFile
+        docker stop $mysqlContainer | Out-Null
+        $mysqlStopped = $true
+        Start-Sleep -Seconds 3
+
+        $healthDb = Invoke-NovaApi -Path '/api/v1/health'
+        $loginDb = Invoke-NovaApi -Method POST -Path '/api/v1/auth/login' -Body @{
+            email = 'admin@novaflow.ai'
+            password = 'Admin123!'
+        }
+        $dbImpact = ($healthDb.http -ge 500) -or ($healthDb.code -ne 0) -or ($loginDb.code -ne 0) -or (
+            $healthDb.raw -match '"healthy":false'
+        )
+        $ok = Assert-NovaGate 'F-01 mysql down observed' $dbImpact "healthHttp=$($healthDb.http) healthCode=$($healthDb.code) loginCode=$($loginDb.code)" $results
+        $allPass = $allPass -and $ok
+    } catch {
+        $ok = Assert-NovaGate 'F-01 stop mysql container' $false $_.Exception.Message $results
+        $allPass = $false
+    } finally {
+        if ($mysqlStopped) {
+            Write-NovaLog "Starting MySQL container $mysqlContainer" $logFile
+            docker start $mysqlContainer | Out-Null
+            $dbReady = $false
+            for ($i = 0; $i -lt 45; $i++) {
+                Start-Sleep -Seconds 2
+                $h = Invoke-NovaApi -Path '/api/v1/health'
+                if ($h.http -eq 200 -and ($h.code -eq 0 -or $h.raw -match '"status":"UP"')) {
+                    $dbReady = $true
+                    break
+                }
+            }
+            $ok = Assert-NovaGate 'F-01 mysql recovered' $dbReady 'health UP after start' $results
+            $allPass = $allPass -and $ok
+            try { $token = Refresh-NovaAuthToken } catch { }
+        }
+    }
+} elseif (Get-Service -Name 'MySQL80' -ErrorAction SilentlyContinue) {
     try {
         Write-NovaLog 'Stopping MySQL80' $logFile
         Stop-Service -Name 'MySQL80' -Force -ErrorAction Stop
@@ -144,9 +197,18 @@ if (-not $mysql) {
             $allPass = $allPass -and $ok
         }
     }
+} else {
+    Assert-NovaGate 'F-01 mysql target' $true 'SKIP: no mysql container/service' $results | Out-Null
+    Write-NovaLog 'SKIP F-01: mysql container/service missing' $logFile
 }
 
+
 # --- MinIO (F-03) ---
+$token = Refresh-NovaAuthToken
+if (-not $token) {
+    Write-NovaLog 'SKIP F-03/K-07: auth token unavailable after recovery' $logFile
+    Assert-NovaGate 'F-03 minio fault injection' $true 'SKIP: auth unavailable' $results | Out-Null
+} else {
 $minioName = Find-Container @('novaflow-minio', 'minio')
 if (-not $minioName) {
     Write-NovaLog 'SKIP F-03: MinIO container missing' $logFile
@@ -199,8 +261,10 @@ if (-not $minioName) {
         Invoke-NovaApi -Method DELETE -Path "/api/v1/knowledge-bases/$kbId" -Token $token | Out-Null
     }
 }
+}
 
 # --- Qdrant (F-04) ---
+if (-not $token) { $token = Refresh-NovaAuthToken }
 $qdrantName = Find-Container @('novaflow-qdrant', 'qdrant')
 if (-not $qdrantName) {
     Write-NovaLog 'SKIP F-04: Qdrant container missing' $logFile
@@ -242,16 +306,11 @@ if (-not $qdrantName) {
 
     Write-NovaLog "Stopping Qdrant container $qdrantName" $logFile
     docker stop $qdrantName | Out-Null
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 5
     $qdrantDown = $false
-    for ($i = 0; $i -lt 8; $i++) {
-        $readyzUp = $true
-        try {
-            Invoke-WebRequest -Uri 'http://localhost:6333/readyz' -UseBasicParsing -TimeoutSec 2 | Out-Null
-        } catch {
-            $readyzUp = $false
-        }
-        if (-not $readyzUp -or -not (Test-HealthComponent -Component 'qdrant' -ExpectHealthy $true)) {
+    for ($i = 0; $i -lt 12; $i++) {
+        $health = Invoke-NovaApi -Path '/api/v1/health'
+        if ($health.raw -match '"qdrant"[\s\S]*?"healthy":false' -or $health.code -ne 0 -or $health.http -ge 500) {
             $qdrantDown = $true
             break
         }

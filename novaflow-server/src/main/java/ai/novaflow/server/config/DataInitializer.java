@@ -7,6 +7,7 @@ import ai.novaflow.agent.mapper.AgentConfigMapper;
 import ai.novaflow.agent.mapper.AgentMapper;
 import ai.novaflow.application.entity.ApplicationEntity;
 import ai.novaflow.application.mapper.ApplicationMapper;
+import ai.novaflow.application.support.PortalCategories;
 import ai.novaflow.tenant.entity.TenantEntity;
 import ai.novaflow.tenant.entity.TenantMemberEntity;
 import ai.novaflow.tenant.entity.WorkspaceEntity;
@@ -20,6 +21,7 @@ import ai.novaflow.user.entity.RoleEntity;
 import ai.novaflow.user.entity.UserEntity;
 import ai.novaflow.user.mapper.RoleMapper;
 import ai.novaflow.user.mapper.UserMapper;
+import ai.novaflow.user.support.SystemRoles;
 import com.mybatisflex.core.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,59 +65,30 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Demo data initializer disabled (novaflow.demo.enabled=false)");
             return;
         }
-        RoleEntity superAdminRole = requireSystemRole("super_admin");
-        RoleEntity tenantOwnerRole = requireSystemRole("tenant_owner");
-        RoleEntity developerRole = requireSystemRole("developer");
-        RoleEntity operatorRole = requireSystemRole("operator");
-        RoleEntity memberRole = requireSystemRole("member");
-        RoleEntity viewerRole = requireSystemRole("viewer");
-        if (superAdminRole == null || tenantOwnerRole == null || developerRole == null
-                || operatorRole == null || memberRole == null || viewerRole == null) {
+        RoleEntity tenantAdminRole = requireSystemRole(RoleCodes.TENANT_ADMIN);
+        RoleEntity memberRole = requireSystemRole(RoleCodes.USER);
+        if (tenantAdminRole == null || memberRole == null) {
             log.warn("System roles not ready, skip demo account bootstrap");
             return;
         }
 
         LocalDateTime now = LocalDateTime.now();
         TenantEntity tenant = ensureDemoTenant(now);
-        UserEntity adminUser =         ensureDemoUser(
+        UserEntity adminUser = ensureDemoUser(
                 "admin@novaflow.ai",
                 "admin",
                 "张三",
                 "Admin123!",
-                tenantOwnerRole,
+                tenantAdminRole,
                 tenant,
                 now
         );
         ensurePlatformUser(
                 "platform@novaflow.ai",
                 "platform",
-                "平台超管",
+                "平台管理员",
                 "Platform123!",
                 RoleCodes.PLATFORM_ADMIN,
-                now
-        );
-        ensurePlatformUser(
-                "auditor@novaflow.ai",
-                "auditor",
-                "平台审计员",
-                "Auditor123!",
-                RoleCodes.PLATFORM_AUDITOR,
-                now
-        );
-        ensurePlatformUser(
-                "support@novaflow.ai",
-                "support",
-                "平台客服",
-                "Support123!",
-                RoleCodes.PLATFORM_SUPPORT,
-                now
-        );
-        ensurePlatformUser(
-                "billing@novaflow.ai",
-                "billing",
-                "平台计费",
-                "Billing123!",
-                RoleCodes.PLATFORM_BILLING,
                 now
         );
         ensureDemoUser(
@@ -127,33 +100,6 @@ public class DataInitializer implements CommandLineRunner {
                 tenant,
                 now
         );
-        ensureDemoUser(
-                "developer@novaflow.ai",
-                "developer",
-                "王开发",
-                "Developer123!",
-                developerRole,
-                tenant,
-                now
-        );
-        ensureDemoUser(
-                "operator@novaflow.ai",
-                "operator",
-                "赵运维",
-                "Operator123!",
-                operatorRole,
-                tenant,
-                now
-        );
-        ensureDemoUser(
-                "viewer@novaflow.ai",
-                "viewer",
-                "钱只读",
-                "Viewer123!",
-                viewerRole,
-                tenant,
-                now
-        );
 
         WorkspaceEntity workspace = ensureDefaultWorkspace(tenant, adminUser.getId(), now);
         ensurePublishedDemoApp(tenant, workspace, adminUser.getId(), now);
@@ -161,26 +107,15 @@ public class DataInitializer implements CommandLineRunner {
         log.info("""
 
                 Demo accounts:
-                  平台超管  platform@novaflow.ai
-                  平台审计  auditor@novaflow.ai
-                  平台客服  support@novaflow.ai
-                  平台计费  billing@novaflow.ai
-                  企业所有者 admin@novaflow.ai
-                  开发者    developer@novaflow.ai
-                  运维人员  operator@novaflow.ai
-                  企业成员  user@novaflow.ai
-                  只读用户  viewer@novaflow.ai
-                  （演示入口 /login，密码见项目 README，请勿用于生产）
+                  平台管理员  platform@novaflow.ai  /platform/login
+                  企业管理员  admin@novaflow.ai     /login
+                  普通用户    user@novaflow.ai      /login
+                  （密码见项目 README，请勿用于生产）
                 """);
     }
 
     private RoleEntity requireSystemRole(String roleCode) {
-        return roleMapper.selectOneByQuery(
-                QueryWrapper.create()
-                        .eq("tenant_id", 0)
-                        .eq("role_code", roleCode)
-                        .eq("is_deleted", 0)
-        );
+        return roleMapper.selectOneByQuery(SystemRoles.byCode(roleCode));
     }
 
     private TenantEntity ensureDemoTenant(LocalDateTime now) {
@@ -374,6 +309,9 @@ public class DataInitializer implements CommandLineRunner {
             application.setAppName("智能客服");
             application.setDescription("默认演示应用");
             application.setAppType("agent");
+            application.setPortalCategory(PortalCategories.DEFAULT_CODE);
+            application.setAccessType("team");
+            application.setInvokeCount(0L);
             application.setStatus(1);
             application.setPublishStatus(0);
             application.setCreatedBy(createdBy);
