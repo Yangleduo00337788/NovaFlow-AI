@@ -15,11 +15,13 @@ function Write-NovaLog {
 }
 
 function Get-NovaCurlCommand {
-    # Windows PowerShell aliases `curl` to Invoke-WebRequest; use curl.exe there.
-    if ($IsWindows -or ($env:OS -match 'Windows')) {
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
         return 'curl.exe'
     }
-    return 'curl'
+    if (Get-Command curl -ErrorAction SilentlyContinue) {
+        return 'curl'
+    }
+    throw 'curl is required for NovaFlow smoke tests'
 }
 
 $script:NovaCurlCommand = Get-NovaCurlCommand
