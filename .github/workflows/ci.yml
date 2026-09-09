@@ -97,19 +97,6 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Wait for MySQL and Redis
-        run: |
-          for i in $(seq 1 30); do
-            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent \
-              && redis-cli -h 127.0.0.1 ping | grep -q PONG; then
-              echo "MySQL and Redis are ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Service containers not ready"
-          exit 1
-
       - name: Install modules without tests
         run: mvn -B -pl novaflow-server -am install -DskipTests
 
@@ -313,19 +300,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-
-      - name: Wait for MySQL and Redis
-        run: |
-          for i in $(seq 1 30); do
-            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent \
-              && redis-cli -h 127.0.0.1 ping | grep -q PONG; then
-              echo "MySQL and Redis are ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Service containers not ready"
-          exit 1
 
       - name: Build server jar
         run: mvn -B -q -pl novaflow-server -am package -DskipTests
