@@ -1,5 +1,31 @@
 <template>
   <div class="about-body">
+    <div class="about-block intro-block v13-block">
+      <div class="release-head">
+        <h3 class="release-version">NovaFlow v1.3.0</h3>
+        <a-tag color="green">正式发布</a-tag>
+      </div>
+      <p class="about-block-lead">
+        运营告警闭环、门户终端体验与开发者集成：告警外发、存储配额硬拦截、平台子角色、
+        门户收藏/分类/导出与品牌化、Embed 域名白名单与开发者中心。admin 独立 Compose 不做。SSO 仍延后。
+      </p>
+      <div class="release-meta">发布日期 2026-09-09</div>
+    </div>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.3 运营与配额</h3>
+      <ul class="fix-list">
+        <li v-for="item in v13OpsItems" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
+    <section class="release-section">
+      <h3 class="about-block-title">v1.3 门户与集成</h3>
+      <ul class="fix-list">
+        <li v-for="item in v13PortalItems" :key="item">{{ item }}</li>
+      </ul>
+    </section>
+
     <div class="about-block intro-block v12-block">
       <div class="release-head">
         <h3 class="release-version">NovaFlow v1.2.0</h3>
@@ -7,7 +33,7 @@
       </div>
       <p class="about-block-lead">
         平台总控运营能力全面增强：独立运营后台、租户治理、计费导出、API 监控、模型目录、
-        代开户与维护模式；新增平台风控与存储配额闭环。SSO 仍延后至 v1.3+。
+        代开户与维护模式；新增平台风控与存储配额闭环。SSO 仍延后。
       </p>
       <div class="release-meta">发布日期 2026-09-06</div>
     </div>
@@ -117,12 +143,27 @@
 
     <div class="about-block roadmap-block">
       <span class="roadmap-label">后续规划</span>
-      <span class="roadmap-text">v1.3+：SSO（OAuth2/OIDC，需 IdP 环境）</span>
+      <span class="roadmap-text">后续：SSO（OAuth2/OIDC，需 IdP 环境）</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const v13OpsItems = [
+  '平台告警外发（Phase 35）：风控 / API 监控 / 存储配额可通过邮件与 Webhook 外发。',
+  '存储配额硬拦截（Phase 36）：知识库上传前校验，满额禁止上传。',
+  '平台子角色（Phase 37）：`platform_support`、`platform_billing`；租户侧三角色收敛。',
+  'admin 独立 Docker Compose（Phase 38）不做；总控继续同站 `/platform`。',
+  '全量发布门禁 72 项通过（`run-pre-release-gates.ps1`）。',
+]
+
+const v13PortalItems = [
+  '门户增强（Phase 39）：收藏、分类筛选、对话导出、移动端布局。',
+  '门户品牌化（Phase 40）：租户 Logo 与主题色。',
+  'Embed 增强（Phase 41）：主题色、域名白名单、向宿主页 postMessage。',
+  '开发者中心（Phase 42）：发布页 Quick Start / Open API / Embed 三 Tab。',
+]
+
 const v12PlatformItems = [
   '平台运营后台独立化：`/platform/login` + 多页面路由，支持 admin 子域独立部署（`npm run build:platform`）。',
   '租户治理：代开户、租户详情/健康度、配额进度、计费 CSV 导出、用户封禁与强制下线。',
@@ -197,6 +238,11 @@ const platformCapabilities = [
 .intro-block {
   background: linear-gradient(135deg, rgba(82, 196, 26, 0.08), rgba(14, 165, 233, 0.04));
   border-color: rgba(82, 196, 26, 0.18);
+}
+
+.v13-block {
+  background: linear-gradient(135deg, rgba(19, 194, 194, 0.10), rgba(22, 119, 255, 0.05));
+  border-color: rgba(19, 194, 194, 0.22);
 }
 
 .v12-block {

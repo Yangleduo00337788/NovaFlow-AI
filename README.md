@@ -26,7 +26,7 @@
 
 [![Gitee Stars](https://gitee.com/yangleduo7788/nova-flow-ai/badge/star.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/stargazers)
 [![Gitee Forks](https://gitee.com/yangleduo7788/nova-flow-ai/badge/fork.svg?theme=dark)](https://gitee.com/yangleduo7788/nova-flow-ai/members)
-[![Version](https://img.shields.io/badge/version-1.2.0-informational)](./pom.xml)
+[![Version](https://img.shields.io/badge/version-1.3.0-informational)](./pom.xml)
 
 <br/>
 
@@ -78,7 +78,8 @@ NovaFlow 是 **单一 Web 应用**（`http://localhost:3000`），**一套登录
 | 版本 | 规划能力 | 状态 |
 |------|----------|------|
 | **v1.2** | 平台总控增强（Phase 13–34）、风控（Phase 32）、存储配额（Phase 33） | ✅ 已交付 |
-| **v1.3+** | SSO（OAuth2/OIDC，需 IdP 环境） | 延后 |
+| **v1.3** | 告警外发、配额硬拦截、平台子角色、门户增强、Embed / 开发者中心 | ✅ 已发布（admin 独立 Compose 不做） |
+| **后续** | SSO（OAuth2/OIDC，需 IdP 环境） | 延后 |
 
 ---
 
@@ -360,7 +361,7 @@ docker compose -f docker-compose.local.yml up -d
 
 ```bash
 mvn clean package -DskipTests
-java -jar novaflow-server/target/novaflow-server-1.1.0.jar
+java -jar novaflow-server/target/novaflow-server-1.3.0.jar
 ```
 
 | 服务 | 地址 |
@@ -471,7 +472,7 @@ docker compose up -d
 export SPRING_PROFILES_ACTIVE=prod
 export NOVAFLOW_CRYPTO_KEY=your-strong-key
 mvn -pl novaflow-server -am package -DskipTests
-java -jar novaflow-server/target/novaflow-server-1.1.0.jar
+java -jar novaflow-server/target/novaflow-server-1.3.0.jar
 
 # 前端构建后由 Nginx 托管 dist
 cd novaflow-web && npm ci && npm run build
@@ -504,6 +505,8 @@ cd novaflow-web && npm ci && npm run build
 | [PRD](docs/PRD.md) | 产品需求与功能设计 |
 | [权限体系](docs/权限体系.md) | 现状 4 角色、1.1 对齐清单、Phase 2 不做的范围 |
 | [v1.1 开发计划](docs/v1.1-plan.md) | v1.1 任务清单（已交付，SSO 延后） |
+| [v1.3 开发计划](docs/v1.3-plan.md) | v1.3 任务清单（已交付；admin 独立 Compose 不做） |
+| [v1.3.0 更新日志](docs/releases/v1.3.0.md) | v1.3.0 Release Notes |
 | [系统架构设计](docs/系统架构设计.md) | 模块拆分、核心流程、部署架构 |
 | [数据库设计](docs/数据库设计.md) | 表结构与 ER 关系 |
 | 安全与隐私说明 | 控制台「关于 → 安全与隐私」页面 |
