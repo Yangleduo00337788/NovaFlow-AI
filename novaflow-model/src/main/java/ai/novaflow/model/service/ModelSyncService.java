@@ -31,7 +31,12 @@ public class ModelSyncService {
     private final ModelConfigMapper modelConfigMapper;
     private final ModelUpstreamService modelUpstreamService;
 
-    @Transactional
+    /**
+     * REQUIRES_NEW：上游同步失败时会抛 BusinessException，若加入调用方（如 saveProvider）的
+     * 事务，会把共享事务标记为 rollback-only，外层捕获异常后提交仍会抛 UnexpectedRollbackException。
+     * 独立事务保证“保存提供商成功、同步失败仅告警”的语义。
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public ModelSyncResultVO syncFromUpstream(ModelProviderEntity provider, String apiKey) {
         ModelProviderPreset preset = ModelProviderPreset.of(provider.getProviderCode()).orElse(null);
         List<UpstreamModelDescriptor> upstreamModels = resolveUpstreamModels(provider, apiKey, preset);
