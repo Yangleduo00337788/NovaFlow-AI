@@ -20,15 +20,29 @@ function ensureAuthDir(file: string) {
   mkdirSync(dirname(file), { recursive: true })
 }
 
+const apiBase = (process.env.NOVAFLOW_API_URL ?? 'http://localhost:8088').replace(/\/$/, '')
+
+async function isHealthy(response: import('@playwright/test').APIResponse) {
+  if (!response.ok()) {
+    return false
+  }
+  const body = await response.json()
+  return body.code === 0
+}
+
 async function waitForBackend(request: import('@playwright/test').APIRequestContext) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
-      const res = await request.get('/api/v1/health')
-      if (res.ok()) {
-        const body = await res.json()
-        if (body.code === 0) {
+      if (process.env.CI) {
+        const direct = await request.get(`${apiBase}/api/v1/health`)
+        if (await isHealthy(direct)) {
           return
         }
+      }
+
+      const proxied = await request.get('/api/v1/health')
+      if (await isHealthy(proxied)) {
+        return
       }
     } catch {
       // retry until dev proxy + backend are ready

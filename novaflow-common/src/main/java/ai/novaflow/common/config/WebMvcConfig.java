@@ -17,6 +17,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
         String[] origins = CollectionUtils.isEmpty(corsProperties.getAllowedOrigins())
                 ? new String[] {"http://localhost:3000"}
                 : corsProperties.getAllowedOrigins().toArray(String[]::new);
+
+        // Embed Open API is called from third-party origins; domain whitelist is enforced in app code.
+        registry.addMapping("/api/v1/open/**")
+                .allowedOriginPatterns("*")
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                .allowedHeaders("*");
+
         registry.addMapping("/api/**")
                 .allowedOrigins(origins)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

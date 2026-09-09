@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: process.env.CI ? '0.0.0.0' : undefined,
     port: 3000,
     proxy: {
       '/api': {

@@ -232,6 +232,53 @@ public final class OpenApiIntegrationFixtures {
         return headers;
     }
 
+    /**
+     * Fresh CI databases only seed demo accounts. Knowledge-related integration tests need at least one
+     * enabled provider so catalog embedding models can be materialized.
+     */
+    public static void ensureEmbeddingModelsAvailable(TestRestTemplate restTemplate) {
+        LoginSession session = login(restTemplate);
+        HttpHeaders headers = adminHeaders(session.token());
+
+        ResponseEntity<Map> optionsResponse = restTemplate.exchange(
+                "/api/v1/models/embedding-options",
+                HttpMethod.GET,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+        if (optionsResponse.getBody() != null) {
+            Object data = optionsResponse.getBody().get("data");
+            if (data instanceof List<?> options && !options.isEmpty()) {
+                return;
+            }
+        }
+
+        Map<String, Object> saveRequest = new HashMap<>();
+        saveRequest.put("providerCode", "openai");
+        saveRequest.put("enabled", true);
+        saveRequest.put("apiKey", "integration-test-placeholder-key");
+        ResponseEntity<Map> saveResponse = restTemplate.exchange(
+                "/api/v1/models/providers",
+                HttpMethod.POST,
+                new HttpEntity<>(saveRequest, headers),
+                Map.class
+        );
+        if (saveResponse.getBody() == null || intCode(saveResponse.getBody()) != 0) {
+            throw new AssertionError("failed to bootstrap integration model provider: " + saveResponse.getBody());
+        }
+
+        ResponseEntity<Map> seededOptions = restTemplate.exchange(
+                "/api/v1/models/embedding-options",
+                HttpMethod.GET,
+                new HttpEntity<>(null, headers),
+                Map.class
+        );
+        assertApiSuccess(seededOptions);
+        List<?> options = (List<?>) seededOptions.getBody().get("data");
+        assertNotNull(options);
+        assertTrue(!options.isEmpty(), "embedding options should exist after provider bootstrap");
+    }
+
     public static HttpHeaders embedTokenHeaders(String embedToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

@@ -19,6 +19,10 @@ const frontendWebServer = {
   url: 'http://localhost:3000',
   reuseExistingServer: !process.env.CI,
   timeout: 120000,
+  env: {
+    NOVAFLOW_API_URL: apiBase,
+    ...(process.env.CI ? { CI: 'true' } : {}),
+  },
 }
 
 const backendWebServer = {

@@ -240,6 +240,7 @@ class FeatureCoverageLocalIntegrationTest extends AbstractLocalIntegrationTest {
 
         HttpHeaders blocked = OpenApiIntegrationFixtures.embedTokenHeaders(agent.embedToken());
         blocked.setAccept(List.of(MediaType.APPLICATION_JSON));
+        blocked.set("Origin", "https://evil.example");
         blocked.set("Referer", "https://evil.example/embed");
         ResponseEntity<String> blockedWelcome = restTemplate.exchange(
                 "/api/v1/open/agents/" + agent.agentId() + "/welcome",

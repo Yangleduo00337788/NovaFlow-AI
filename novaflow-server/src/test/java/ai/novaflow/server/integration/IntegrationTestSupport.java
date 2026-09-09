@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class IntegrationTestSupport {
 
+    private static volatile boolean integrationModelBootstrapDone;
+
     @Autowired
     private TestRestTemplate restTemplate;
 
@@ -49,6 +51,15 @@ public abstract class IntegrationTestSupport {
             }
         });
         prepareSharedGateState();
+        bootstrapIntegrationModelsOnce();
+    }
+
+    private void bootstrapIntegrationModelsOnce() {
+        if (integrationModelBootstrapDone) {
+            return;
+        }
+        OpenApiIntegrationFixtures.ensureEmbeddingModelsAvailable(restTemplate);
+        integrationModelBootstrapDone = true;
     }
 
     private void prepareSharedGateState() {
@@ -60,9 +71,13 @@ public abstract class IntegrationTestSupport {
             platformSystemConfigService.setPlatformAnnouncement("", null);
         }
         if (stringRedisTemplate != null) {
-            Set<String> keys = stringRedisTemplate.keys("novaflow:risk:register:ip:*");
-            if (keys != null && !keys.isEmpty()) {
-                stringRedisTemplate.delete(keys);
+            try {
+                Set<String> keys = stringRedisTemplate.keys("novaflow:risk:register:ip:*");
+                if (keys != null && !keys.isEmpty()) {
+                    stringRedisTemplate.delete(keys);
+                }
+            } catch (RuntimeException ex) {
+                // Redis may be briefly unavailable while GitHub Actions service containers start.
             }
         }
     }
