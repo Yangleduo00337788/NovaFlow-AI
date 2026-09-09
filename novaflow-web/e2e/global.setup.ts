@@ -33,19 +33,13 @@ async function isHealthy(response: import('@playwright/test').APIResponse) {
 async function waitForBackend(request: import('@playwright/test').APIRequestContext) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
-      if (process.env.CI) {
-        const direct = await request.get(`${apiBase}/api/v1/health`)
-        if (await isHealthy(direct)) {
-          return
-        }
-      }
-
-      const proxied = await request.get('/api/v1/health')
-      if (await isHealthy(proxied)) {
+      const direct = await request.get(`${apiBase}/api/v1/health`)
+      const proxied = await request.get('http://127.0.0.1:3000/api/v1/health')
+      if (await isHealthy(direct) && await isHealthy(proxied)) {
         return
       }
     } catch {
-      // retry until dev proxy + backend are ready
+      // retry until Vite proxy + backend are both ready
     }
     await new Promise((resolve) => setTimeout(resolve, 2000))
   }
@@ -57,7 +51,7 @@ setup('wait for backend API', async ({ request }) => {
 })
 
 setup('cleanup stale E2E resources', async ({ request }) => {
-  setup.setTimeout(120_000)
+  setup.setTimeout(180_000)
   await cleanupE2ETestResources(request)
 })
 

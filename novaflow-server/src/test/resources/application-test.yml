@@ -3,6 +3,11 @@ spring:
     activate:
       on-profile: test
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   flyway:
     enabled: true
     baseline-on-migrate: true

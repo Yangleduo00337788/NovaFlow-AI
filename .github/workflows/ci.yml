@@ -97,7 +97,7 @@ jobs:
           cache: maven
 
       - name: Run local integration tests
-        run: mvn -B -pl novaflow-server -am test -Plocal-integration -Dtest="*LocalIntegrationTest" -Dsurefire.failIfNoSpecifiedTests=false
+        run: mvn -B -pl novaflow-server -am test -Plocal-integration "-Dtest=*LocalIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
 
       - name: Upload integration test reports on failure
         if: failure()

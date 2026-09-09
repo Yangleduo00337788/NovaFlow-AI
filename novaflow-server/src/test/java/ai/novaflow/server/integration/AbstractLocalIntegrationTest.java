@@ -27,7 +27,7 @@ public abstract class AbstractLocalIntegrationTest extends IntegrationTestSuppor
         AbstractTestcontainersIntegrationTest.registerCommonProperties(registry);
         AbstractTestcontainersIntegrationTest.registerRedisPassword(
                 registry,
-                IntegrationTestEnv.get("REDIS_PASSWORD", "redis123")
+                IntegrationTestEnv.get("REDIS_PASSWORD", "")
         );
         registry.add("novaflow.security.crypto-key", () -> IntegrationTestEnv.get(
                 "NOVAFLOW_CRYPTO_KEY",

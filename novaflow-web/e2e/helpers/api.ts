@@ -1,6 +1,12 @@
 import type { APIRequestContext } from '@playwright/test'
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from './auth'
 
+const apiRoot = (process.env.NOVAFLOW_API_URL ?? '').replace(/\/$/, '')
+
+function endpoint(path: string) {
+  return apiRoot ? `${apiRoot}${path}` : path
+}
+
 type ApiPage<T> = {
   code: number
   data: { list: T[]; total: number }
@@ -17,7 +23,7 @@ type ApplicationRow = {
 }
 
 export async function loginApi(request: APIRequestContext) {
-  const login = await request.post('/api/v1/auth/login', {
+  const login = await request.post(endpoint('/api/v1/auth/login'), {
     data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   })
   if (!login.ok()) {
@@ -34,7 +40,7 @@ async function deletePaged(
   keyword: string,
 ) {
   for (let round = 0; round < 20; round++) {
-    const res = await request.get(`${path}?page=1&pageSize=100&keyword=${encodeURIComponent(keyword)}`, {
+    const res = await request.get(endpoint(`${path}?page=1&pageSize=100&keyword=${encodeURIComponent(keyword)}`), {
       headers: auth,
     })
     if (!res.ok()) break
@@ -43,7 +49,7 @@ async function deletePaged(
     if (rows.length === 0) break
     let deleted = 0
     for (const row of rows) {
-      const del = await request.delete(`${path}/${row.id}`, { headers: auth })
+      const del = await request.delete(endpoint(`${path}/${row.id}`), { headers: auth })
       if (del.ok()) deleted++
     }
     if (deleted === 0) break
@@ -55,7 +61,7 @@ async function unbindAndDeleteE2EApplications(
   auth: Record<string, string>,
 ) {
   for (let round = 0; round < 20; round++) {
-    const res = await request.get('/api/v1/applications?page=1&pageSize=100&keyword=E2E-', {
+    const res = await request.get(endpoint('/api/v1/applications?page=1&pageSize=100&keyword=E2E-'), {
       headers: auth,
     })
     if (!res.ok()) break
@@ -65,14 +71,14 @@ async function unbindAndDeleteE2EApplications(
 
     let progressed = false
     for (const row of rows) {
-      const detailRes = await request.get(`/api/v1/applications/${row.id}`, { headers: auth })
+      const detailRes = await request.get(endpoint(`/api/v1/applications/${row.id}`), { headers: auth })
       if (!detailRes.ok()) continue
       const detailBody = await detailRes.json()
       const app = detailBody.data as ApplicationRow
       const agentIds = app.agentIds ?? []
 
       if (agentIds.length > 0) {
-        const unbind = await request.put(`/api/v1/applications/${row.id}`, {
+        const unbind = await request.put(endpoint(`/api/v1/applications/${row.id}`), {
           headers: auth,
           data: {
             appName: app.appName,
@@ -85,7 +91,7 @@ async function unbindAndDeleteE2EApplications(
         if (unbind.ok()) progressed = true
       }
 
-      const del = await request.delete(`/api/v1/applications/${row.id}`, { headers: auth })
+      const del = await request.delete(endpoint(`/api/v1/applications/${row.id}`), { headers: auth })
       if (del.ok()) progressed = true
     }
 

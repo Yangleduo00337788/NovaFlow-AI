@@ -55,6 +55,9 @@ public abstract class AbstractTestcontainersIntegrationTest extends IntegrationT
     }
 
     static void registerRedisPassword(DynamicPropertyRegistry registry, String password) {
+        if (password == null || password.isBlank()) {
+            return;
+        }
         registry.add("spring.data.redis.password", () -> password);
     }
 }

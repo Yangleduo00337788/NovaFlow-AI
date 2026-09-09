@@ -14,15 +14,23 @@ const desktopChrome = {
   ...(process.env.CI ? {} : { channel: 'chrome' as const }),
 }
 
+function inheritedEnv(): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === 'string') {
+      env[key] = value
+    }
+  }
+  env.NOVAFLOW_API_URL = apiBase
+  return env
+}
+
 const frontendWebServer = {
-  command: 'npm run dev',
-  url: 'http://localhost:3000',
+  command: 'npm run dev -- --host 127.0.0.1 --port 3000 --strictPort',
+  url: 'http://127.0.0.1:3000',
   reuseExistingServer: !process.env.CI,
-  timeout: 120000,
-  env: {
-    NOVAFLOW_API_URL: apiBase,
-    ...(process.env.CI ? { CI: 'true' } : {}),
-  },
+  timeout: 180000,
+  env: inheritedEnv(),
 }
 
 const backendWebServer = {
@@ -43,7 +51,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 1,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
