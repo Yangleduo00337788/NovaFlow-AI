@@ -14,23 +14,11 @@ const desktopChrome = {
   ...(process.env.CI ? {} : { channel: 'chrome' as const }),
 }
 
-function inheritedEnv(): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (typeof value === 'string') {
-      env[key] = value
-    }
-  }
-  env.NOVAFLOW_API_URL = apiBase
-  return env
-}
-
 const frontendWebServer = {
   command: 'npm run dev -- --host 127.0.0.1 --port 3000 --strictPort',
   url: 'http://127.0.0.1:3000',
   reuseExistingServer: !process.env.CI,
   timeout: 180000,
-  env: inheritedEnv(),
 }
 
 const backendWebServer = {

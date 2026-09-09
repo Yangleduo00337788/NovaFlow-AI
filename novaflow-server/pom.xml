@@ -17,8 +17,20 @@
         <profile>
             <id>local-integration</id>
             <properties>
-                <surefire.excludedGroups>__no_such_group__</surefire.excludedGroups>
+                <surefire.excludedGroups>__none__</surefire.excludedGroups>
             </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludedGroups>__none__</excludedGroups>
+                            <groups>local</groups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
     <dependencies>

@@ -96,8 +96,26 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Install modules without tests
+        run: mvn -B -pl novaflow-server -am install -DskipTests
+
       - name: Run local integration tests
-        run: mvn -B -pl novaflow-server -am test -Plocal-integration "-Dtest=*LocalIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
+        run: |
+          mvn -B -pl novaflow-server test \
+            -Plocal-integration \
+            -Dgroups=local \
+            -Dsurefire.excludedGroups=__none__ \
+            -Dtest='*LocalIntegrationTest'
+
+      - name: Print integration test reports on failure
+        if: failure()
+        run: |
+          echo '===== surefire reports ====='
+          ls -la novaflow-server/target/surefire-reports || true
+          for f in novaflow-server/target/surefire-reports/*.txt; do
+            echo "----- $f -----"
+            cat "$f" || true
+          done
 
       - name: Upload integration test reports on failure
         if: failure()
@@ -267,7 +285,7 @@ jobs:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ''
       NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
-      CORS_ALLOWED_ORIGIN: http://localhost:3000
+      CORS_ALLOWED_ORIGIN: http://127.0.0.1:3000
       NOVAFLOW_API_URL: http://127.0.0.1:8088
       CI: true
 
@@ -326,6 +344,17 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm run test:e2e
+
+      - name: Print Playwright failures
+        if: failure()
+        working-directory: novaflow-web
+        run: |
+          echo '===== playwright test-results ====='
+          find test-results -name 'error-context.md' | head -20 | while read -r f; do
+            echo "----- $f -----"
+            cat "$f" || true
+          done
+          find test-results -name 'trace.zip' | head -20 || true
 
       - name: Upload Playwright report on failure
         if: failure()

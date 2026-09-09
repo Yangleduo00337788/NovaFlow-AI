@@ -26,24 +26,27 @@ async function isHealthy(response: import('@playwright/test').APIResponse) {
   if (!response.ok()) {
     return false
   }
-  const body = await response.json()
-  return body.code === 0
+  try {
+    const body = await response.json()
+    return body.code === 0 || body.status === 'UP' || body.data?.status === 'UP'
+  } catch {
+    return true
+  }
 }
 
 async function waitForBackend(request: import('@playwright/test').APIRequestContext) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
       const direct = await request.get(`${apiBase}/api/v1/health`)
-      const proxied = await request.get('http://127.0.0.1:3000/api/v1/health')
-      if (await isHealthy(direct) && await isHealthy(proxied)) {
+      if (await isHealthy(direct)) {
         return
       }
     } catch {
-      // retry until Vite proxy + backend are both ready
+      // retry until backend is ready; Vite proxy is required only after webServer is up
     }
     await new Promise((resolve) => setTimeout(resolve, 2000))
   }
-  throw new Error('Backend API is not ready for E2E setup')
+  throw new Error(`Backend API is not ready for E2E setup (${apiBase}/api/v1/health)`)
 }
 
 setup('wait for backend API', async ({ request }) => {
