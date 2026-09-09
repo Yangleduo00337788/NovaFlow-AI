@@ -71,7 +71,8 @@ test.describe('Embed 页面', () => {
     await expect(page.getByText('Embed welcome')).toBeVisible({ timeout: 15000 })
   })
 
-  test('域名白名单拦截非授权来源', async ({ page, request }) => {
+  test('域名白名单拦截非授权来源', async ({ page, request, baseURL }) => {
+    const pageHost = new URL(baseURL!).hostname
     const { agentId, embedToken, token } = await publishAgentForEmbed(request)
     const auth = { Authorization: token }
     const blocked = await request.put(`/api/v1/agents/${agentId}/embed-config`, {
@@ -92,7 +93,7 @@ test.describe('Embed 页面', () => {
       headers: auth,
       data: {
         themeColor: '#6366f1',
-        allowedDomains: ['localhost'],
+        allowedDomains: [pageHost, 'localhost', '127.0.0.1'],
         postMessageTargetOrigin: '*',
       },
     })

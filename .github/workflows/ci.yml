@@ -85,6 +85,7 @@ jobs:
       REDIS_PASSWORD: ''
       NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
       CORS_ALLOWED_ORIGIN: http://localhost:3000
+      LOGIN_RATE_LIMIT_PER_MINUTE: 10000
 
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +96,19 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+
+      - name: Wait for MySQL and Redis
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent \
+              && redis-cli -h 127.0.0.1 ping | grep -q PONG; then
+              echo "MySQL and Redis are ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Service containers not ready"
+          exit 1
 
       - name: Install modules without tests
         run: mvn -B -pl novaflow-server -am install -DskipTests
@@ -287,6 +301,7 @@ jobs:
       NOVAFLOW_CRYPTO_KEY: NovaFlowAI-DevKey-32bytes!!!!
       CORS_ALLOWED_ORIGIN: http://127.0.0.1:3000
       NOVAFLOW_API_URL: http://127.0.0.1:8088
+      LOGIN_RATE_LIMIT_PER_MINUTE: 10000
       CI: true
 
     steps:
@@ -298,6 +313,19 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+
+      - name: Wait for MySQL and Redis
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent \
+              && redis-cli -h 127.0.0.1 ping | grep -q PONG; then
+              echo "MySQL and Redis are ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Service containers not ready"
+          exit 1
 
       - name: Build server jar
         run: mvn -B -q -pl novaflow-server -am package -DskipTests

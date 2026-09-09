@@ -58,8 +58,33 @@ public abstract class IntegrationTestSupport {
         if (integrationModelBootstrapDone) {
             return;
         }
-        OpenApiIntegrationFixtures.ensureEmbeddingModelsAvailable(restTemplate);
-        integrationModelBootstrapDone = true;
+        synchronized (IntegrationTestSupport.class) {
+            if (integrationModelBootstrapDone) {
+                return;
+            }
+            AssertionError lastFailure = null;
+            for (int attempt = 1; attempt <= 5; attempt++) {
+                try {
+                    OpenApiIntegrationFixtures.ensureEmbeddingModelsAvailable(restTemplate);
+                    integrationModelBootstrapDone = true;
+                    return;
+                } catch (AssertionError ex) {
+                    lastFailure = ex;
+                    if (attempt == 5) {
+                        throw ex;
+                    }
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw ex;
+                    }
+                }
+            }
+            if (lastFailure != null) {
+                throw lastFailure;
+            }
+        }
     }
 
     private void prepareSharedGateState() {
