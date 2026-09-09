@@ -3,7 +3,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from './auth'
 
 const apiRoot = (process.env.NOVAFLOW_API_URL ?? '').replace(/\/$/, '')
 
-function endpoint(path: string) {
+export function endpoint(path: string) {
   return apiRoot ? `${apiRoot}${path}` : path
 }
 
